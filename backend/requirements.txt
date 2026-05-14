@@ -1,0 +1,9 @@
+fastapi
+uvicorn
+mangum
+boto3
+pydantic
+python-dotenv
+structlog
+python-jose[cryptography]
+requests
