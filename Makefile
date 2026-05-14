@@ -8,10 +8,13 @@ dev:
 # Run all backend tests
 test:
 	@echo "Running backend API tests..."
-	@# Ensure backend is running or mock it; here we assume user runs 'make dev' in another terminal
-	@# or we run them against the dev env if it's already up.
-	python3 tests/test_api.py
-	python3 tests/test_workout_edit.py
+	@export PYTHONPATH=$${PYTHONPATH}:backend && \
+	export DYNAMODB_ENDPOINT_URL=http://localhost:8001 && \
+	export AWS_ACCESS_KEY_ID=local && \
+	export AWS_SECRET_ACCESS_KEY=local && \
+	export AWS_DEFAULT_REGION=us-east-1 && \
+	export MOCK_AUTH=true && \
+	pytest tests/test_api.py tests/test_workout_edit.py
 
 # Clean up local environment
 clean:
