@@ -4,10 +4,10 @@
 To support multiple concurrent tasks (e.g., security hardening and feature development) without workspace interference, follow these rules:
 
 1.  **Isolation via Worktrees**: Always use `git worktree` to create isolated environments for new features or fixes that are being worked on in parallel sessions.
-2.  **Naming Convention**: Create worktrees in subdirectories within the project root, using descriptive names (e.g., `feature-name-worktree`).
+2.  **Naming Convention**: Create worktrees in a dedicated directory OUTSIDE the project root (e.g., `../set-playwright-worktree`) to avoid IDE indexing issues or accidental inclusion in the main repository's untracked files.
 3.  **Branching**: Every worktree must track a unique feature branch. Never work directly on `main` within a specialized worktree.
 4.  **Workflow**:
-    *   Create a worktree: `git worktree add <directory-name> -b <branch-name> main`
+    *   Create a worktree: `git worktree add ../<directory-name> -b <branch-name> main`
     *   Perform all work (installing deps, running tests, editing files) within that directory.
     *   Commit and push from within the worktree directory.
 5.  **Workspace Protection**: Do not modify files in the project root or switch branches in the root directory if other sessions are active.
