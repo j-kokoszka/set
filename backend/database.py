@@ -24,10 +24,24 @@ def to_dynamo_item(obj):
         return Decimal(str(obj))
     return obj
 
+def from_dynamo_item(item):
+    """
+    Recursively convert DynamoDB items back to standard Python types.
+    - Decimals are converted to floats or ints.
+    """
+    if isinstance(item, list):
+        return [from_dynamo_item(i) for i in item]
+    if isinstance(item, dict):
+        return {k: from_dynamo_item(v) for k, v in item.items()}
+    if isinstance(item, Decimal):
+        if item % 1 == 0:
+            return int(item)
+        return float(item)
+    return item
+
 class Database:
     def __init__(self):
         self.table_name = os.getenv("DYNAMODB_TABLE", "set-workouts")
-        # For local development, you can set DYNAMODB_ENDPOINT_URL
         endpoint_url = os.getenv("DYNAMODB_ENDPOINT_URL")
         
         if endpoint_url:
@@ -57,13 +71,13 @@ class Database:
                 ],
                 ProvisionedThroughput={'ReadCapacityUnits': 5, 'WriteCapacityUnits': 5}
             )
+            logger.info("Table created", table_name=self.table_name)
         except ClientError as e:
             if e.response['Error']['Code'] != 'ResourceInUseException':
                 raise
 
     def save_workout(self, workout: Workout):
         try:
-            # Save workout summary
             workout_data = to_dynamo_item(workout.dict())
             item = {
                 'pk': f"USER#{workout.user_id}",
@@ -71,9 +85,10 @@ class Database:
                 'type': 'WORKOUT',
                 **workout_data
             }
+            logger.info("Saving workout", user_id=workout.user_id, workout_id=workout.id, date=workout.date)
             self.table.put_item(Item=item)
             
-            # Save individual exercise records for history lookup
+            # Save individual exercise records
             for ex in workout.exercises:
                 ex_data = to_dynamo_item(ex.dict())
                 self.table.put_item(
@@ -85,60 +100,68 @@ class Database:
                         **ex_data
                     }
                 )
+            logger.info("Workout saved successfully", workout_id=workout.id)
         except Exception as e:
             logger.error("Error saving to DynamoDB", error=str(e), user_id=workout.user_id, workout_id=workout.id)
             raise e
 
     def get_workouts(self, user_id: str) -> List[dict]:
-        response = self.table.query(
-            KeyConditionExpression="pk = :pk AND begins_with(sk, :sk)",
-            ExpressionAttributeValues={
-                ':pk': f"USER#{user_id}",
-                ':sk': "WORKOUT#"
-            }
-        )
-        return response.get('Items', [])
+        try:
+            response = self.table.query(
+                KeyConditionExpression="pk = :pk AND begins_with(sk, :sk)",
+                ExpressionAttributeValues={
+                    ':pk': f"USER#{user_id}",
+                    ':sk': "WORKOUT#"
+                }
+            )
+            return from_dynamo_item(response.get('Items', []))
+        except Exception as e:
+            logger.error("Error querying workouts", error=str(e), user_id=user_id)
+            raise e
 
     def get_exercise_history(self, user_id: str, exercise_name: str) -> List[dict]:
-        response = self.table.query(
-            KeyConditionExpression="pk = :pk AND begins_with(sk, :sk)",
-            ExpressionAttributeValues={
-                ':pk': f"USER#{user_id}",
-                ':sk': f"EXERCISE#{exercise_name}#"
-            }
-        )
-        return response.get('Items', [])
+        try:
+            response = self.table.query(
+                KeyConditionExpression="pk = :pk AND begins_with(sk, :sk)",
+                ExpressionAttributeValues={
+                    ':pk': f"USER#{user_id}",
+                    ':sk': f"EXERCISE#{exercise_name}#"
+                }
+            )
+            return from_dynamo_item(response.get('Items', []))
+        except Exception as e:
+            logger.error("Error querying exercise history", error=str(e), user_id=user_id, exercise=exercise_name)
+            raise e
 
     def delete_workout(self, user_id: str, workout_id: str, date: str):
         try:
             pk = f"USER#{user_id}"
             sk = f"WORKOUT#{date}#{workout_id}"
             
-            # Get the workout first to find all associated exercises
             response = self.table.get_item(Key={'pk': pk, 'sk': sk})
             workout = response.get('Item')
             
             if not workout:
+                logger.warning("Workout not found for deletion", user_id=user_id, workout_id=workout_id)
                 return False
 
             with self.table.batch_writer() as batch:
-                # Delete the workout summary
                 batch.delete_item(Key={'pk': pk, 'sk': sk})
-                
-                # Delete each exercise record
                 for ex in workout.get('exercises', []):
                     ex_name = ex.get('exercise_name')
                     if ex_name:
                         ex_sk = f"EXERCISE#{ex_name}#{date}"
                         batch.delete_item(Key={'pk': pk, 'sk': ex_sk})
             
+            logger.info("Workout deleted successfully", workout_id=workout_id)
             return True
         except Exception as e:
-            logger.error("Error deleting from DynamoDB", error=str(e), user_id=user_id, workout_id=workout_id, date=date)
+            logger.error("Error deleting from DynamoDB", error=str(e), user_id=user_id, workout_id=workout_id)
             raise e
 
     def update_workout(self, workout: Workout, old_date: str):
         try:
+            logger.info("Updating workout", user_id=workout.user_id, workout_id=workout.id, old_date=old_date, new_date=workout.date)
             # Delete old record
             self.delete_workout(workout.user_id, workout.id, old_date)
             # Save new record
