@@ -12,6 +12,15 @@ interface Exercise {
   sets: Set[];
 }
 
+interface WorkoutHistoryItem {
+  sk: string;
+  name: string;
+  exercises: {
+    exercise_name: string;
+    sets: Set[];
+  }[];
+}
+
 const COMMON_EXERCISES = [
   "Squats", "Bench Press", "Deadlift", "Overhead Press", "Barbell Row", 
   "Pull Ups", "Dips", "Lunges", "Leg Press", "Lateral Raise", 
@@ -29,17 +38,39 @@ function App() {
   const [view, setView] = useState<'workout' | 'history'>('workout');
   const [workoutName, setWorkoutName] = useState('New Workout');
   const [exercises, setExercises] = useState<Exercise[]>([]);
-  const [history, setHistory] = useState<any[]>([]);
+  const [history, setHistory] = useState<WorkoutHistoryItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [isAdding, setIsAdding] = useState(false);
   const [newExName, setNewExName] = useState("");
   const [editingWorkoutId, setEditingWorkoutId] = useState<string | null>(null);
   const [editingWorkoutDate, setEditingWorkoutDate] = useState<string | null>(null);
 
+  const fetchHistory = async () => {
+    if (!token) return;
+    setLoading(true);
+    try {
+      const response = await fetch(`${BASE_URL}/workouts`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      const data = await response.json();
+      setHistory(data.sort((a: WorkoutHistoryItem, b: WorkoutHistoryItem) => 
+        new Date(b.sk.split('#')[1]).getTime() - new Date(a.sk.split('#')[1]).getTime()
+      ));
+    } catch (error) {
+      console.error('Error fetching history:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     if (token && view === 'history') {
-      fetchHistory();
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      void fetchHistory();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token, view]);
 
   const handleLogin = (e: React.FormEvent) => {
@@ -61,24 +92,6 @@ function App() {
     setView('workout');
   };
 
-  const fetchHistory = async () => {
-    if (!token) return;
-    setLoading(true);
-    try {
-      const response = await fetch('http://127.0.0.1:8000/workouts', {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      const data = await response.json();
-      setHistory(data.sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime()));
-    } catch (error) {
-      console.error('Error fetching history:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const deleteWorkout = async (sk: string) => {
     if (!token) return;
     const parts = sk.split('#');
@@ -90,7 +103,7 @@ function App() {
     }
 
     try {
-      const response = await fetch(`http://127.0.0.1:8000/workouts/${workoutId}?date=${encodeURIComponent(date)}`, {
+      const response = await fetch(`${BASE_URL}/workouts/${workoutId}?date=${encodeURIComponent(date)}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -102,12 +115,12 @@ function App() {
       } else {
         alert('Failed to delete workout.');
       }
-    } catch (error) {
+    } catch {
       alert('Error connecting to backend.');
     }
   };
 
-  const startEdit = (workout: any) => {
+  const startEdit = (workout: WorkoutHistoryItem) => {
     const parts = workout.sk.split('#');
     const date = parts[1];
     const workoutId = parts[2];
@@ -115,7 +128,7 @@ function App() {
     setEditingWorkoutId(workoutId);
     setEditingWorkoutDate(date);
     setWorkoutName(workout.name);
-    setExercises(workout.exercises.map((ex: any) => ({
+    setExercises(workout.exercises.map(ex => ({
       name: ex.exercise_name,
       sets: ex.sets
     })));
@@ -147,20 +160,25 @@ function App() {
     setExercises(newExercises);
   };
 
-  const updateSet = (exerciseIndex: number, setIndex: number, field: keyof Set, value: any) => {
+  const updateSet = (exerciseIndex: number, setIndex: number, field: keyof Set, value: string | number) => {
     const newExercises = [...exercises];
-    (newExercises[exerciseIndex].sets[setIndex] as any)[field] = value;
+    const targetSet = newExercises[exerciseIndex].sets[setIndex];
+    if (field === 'weight') {
+      targetSet.weight = typeof value === 'string' ? parseFloat(value) : value;
+    } else if (field === 'reps') {
+      targetSet.reps = typeof value === 'string' ? parseInt(value) : value;
+    }
     setExercises(newExercises);
   };
 
   const toggleUnit = (exerciseIndex: number, setIndex: number) => {
     const newExercises = [...exercises];
-    const set = newExercises[exerciseIndex].sets[setIndex];
-    const currentUnit = set.unit || 'kg';
+    const setItem = newExercises[exerciseIndex].sets[setIndex];
+    const currentUnit = setItem.unit || 'kg';
     const newUnit = currentUnit === 'kg' ? 'lbs' : 'kg';
     
     // Convert weight when toggling
-    let newWeight = set.weight;
+    let newWeight = setItem.weight;
     if (newWeight > 0) {
       if (newUnit === 'lbs') {
         newWeight = Math.round(newWeight * KG_TO_LBS * 10) / 10;
@@ -169,14 +187,24 @@ function App() {
       }
     }
     
-    set.unit = newUnit;
-    set.weight = newWeight;
+    setItem.unit = newUnit;
+    setItem.weight = newWeight;
     setExercises(newExercises);
   };
 
   const saveWorkout = async () => {
     if (!token) return;
-    const workout: any = {
+    interface WorkoutPayload {
+      name: string;
+      exercises: {
+        exercise_name: string;
+        sets: Set[];
+      }[];
+      id?: string;
+      date?: string | null;
+    }
+
+    const workout: WorkoutPayload = {
       name: workoutName,
       exercises: exercises.map(ex => ({
         exercise_name: ex.name,
@@ -214,7 +242,7 @@ function App() {
       } else {
         alert('Failed to save workout.');
       }
-    } catch (error) {
+    } catch {
       alert('Error connecting to backend.');
     }
   };
@@ -420,7 +448,7 @@ function App() {
                   </div>
                 </div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
-                  {w.exercises?.map((ex: any, eIdx: number) => (
+                  {w.exercises?.map((ex, eIdx: number) => (
                     <div key={eIdx} style={{ fontSize: '0.8rem', background: '#2d2d2d', padding: '0.2rem 0.5rem', borderRadius: '4px' }}>
                       {ex.exercise_name} ({ex.sets?.length} sets)
                     </div>
