@@ -254,8 +254,9 @@ function App() {
           <h1 style={{ textAlign: 'center', marginBottom: '2rem' }}>set</h1>
           <form onSubmit={handleLogin}>
             <div className="set-input-group" style={{ marginBottom: '1.5rem' }}>
-              <label className="set-input-label">Username</label>
+              <label htmlFor="username" className="set-input-label">Username</label>
               <input 
+                id="username"
                 type="text" 
                 value={loginUsername}
                 onChange={(e) => setLoginUsername(e.target.value)}
