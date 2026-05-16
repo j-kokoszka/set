@@ -10,7 +10,12 @@ import structlog
 logger = structlog.get_logger()
 
 def to_dynamo_item(obj):
-    """Recursively convert floats to Decimals for DynamoDB."""
+    """
+    Recursively convert Python types to DynamoDB-compatible formats.
+    - Floats are converted to Decimals.
+    - Dictionaries are filtered to remove None values.
+    - Lists are processed recursively.
+    """
     if isinstance(obj, list):
         return [to_dynamo_item(i) for i in obj]
     if isinstance(obj, dict):
