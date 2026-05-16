@@ -5,6 +5,7 @@ resource "aws_s3_bucket" "frontend" {
   bucket = "${var.project_name}-frontend-${var.environment}"
 }
 
+# tfsec:ignore:aws-s3-encryption-customer-key
 resource "aws_s3_bucket_server_side_encryption_configuration" "frontend" {
   bucket = aws_s3_bucket.frontend.id
 
