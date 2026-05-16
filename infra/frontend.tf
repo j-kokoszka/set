@@ -111,27 +111,6 @@ resource "aws_cloudfront_distribution" "s3_distribution" {
     }
   }
 
-  # Cache behavior for static assets (prevents text/html fallback)
-  ordered_cache_behavior {
-    path_pattern     = "/assets/*"
-    allowed_methods  = ["GET", "HEAD"]
-    cached_methods   = ["GET", "HEAD"]
-    target_origin_id = "S3Origin"
-
-    forwarded_values {
-      query_string = false
-      cookies {
-        forward = "none"
-      }
-    }
-
-    viewer_protocol_policy = "redirect-to-https"
-    min_ttl                = 0
-    default_ttl            = 86400
-    max_ttl                = 31536000
-    compress               = true
-  }
-
   # Cache behavior for API
   ordered_cache_behavior {
     path_pattern     = "/api/*"
