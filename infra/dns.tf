@@ -20,11 +20,10 @@ resource "cloudflare_dns_record" "acm_validation" {
 
 # App CNAME Record
 resource "cloudflare_dns_record" "app" {
-  zone_id         = var.cloudflare_zone_id
-  name            = "set" # set.kokoszka.cloud
-  content         = aws_cloudfront_distribution.s3_distribution.domain_name
-  type            = "CNAME"
-  ttl             = 1
-  proxied         = true
-  allow_overwrite = true
+  zone_id = var.cloudflare_zone_id
+  name    = "set" # set.kokoszka.cloud
+  content = aws_cloudfront_distribution.s3_distribution.domain_name
+  type    = "CNAME"
+  ttl     = 1
+  proxied = true
 }
