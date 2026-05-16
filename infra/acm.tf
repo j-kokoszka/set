@@ -17,7 +17,7 @@ resource "aws_acm_certificate" "cert" {
 resource "aws_acm_certificate_validation" "cert" {
   provider                = aws.us_east_1
   certificate_arn         = aws_acm_certificate.cert.arn
-  validation_record_fqdns = [for record in cloudflare_dns_record.acm_validation : record.hostname]
+  validation_record_fqdns = [for record in cloudflare_dns_record.acm_validation : record.name]
 }
 
 output "acm_certificate_arn" {
