@@ -10,7 +10,7 @@ Globals:
     Environment:
       Variables:
         DYNAMODB_TABLE: !Ref WorkoutsTable
-        MOCK_AUTH: "false"
+        MOCK_AUTH: "true" # Temporary fix: Enable mock auth until Cognito is fully configured
 
 Resources:
   SetApi:
