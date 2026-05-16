@@ -147,7 +147,7 @@ function App() {
     if (finalName) {
       setExercises([...exercises, { name: finalName, sets: [] }]);
       setNewExName("");
-      setSearchIndex(0);
+      setSearchIndex(-1);
       setIsAdding(false);
     }
   };
@@ -404,7 +404,7 @@ function App() {
                   value={newExName}
                   onChange={(e) => {
                     setNewExName(e.target.value);
-                    setSearchIndex(0);
+                    setSearchIndex(-1);
                   }}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') {
