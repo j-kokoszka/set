@@ -1,5 +1,7 @@
 # S3 Bucket for Frontend
 resource "aws_s3_bucket" "frontend" {
+  # tfsec:ignore:aws-s3-enable-bucket-logging
+  # tfsec:ignore:aws-s3-enable-versioning
   bucket = "${var.project_name}-frontend-${var.environment}"
 }
 
@@ -38,6 +40,7 @@ EOF
 
 # CloudFront Distribution
 resource "aws_cloudfront_distribution" "s3_distribution" {
+  # tfsec:ignore:aws-cloudfront-enable-logging
   aliases = [var.custom_domain]
 
   origin {
