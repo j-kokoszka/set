@@ -75,6 +75,7 @@ function App() {
 
   useEffect(() => {
     if (token && view === 'history') {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       void fetchHistory();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
