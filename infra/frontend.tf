@@ -34,16 +34,30 @@ resource "aws_cloudfront_origin_access_control" "default" {
   signing_protocol                  = "sigv4"
 }
 
-# CloudFront Function to strip /api prefix
-resource "aws_cloudfront_function" "strip_api_prefix" {
-  name    = "${var.project_name}-strip-api-prefix"
+# CloudFront Function for SPA routing and asset protection
+resource "aws_cloudfront_function" "spa_router" {
+  name    = "${var.project_name}-spa-router"
   runtime = "cloudfront-js-1.0"
-  comment = "Strips /api prefix from the URI"
+  comment = "Handles SPA routing and prevents fallback for assets"
   publish = true
   code    = <<EOF
 function handler(event) {
     var request = event.request;
-    request.uri = request.uri.replace(/^\/api/, '');
+    var uri = request.uri;
+
+    // 1. Handle API requests (strip /api prefix)
+    if (uri.startsWith('/api/')) {
+        request.uri = uri.replace(/^\/api/, '');
+        return request;
+    }
+
+    // 2. Protect static assets (no fallback for /assets/* or files with extensions)
+    if (uri.startsWith('/assets/') || uri.includes('.')) {
+        return request;
+    }
+
+    // 3. SPA Routing: rewrite everything else to index.html
+    request.uri = '/index.html';
     return request;
 }
 EOF
@@ -52,6 +66,8 @@ EOF
 # tfsec:ignore:aws-cloudfront-enable-logging
 # tfsec:ignore:aws-cloudfront-enable-waf
 resource "aws_cloudfront_distribution" "s3_distribution" {
+  # tfsec:ignore:aws-cloudfront-enable-logging
+  # tfsec:ignore:aws-cloudfront-enable-waf
   aliases = [var.custom_domain]
 
   origin {
@@ -76,22 +92,23 @@ resource "aws_cloudfront_distribution" "s3_distribution" {
   is_ipv6_enabled     = true
   default_root_object = "index.html"
 
+  # Default Behavior: Handles SPA Routing and Static Content
   default_cache_behavior {
     allowed_methods  = ["GET", "HEAD"]
     cached_methods   = ["GET", "HEAD"]
     target_origin_id = "S3Origin"
 
-    forwarded_values {
-      query_string = false
-      cookies {
-        forward = "none"
-      }
-    }
+    cache_policy_id            = "658327ea-f89d-4fab-a63d-7e88639e58f6" # Managed-CachingOptimized
+    origin_request_policy_id   = "88a5eaf4-2fd4-4709-b370-b4c650ea3fcf" # Managed-CORS-S3Origin
+    response_headers_policy_id = "67f7725c-6f97-4210-82d7-5512b31e9d03" # Managed-SecurityHeadersPolicy
 
     viewer_protocol_policy = "redirect-to-https"
-    min_ttl                = 0
-    default_ttl            = 3600
-    max_ttl                = 86400
+    compress               = true
+
+    function_association {
+      event_type   = "viewer-request"
+      function_arn = aws_cloudfront_function.spa_router.arn
+    }
   }
 
   # Cache behavior for API
@@ -101,36 +118,16 @@ resource "aws_cloudfront_distribution" "s3_distribution" {
     cached_methods   = ["GET", "HEAD"]
     target_origin_id = "ApiOrigin"
 
-    forwarded_values {
-      query_string = true
-      headers      = ["Authorization"]
-      cookies {
-        forward = "all"
-      }
-    }
+    cache_policy_id            = "4135ea2d-6df8-44a3-9df3-4b5a84be39ad" # Managed-CachingDisabled
+    origin_request_policy_id   = "59781a5b-3903-41f3-afcb-af62929ccde1" # Managed-CORS-CustomOrigin
+    response_headers_policy_id = "eaab4381-ed33-4a86-88ca-d9558dc6cd63" # Managed-CORS-with-preflight-and-SecurityHeadersPolicy
 
     viewer_protocol_policy = "redirect-to-https"
-    min_ttl                = 0
-    default_ttl            = 0
-    max_ttl                = 0
 
     function_association {
       event_type   = "viewer-request"
-      function_arn = aws_cloudfront_function.strip_api_prefix.arn
+      function_arn = aws_cloudfront_function.spa_router.arn
     }
-  }
-
-  # Custom error response for Single Page Application (SPA)
-  custom_error_response {
-    error_code            = 403
-    response_code         = 200
-    response_page_path    = "/index.html"
-  }
-
-  custom_error_response {
-    error_code            = 404
-    response_code         = 200
-    response_page_path    = "/index.html"
   }
 
   restrictions {
