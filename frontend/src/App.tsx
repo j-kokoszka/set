@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import './index.css'
 
 interface Set {
@@ -42,8 +42,16 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [isAdding, setIsAdding] = useState(false);
   const [newExName, setNewExName] = useState("");
+  const [searchIndex, setSearchIndex] = useState(-1);
   const [editingWorkoutId, setEditingWorkoutId] = useState<string | null>(null);
   const [editingWorkoutDate, setEditingWorkoutDate] = useState<string | null>(null);
+
+  const filteredExercises = useMemo(() => {
+    if (!newExName.trim()) return COMMON_EXERCISES;
+    return COMMON_EXERCISES.filter(ex => 
+      ex.toLowerCase().includes(newExName.toLowerCase())
+    );
+  }, [newExName]);
 
   const fetchHistory = async () => {
     if (!token) return;
@@ -135,10 +143,12 @@ function App() {
     setView('workout');
   };
 
-  const addExercise = () => {
-    if (newExName.trim()) {
-      setExercises([...exercises, { name: newExName.trim(), sets: [] }]);
+  const addExercise = (name?: string) => {
+    const finalName = name || newExName.trim();
+    if (finalName) {
+      setExercises([...exercises, { name: finalName, sets: [] }]);
       setNewExName("");
+      setSearchIndex(-1);
       setIsAdding(false);
     }
   };
@@ -155,7 +165,6 @@ function App() {
       ? newExercises[exerciseIndex].sets[newExercises[exerciseIndex].sets.length - 1]
       : { reps: 10, weight: 0, unit: 'kg' as const };
     
-    // Default to last set's weight/reps for speed
     newExercises[exerciseIndex].sets.push({ ...lastSet });
     setExercises(newExercises);
   };
@@ -177,7 +186,6 @@ function App() {
     const currentUnit = setItem.unit || 'kg';
     const newUnit = currentUnit === 'kg' ? 'lbs' : 'kg';
     
-    // Convert weight when toggling
     let newWeight = setItem.weight;
     if (newWeight > 0) {
       if (newUnit === 'lbs') {
@@ -250,8 +258,8 @@ function App() {
   if (!token) {
     return (
       <div className="app-container" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh' }}>
-        <div className="card" style={{ width: '100%', maxWidth: '400px' }}>
-          <h1 style={{ textAlign: 'center', marginBottom: '2rem' }}>set</h1>
+        <div className="card" style={{ width: '100%', maxWidth: '360px' }}>
+          <h1 style={{ textAlign: 'center', marginBottom: '2.5rem' }}>set</h1>
           <form onSubmit={handleLogin}>
             <div className="set-input-group" style={{ marginBottom: '1.5rem' }}>
               <label htmlFor="username" className="set-input-label">Username</label>
@@ -265,7 +273,7 @@ function App() {
                 autoFocus
               />
             </div>
-            <button className="btn" type="submit" style={{ width: '100%', padding: '1rem' }}>
+            <button className="btn" type="submit" style={{ width: '100%', padding: '0.8rem' }}>
               Login
             </button>
           </form>
@@ -390,20 +398,51 @@ function App() {
             </button>
           ) : (
             <div className="card" style={{ marginTop: '1.5rem', border: '1px solid var(--primary-color)' }}>
-              <input 
-                autoFocus
-                list="common-exercises"
-                placeholder="Search exercise..."
-                value={newExName}
-                onChange={(e) => setNewExName(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && addExercise()}
-                style={{ marginBottom: '1rem' }}
-              />
-              <datalist id="common-exercises">
-                {COMMON_EXERCISES.map(ex => <option key={ex} value={ex} />)}
-              </datalist>
+              <div style={{ position: 'relative' }}>
+                <input 
+                  autoFocus
+                  placeholder="Search exercise..."
+                  value={newExName}
+                  onChange={(e) => {
+                    setNewExName(e.target.value);
+                    setSearchIndex(-1);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      if (searchIndex >= 0 && searchIndex < filteredExercises.length) {
+                        addExercise(filteredExercises[searchIndex]);
+                      } else {
+                        addExercise();
+                      }
+                    } else if (e.key === 'ArrowDown') {
+                      e.preventDefault();
+                      setSearchIndex(prev => Math.min(prev + 1, filteredExercises.length - 1));
+                    } else if (e.key === 'ArrowUp') {
+                      e.preventDefault();
+                      setSearchIndex(prev => Math.max(prev - 1, -1));
+                    } else if (e.key === 'Escape') {
+                      setIsAdding(false);
+                    }
+                  }}
+                  style={{ marginBottom: '1rem' }}
+                />
+                {filteredExercises.length > 0 && newExName.trim() !== "" && (
+                  <div className="exercise-suggestions">
+                    {filteredExercises.map((ex, i) => (
+                      <div 
+                        key={ex} 
+                        className={`suggestion-item ${i === searchIndex ? 'active' : ''}`}
+                        onClick={() => addExercise(ex)}
+                        onMouseEnter={() => setSearchIndex(i)}
+                      >
+                        {ex}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
               <div style={{ display: 'flex', gap: '0.5rem' }}>
-                <button className="btn" style={{ flex: 1 }} onClick={addExercise}>Add</button>
+                <button className="btn" style={{ flex: 1 }} onClick={() => addExercise()}>Add</button>
                 <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setIsAdding(false)}>Cancel</button>
               </div>
             </div>

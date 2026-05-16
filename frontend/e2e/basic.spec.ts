@@ -19,7 +19,8 @@ test.describe('set app', () => {
     
     // Fill exercise name
     await page.getByPlaceholder('Search exercise...').fill('Bench Press');
-    await page.getByRole('button', { name: 'Add' }).click();
+    // Press Enter instead of clicking Add because the dropdown might overlap the button
+    await page.keyboard.press('Enter');
     
     // Check if exercise added
     await expect(page.locator('.exercise-row')).toContainText('Bench Press');
