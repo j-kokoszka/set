@@ -263,6 +263,7 @@ function App() {
                 placeholder="Enter your username"
                 required
                 autoFocus
+                style={{ width: '100%' }}
               />
             </div>
             <button className="btn" type="submit" style={{ width: '100%', padding: '1rem' }}>
@@ -339,13 +340,13 @@ function App() {
                       <div className="set-input-row">
                         <div className="set-input-group">
                           <label className="set-input-label">Weight</label>
-                          <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                          <div style={{ position: 'relative', display: 'flex', alignItems: 'center', width: '100%' }}>
                             <input 
                               type="number" 
                               value={set.weight || ''} 
                               placeholder="0"
                               onChange={(e) => updateSet(exIdx, sIdx, 'weight', parseFloat(e.target.value))} 
-                              style={{ paddingRight: '2.5rem' }}
+                              style={{ paddingRight: '2.5rem', width: '100%' }}
                             />
                             <button 
                               className="unit-badge" 
@@ -368,13 +369,15 @@ function App() {
                         
                         <div className="set-input-group">
                           <label className="set-input-label">Reps</label>
-                          <input 
-                            type="number" 
-                            value={set.reps || ''} 
-                            placeholder="0"
-                            onChange={(e) => updateSet(exIdx, sIdx, 'reps', parseInt(e.target.value))} 
-                            style={{ textAlign: 'center' }}
-                          />
+                          <div style={{ position: 'relative', display: 'flex', alignItems: 'center', width: '100%' }}>
+                            <input 
+                              type="number" 
+                              value={set.reps || ''} 
+                              placeholder="0"
+                              onChange={(e) => updateSet(exIdx, sIdx, 'reps', parseInt(e.target.value))} 
+                              style={{ textAlign: 'center', width: '100%' }}
+                            />
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -397,7 +400,7 @@ function App() {
                 value={newExName}
                 onChange={(e) => setNewExName(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && addExercise()}
-                style={{ marginBottom: '1rem' }}
+                style={{ marginBottom: '1rem', width: '100%' }}
               />
               <datalist id="common-exercises">
                 {COMMON_EXERCISES.map(ex => <option key={ex} value={ex} />)}
