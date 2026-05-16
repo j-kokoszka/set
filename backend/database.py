@@ -9,9 +9,15 @@ import structlog
 
 logger = structlog.get_logger()
 
-def to_dynamo_item(data: dict):
+def to_dynamo_item(obj):
     """Recursively convert floats to Decimals for DynamoDB."""
-    return json.loads(json.dumps(data), parse_float=Decimal)
+    if isinstance(obj, list):
+        return [to_dynamo_item(i) for i in obj]
+    if isinstance(obj, dict):
+        return {k: to_dynamo_item(v) for k, v in obj.items() if v is not None}
+    if isinstance(obj, float):
+        return Decimal(str(obj))
+    return obj
 
 class Database:
     def __init__(self):
@@ -71,8 +77,7 @@ class Database:
                         'sk': f"EXERCISE#{ex.exercise_name}#{workout.date}",
                         'type': 'EXERCISE_RECORD',
                         'workout_id': workout.id,
-                        'sets': ex_data['sets'],
-                        'notes': ex.notes
+                        **ex_data
                     }
                 )
         except Exception as e:
