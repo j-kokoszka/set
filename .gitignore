@@ -11,6 +11,11 @@ dist/
 dist-ssr
 *.local
 
-# OS
-.DS_Store
-Thumbs.db
+# Terraform / OpenTofu
+.terraform/
+*.tfstate
+*.tfstate.*
+crash.log
+*.tfplan
+*.zip
+.terraform.lock.hcl

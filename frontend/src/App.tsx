@@ -19,6 +19,7 @@ const COMMON_EXERCISES = [
 ];
 
 const KG_TO_LBS = 2.20462;
+const BASE_URL = import.meta.env.VITE_API_URL || '/api';
 
 function App() {
   const [token, setToken] = useState<string | null>(localStorage.getItem('set_token'));
@@ -190,8 +191,8 @@ function App() {
     
     try {
       const url = editingWorkoutId 
-        ? `http://127.0.0.1:8000/workouts/${editingWorkoutId}?old_date=${encodeURIComponent(editingWorkoutDate!)}`
-        : 'http://127.0.0.1:8000/workouts';
+        ? `${BASE_URL}/workouts/${editingWorkoutId}?old_date=${encodeURIComponent(editingWorkoutDate!)}`
+        : `${BASE_URL}/workouts`;
       
       const response = await fetch(url, {
         method: editingWorkoutId ? 'PUT' : 'POST',
