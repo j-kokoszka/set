@@ -4,6 +4,14 @@ resource "aws_dynamodb_table" "workouts" {
   hash_key     = "pk"
   range_key    = "sk"
 
+  server_side_encryption {
+    enabled = true
+  }
+
+  point_in_time_recovery {
+    enabled = true
+  }
+
   attribute {
     name = "pk"
     type = "S"

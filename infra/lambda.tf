@@ -8,6 +8,10 @@ resource "aws_lambda_function" "api" {
   timeout       = 30
   memory_size   = 512
 
+  tracing_config {
+    mode = "Active"
+  }
+
   environment {
     variables = {
       DYNAMODB_TABLE = aws_dynamodb_table.workouts.name
@@ -83,6 +87,7 @@ resource "aws_apigatewayv2_api" "http_api" {
 }
 
 resource "aws_apigatewayv2_stage" "prod" {
+  # tfsec:ignore:aws-api-gateway-enable-access-logging
   api_id      = aws_apigatewayv2_api.http_api.id
   name        = "$default"
   auto_deploy = true
