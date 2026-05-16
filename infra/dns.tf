@@ -1,13 +1,5 @@
 # DNS Records in Cloudflare
 
-# Cloudflare Zone Settings
-resource "cloudflare_zone_settings_override" "settings" {
-  zone_id = var.cloudflare_zone_id
-  settings {
-    ssl = "full"
-  }
-}
-
 # ACM Validation Record
 resource "cloudflare_record" "acm_validation" {
   for_each = {
