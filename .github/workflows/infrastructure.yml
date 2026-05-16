@@ -1,0 +1,47 @@
+name: Infrastructure CI
+
+on:
+  push:
+    branches: [ main ]
+    paths: [ 'infra/**' ]
+  pull_request:
+    branches: [ main ]
+    paths: [ 'infra/**' ]
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  scan:
+    name: Infrastructure Scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: run tfsec
+        uses: aquasecurity/tfsec-action@v1.0.3
+        with:
+          working_directory: infra
+
+  plan:
+    name: Terraform Plan
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: eu-central-1
+      - name: Setup OpenTofu
+        uses: opentofu/setup-opentofu@v2
+        with:
+          tofu_version: 1.11.6
+      - name: Tofu Plan
+        run: |
+          cd infra
+          tofu init
+          tofu plan -no-color
+        env:
+          TF_VAR_cloudflare_api_token: ${{ secrets.CLOUDFLARE_API_TOKEN }}
