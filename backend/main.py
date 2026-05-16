@@ -6,6 +6,8 @@ from models import Workout, ExerciseRecord
 from database import db
 from auth import get_current_user
 import uuid
+import json
+import os
 from contextlib import asynccontextmanager
 import structlog
 import logging
@@ -46,6 +48,20 @@ async def lifespan(app: FastAPI):
     yield
 
 app = FastAPI(title="set API", lifespan=lifespan)
+
+# Load exercises data
+EXERCISES_FILE = os.path.join(os.path.dirname(__file__), "data", "exercises.json")
+exercises_cache = []
+if os.path.exists(EXERCISES_FILE):
+    try:
+        with open(EXERCISES_FILE, "r") as f:
+            exercises_cache = json.load(f)
+    except Exception as e:
+        logger.error("failed_to_load_exercises", error=str(e))
+
+@app.get("/exercises")
+def list_exercises():
+    return exercises_cache
 
 app.add_middleware(
     CORSMiddleware,
