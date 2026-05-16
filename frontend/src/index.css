@@ -139,9 +139,7 @@ h1 {
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+  width: 100%;
 }
 
 .btn:hover {
@@ -159,48 +157,16 @@ input {
   background: #363636;
   border: 1px solid var(--border-color);
   color: white;
-  padding: 0.6rem;
-  border-radius: 8px;
+  padding: 0.5rem;
+  border-radius: 6px;
   width: 100%;
   font-size: 1rem;
-  transition: all 0.2s;
+  transition: border-color 0.2s;
 }
 
 input:focus {
   outline: none;
   border-color: var(--primary-color);
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
-}
-
-/* Custom Exercise Suggestions */
-.exercise-suggestions {
-  position: absolute;
-  top: 100%;
-  left: 0;
-  right: 0;
-  background: var(--surface-color);
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  margin-top: 4px;
-  max-height: 200px;
-  overflow-y: auto;
-  z-index: 10;
-  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
-}
-
-.suggestion-item {
-  padding: 0.75rem 1rem;
-  cursor: pointer;
-  transition: background 0.2s;
-}
-
-.suggestion-item:hover {
-  background: rgba(255, 255, 255, 0.05);
-}
-
-.suggestion-item.active {
-  background: var(--primary-color);
-  color: white;
 }
 
 /* Chrome, Safari, Edge, Opera */
