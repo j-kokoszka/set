@@ -25,8 +25,8 @@ resource "aws_s3_bucket_versioning" "terraform_state" {
   }
 }
 
-# tfsec:ignore:aws-s3-encryption-customer-key
 resource "aws_s3_bucket_server_side_encryption_configuration" "terraform_state" {
+  # tfsec:ignore:aws-s3-encryption-customer-key
   bucket = aws_s3_bucket.terraform_state.id
 
   rule {
@@ -36,9 +36,10 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "terraform_state" 
   }
 }
 
-# tfsec:ignore:aws-dynamodb-table-customer-key
-# tfsec:ignore:aws-dynamodb-enable-recovery
+# DynamoDB Table for State Locking
 resource "aws_dynamodb_table" "terraform_locks" {
+  # tfsec:ignore:aws-dynamodb-table-customer-key
+  # tfsec:ignore:aws-dynamodb-enable-recovery
   name         = "${var.project_name}-terraform-locks-${var.environment}"
   billing_mode = "PAY_PER_REQUEST"
   hash_key     = "LockID"
