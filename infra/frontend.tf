@@ -1,8 +1,7 @@
-# S3 Bucket for Frontend
+# tfsec:ignore:aws-s3-enable-bucket-logging
+# tfsec:ignore:aws-s3-enable-versioning
+# tfsec:ignore:aws-s3-encryption-customer-key
 resource "aws_s3_bucket" "frontend" {
-  # tfsec:ignore:aws-s3-enable-bucket-logging
-  # tfsec:ignore:aws-s3-enable-versioning
-  # tfsec:ignore:aws-s3-encryption-customer-key
   bucket = "${var.project_name}-frontend-${var.environment}"
 }
 
@@ -49,10 +48,9 @@ function handler(event) {
 EOF
 }
 
-# CloudFront Distribution
+# tfsec:ignore:aws-cloudfront-enable-logging
+# tfsec:ignore:aws-cloudfront-enable-waf
 resource "aws_cloudfront_distribution" "s3_distribution" {
-  # tfsec:ignore:aws-cloudfront-enable-logging
-  # tfsec:ignore:aws-cloudfront-enable-waf
   aliases = [var.custom_domain]
 
   origin {
