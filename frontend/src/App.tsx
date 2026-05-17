@@ -17,7 +17,15 @@ interface Exercise {
 interface StandardExercise {
   id: string;
   name: string;
+  primaryMuscles: string[];
+  category: string;
 }
+
+const MUSCLE_GROUPS: Record<string, string[]> = {
+  "Upper Body": ["chest", "shoulders", "biceps", "triceps", "forearms", "lats", "middle back", "traps", "lower back"],
+  "Lower Body": ["quadriceps", "hamstrings", "glutes", "calves", "adductors", "abductors"],
+  "Other": ["abdominals", "neck", "cardio"]
+};
 
 interface WorkoutHistoryItem {
   sk: string;
@@ -48,6 +56,9 @@ function App() {
   const [searchIndex, setSearchIndex] = useState(-1);
   const [editingWorkoutId, setEditingWorkoutId] = useState<string | null>(null);
   const [editingWorkoutDate, setEditingWorkoutDate] = useState<string | null>(null);
+
+  // Navigation state
+  const [navPath, setNavPath] = useState<string[]>([]);
 
   const fetchExercises = async () => {
     try {
@@ -437,54 +448,102 @@ function App() {
               + Add Exercise
             </button>
           ) : (
-            <div className="card" style={{ marginTop: '1.5rem', border: '1px solid var(--primary-color)' }}>
-              <div style={{ position: 'relative' }}>
-                <input 
-                  autoFocus
-                  placeholder="Search exercise..."
-                  value={newExName}
-                  onChange={(e) => {
-                    setNewExName(e.target.value);
-                    setSearchIndex(-1);
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      if (searchIndex >= 0 && searchIndex < filteredExercises.length) {
-                        addExercise(filteredExercises[searchIndex]);
+            <div className="card" style={{ marginTop: '1.5rem', border: '1px solid var(--primary-color)', padding: '1rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                  <button 
+                    className="btn btn-secondary" 
+                    style={{ padding: '0.2rem 0.5rem', width: 'auto', fontSize: '0.8rem' }}
+                    onClick={() => {
+                      if (navPath.length > 0) {
+                        setNavPath(navPath.slice(0, -1));
                       } else {
-                        addExercise();
+                        setIsAdding(false);
                       }
-                    } else if (e.key === 'ArrowDown') {
-                      e.preventDefault();
-                      setSearchIndex(prev => Math.min(prev + 1, filteredExercises.length - 1));
-                    } else if (e.key === 'ArrowUp') {
-                      e.preventDefault();
-                      setSearchIndex(prev => Math.max(prev - 1, -1));
-                    } else if (e.key === 'Escape') {
-                      setIsAdding(false);
-                    }
-                  }}
-                  style={{ marginBottom: '1rem' }}
-                />
-                {filteredExercises.length > 0 && newExName.trim() !== "" && (
-                  <div className="exercise-suggestions">
-                    {filteredExercises.map((ex, i) => (
-                      <div 
-                        key={ex.id} 
-                        className={`suggestion-item ${i === searchIndex ? 'active' : ''}`}
-                        onClick={() => addExercise(ex)}
-                        onMouseEnter={() => setSearchIndex(i)}
-                      >
+                    }}
+                  >
+                    {navPath.length > 0 ? '← Back' : 'Cancel'}
+                  </button>
+                  <span style={{ fontSize: '0.9rem', fontWeight: 'bold' }}>
+                    {navPath.length === 0 ? 'Select Category' : navPath.join(' / ')}
+                  </span>
+                </div>
+              </div>
+
+              {navPath.length === 0 && (
+                <div style={{ marginBottom: '1rem' }}>
+                  <input 
+                    autoFocus
+                    placeholder="Search exercise..."
+                    value={newExName}
+                    onChange={(e) => {
+                      setNewExName(e.target.value);
+                      setSearchIndex(-1);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        if (searchIndex >= 0 && searchIndex < filteredExercises.length) {
+                          addExercise(filteredExercises[searchIndex]);
+                        } else if (newExName.trim()) {
+                          addExercise();
+                        }
+                      } else if (e.key === 'ArrowDown') {
+                        e.preventDefault();
+                        setSearchIndex(prev => Math.min(prev + 1, filteredExercises.length - 1));
+                      } else if (e.key === 'ArrowUp') {
+                        e.preventDefault();
+                        setSearchIndex(prev => Math.max(prev - 1, -1));
+                      }
+                    }}
+                  />
+                  {newExName.trim() !== "" && (
+                    <div className="exercise-suggestions" style={{ position: 'static', marginTop: '0.5rem', border: '1px solid var(--border-color)' }}>
+                      {filteredExercises.length > 0 ? filteredExercises.map((ex, i) => (
+                        <div 
+                          key={ex.id} 
+                          className={`suggestion-item ${i === searchIndex ? 'active' : ''}`}
+                          onClick={() => addExercise(ex)}
+                          onMouseEnter={() => setSearchIndex(i)}
+                        >
+                          <div style={{ display: 'flex', flexDirection: 'column' }}>
+                            <span>{ex.name}</span>
+                            <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{ex.primaryMuscles.join(', ')}</span>
+                          </div>
+                        </div>
+                      )) : (
+                        <div className="suggestion-item" onClick={() => addExercise()}>
+                          Add custom: "{newExName}"
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {newExName.trim() === "" && (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', maxHeight: '300px', overflowY: 'auto' }}>
+                  {navPath.length === 0 && Object.keys(MUSCLE_GROUPS).map(group => (
+                    <button key={group} className="btn btn-secondary" onClick={() => setNavPath([group])}>
+                      {group}
+                    </button>
+                  ))}
+                  
+                  {navPath.length === 1 && MUSCLE_GROUPS[navPath[0]].map(muscle => (
+                    <button key={muscle} className="btn btn-secondary" onClick={() => setNavPath([...navPath, muscle])} style={{ textTransform: 'capitalize' }}>
+                      {muscle}
+                    </button>
+                  ))}
+
+                  {navPath.length === 2 && allExercises
+                    .filter(ex => ex.primaryMuscles.includes(navPath[1]))
+                    .map(ex => (
+                      <button key={ex.id} className="btn btn-secondary" onClick={() => { addExercise(ex); setNavPath([]); }} style={{ fontSize: '0.8rem', textAlign: 'left', height: 'auto', padding: '0.5rem' }}>
                         {ex.name}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-              <div style={{ display: 'flex', gap: '0.5rem' }}>
-                <button className="btn" style={{ flex: 1 }} onClick={() => addExercise()}>Add</button>
-                <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setIsAdding(false)}>Cancel</button>
-              </div>
+                      </button>
+                    ))
+                  }
+                </div>
+              )}
             </div>
           )}
           
