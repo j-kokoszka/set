@@ -34,17 +34,15 @@ test.describe('set app - error handling', () => {
     await page.getByRole('button', { name: '+ Set' }).click();
 
     // Handle the browser alert
-    let alertMessage = '';
-    page.on('dialog', async dialog => {
-      alertMessage = dialog.message();
-      await dialog.accept();
-    });
+    const alertPromise = page.waitForEvent('dialog');
 
     // Save the workout
     await page.getByRole('button', { name: 'Save Workout' }).click();
     
+    const alert = await alertPromise;
     // Verify the alert message contains the detail and status code
-    expect(alertMessage).toContain('Failed to save workout: Invalid workout data (Status: 400)');
+    expect(alert.message()).toContain('Failed to save workout: Invalid workout data (Status: 400)');
+    await alert.accept();
   });
 
   test('should show descriptive error when deleting a workout fails', async ({ page }) => {
@@ -56,7 +54,7 @@ test.describe('set app - error handling', () => {
           contentType: 'application/json',
           body: JSON.stringify([
             {
-              sk: 'USER#testuser#WORKOUT#2023-01-01T00:00:00Z#mock-id',
+              sk: 'WORKOUT#2023-01-01T00:00:00Z#mock-id',
               name: 'Delete Me',
               exercises: []
             }
@@ -83,21 +81,20 @@ test.describe('set app - error handling', () => {
     await page.getByRole('button', { name: 'History' }).click();
     await expect(page.locator('.card', { hasText: 'Delete Me' })).toBeVisible();
 
-    // Handle the confirmation dialog and then the error alert
-    let alertMessage = '';
-    page.on('dialog', async dialog => {
-      if (dialog.type() === 'confirm') {
-        await dialog.accept();
-      } else {
-        alertMessage = dialog.message();
-        await dialog.accept();
-      }
+    // Handle the confirmation dialog automatically
+    page.once('dialog', dialog => {
+      void dialog.accept();
     });
+
+    // Wait for the subsequent error alert
+    const alertPromise = page.waitForEvent('dialog', dialog => dialog.type() === 'alert');
 
     // Click delete
     await page.getByTitle('Delete workout').click();
     
+    const alert = await alertPromise;
     // Verify the alert message contains the detail and status code
-    expect(alertMessage).toContain('Failed to delete workout: Permission denied (Status: 403)');
+    expect(alert.message()).toContain('Failed to delete workout: Permission denied (Status: 403)');
+    await alert.accept();
   });
 });
