@@ -70,6 +70,7 @@ function App() {
   const [history, setHistory] = useState<WorkoutHistoryItem[]>([]);
   const [plans, setPlans] = useState<WorkoutPlan[]>([]);
   const [loading, setLoading] = useState(false);
+  const [loadingExercises, setLoadingExercises] = useState(false);
   const [isAdding, setIsAdding] = useState(false);
   const [isSelectingPlan, setIsSelectingPlan] = useState(false);
   const [newExName, setNewExName] = useState("");
@@ -82,6 +83,7 @@ function App() {
   const [navPath, setNavPath] = useState<string[]>([]);
 
   const fetchExercises = async () => {
+    setLoadingExercises(true);
     try {
       const response = await fetch(`${BASE_URL}/exercises`);
       if (!response.ok) throw new Error('Failed to fetch exercises');
@@ -90,6 +92,8 @@ function App() {
     } catch (error) {
       console.error('Error fetching exercises:', error);
       alert('Could not load exercise database. Some features may be limited.');
+    } finally {
+      setLoadingExercises(false);
     }
   };
 
@@ -99,6 +103,14 @@ function App() {
       ex.name.toLowerCase().includes(newExName.toLowerCase())
     ).slice(0, 10); // Limit search results to top 10 for performance
   }, [newExName, allExercises]);
+
+  const navExercises = useMemo(() => {
+    if (navPath.length !== 2) return [];
+    const targetMuscle = navPath[1].toLowerCase().trim();
+    return allExercises.filter(ex => 
+      ex.primaryMuscles?.some(m => m.toLowerCase().trim() === targetMuscle)
+    );
+  }, [navPath, allExercises]);
 
   const fetchHistory = async () => {
     if (!token) return;
@@ -644,82 +656,106 @@ function App() {
                 </div>
               </div>
 
-              {navPath.length === 0 && (
-                <div style={{ marginBottom: '1rem' }}>
-                  <input 
-                    autoFocus
-                    placeholder="Search exercise..."
-                    value={newExName}
-                    onChange={(e) => {
-                      setNewExName(e.target.value);
-                      setSearchIndex(-1);
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        if (searchIndex >= 0 && searchIndex < filteredExercises.length) {
-                          addExercise(filteredExercises[searchIndex]);
-                        } else if (newExName.trim()) {
-                          addExercise();
-                        }
-                      } else if (e.key === 'ArrowDown') {
-                        e.preventDefault();
-                        setSearchIndex(prev => Math.min(prev + 1, filteredExercises.length - 1));
-                      } else if (e.key === 'ArrowUp') {
-                        e.preventDefault();
-                        setSearchIndex(prev => Math.max(prev - 1, -1));
-                      } else if (e.key === 'Escape') {
-                        setIsAdding(false);
-                      }
-                      }}
+              {loadingExercises ? (
+                <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
+                  Loading exercise database...
+                </div>
+              ) : (
+                <>
+                  {newExName.trim() !== "" && (
+                    <div style={{ marginBottom: '1rem' }}>
+                      <input 
+                        autoFocus
+                        placeholder="Search exercise..."
+                        value={newExName}
+                        onChange={(e) => {
+                          setNewExName(e.target.value);
+                          setSearchIndex(-1);
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            if (searchIndex >= 0 && searchIndex < filteredExercises.length) {
+                              addExercise(filteredExercises[searchIndex]);
+                            } else if (newExName.trim()) {
+                              addExercise();
+                            }
+                          } else if (e.key === 'ArrowDown') {
+                            e.preventDefault();
+                            setSearchIndex(prev => Math.min(prev + 1, filteredExercises.length - 1));
+                          } else if (e.key === 'ArrowUp') {
+                            e.preventDefault();
+                            setSearchIndex(prev => Math.max(prev - 1, -1));
+                          } else if (e.key === 'Escape') {
+                            setIsAdding(false);
+                          }
+                        }}
                       />
-                      {newExName.trim() !== "" && (
                       <div className="exercise-suggestions" style={{ position: 'static', marginTop: '0.5rem', border: '1px solid var(--border-color)' }}>
-                      {filteredExercises.length > 0 ? filteredExercises.map((ex, i) => (
-                        <div 
-                          key={ex.id} 
-                          className={`suggestion-item ${i === searchIndex ? 'active' : ''}`}
-                          onClick={() => addExercise(ex)}
-                          onMouseEnter={() => setSearchIndex(i)}
-                        >
-                          <div style={{ display: 'flex', flexDirection: 'column' }}>
-                            <span>{ex.name}</span>
-                            <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{ex.primaryMuscles?.join(', ')}</span>
+                        {filteredExercises.length > 0 ? filteredExercises.map((ex, i) => (
+                          <div 
+                            key={ex.id} 
+                            className={`suggestion-item ${i === searchIndex ? 'active' : ''}`}
+                            onClick={() => addExercise(ex)}
+                            onMouseEnter={() => setSearchIndex(i)}
+                          >
+                            <div style={{ display: 'flex', flexDirection: 'column' }}>
+                              <span>{ex.name}</span>
+                              <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{ex.primaryMuscles?.join(', ')}</span>
+                            </div>
                           </div>
-                        </div>
+                        )) : (
+                          <div className="suggestion-item" onClick={() => addExercise()}>
+                            Add custom: "{newExName}"
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
 
-                      )) : (
-                        <div className="suggestion-item" onClick={() => addExercise()}>
-                          Add custom: "{newExName}"
+                  {newExName.trim() === "" && (
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', maxHeight: '300px', overflowY: 'auto' }}>
+                      {navPath.length === 0 && (
+                        <div style={{ gridColumn: 'span 2', marginBottom: '1rem' }}>
+                          <input 
+                            autoFocus
+                            placeholder="Search exercise..."
+                            value={newExName}
+                            onChange={(e) => {
+                              setNewExName(e.target.value);
+                              setSearchIndex(-1);
+                            }}
+                          />
                         </div>
+                      )}
+
+                      {navPath.length === 0 && Object.keys(MUSCLE_GROUPS).map(group => (
+                        <button key={group} className="btn btn-secondary" onClick={() => setNavPath([group])}>
+                          {group}
+                        </button>
+                      ))}
+                      
+                      {navPath.length === 1 && MUSCLE_GROUPS[navPath[0]].map(muscle => (
+                        <button key={muscle} className="btn btn-secondary" onClick={() => setNavPath([...navPath, muscle])} style={{ textTransform: 'capitalize' }}>
+                          {muscle}
+                        </button>
+                      ))}
+
+                      {navPath.length === 2 && (
+                        navExercises.length === 0 ? (
+                          <div style={{ gridColumn: 'span 2', textAlign: 'center', padding: '1rem', color: 'var(--text-muted)' }}>
+                            No exercises found for this muscle group.
+                          </div>
+                        ) : (
+                          navExercises.map(ex => (
+                            <button key={ex.id} className="btn btn-secondary" onClick={() => { addExercise(ex); setNavPath([]); }} style={{ fontSize: '0.8rem', textAlign: 'left', height: 'auto', padding: '0.5rem' }}>
+                              {ex.name}
+                            </button>
+                          ))
+                        )
                       )}
                     </div>
                   )}
-                </div>
-              )}
-
-              {newExName.trim() === "" && (
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', maxHeight: '300px', overflowY: 'auto' }}>
-                  {navPath.length === 0 && Object.keys(MUSCLE_GROUPS).map(group => (
-                    <button key={group} className="btn btn-secondary" onClick={() => setNavPath([group])}>
-                      {group}
-                    </button>
-                  ))}
-                  
-                  {navPath.length === 1 && MUSCLE_GROUPS[navPath[0]].map(muscle => (
-                    <button key={muscle} className="btn btn-secondary" onClick={() => setNavPath([...navPath, muscle])} style={{ textTransform: 'capitalize' }}>
-                      {muscle}
-                    </button>
-                  ))}
-
-                  {navPath.length === 2 && allExercises
-                    .filter(ex => ex.primaryMuscles?.includes(navPath[1]))
-                    .map(ex => (
-                      <button key={ex.id} className="btn btn-secondary" onClick={() => { addExercise(ex); setNavPath([]); }} style={{ fontSize: '0.8rem', textAlign: 'left', height: 'auto', padding: '0.5rem' }}>
-                        {ex.name}
-                      </button>
-                    ))
-                  }
-                </div>
+                </>
               )}
             </div>
           )}
