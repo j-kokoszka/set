@@ -70,6 +70,7 @@ function App() {
   const [history, setHistory] = useState<WorkoutHistoryItem[]>([]);
   const [plans, setPlans] = useState<WorkoutPlan[]>([]);
   const [loading, setLoading] = useState(false);
+  const [loadingExercises, setLoadingExercises] = useState(false);
   const [isAdding, setIsAdding] = useState(false);
   const [isSelectingPlan, setIsSelectingPlan] = useState(false);
   const [newExName, setNewExName] = useState("");
@@ -82,6 +83,7 @@ function App() {
   const [navPath, setNavPath] = useState<string[]>([]);
 
   const fetchExercises = async () => {
+    setLoadingExercises(true);
     try {
       const response = await fetch(`${BASE_URL}/exercises`);
       if (!response.ok) throw new Error('Failed to fetch exercises');
@@ -90,6 +92,8 @@ function App() {
     } catch (error) {
       console.error('Error fetching exercises:', error);
       alert('Could not load exercise database. Some features may be limited.');
+    } finally {
+      setLoadingExercises(false);
     }
   };
 
@@ -699,26 +703,46 @@ function App() {
 
               {newExName.trim() === "" && (
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', maxHeight: '300px', overflowY: 'auto' }}>
-                  {navPath.length === 0 && Object.keys(MUSCLE_GROUPS).map(group => (
-                    <button key={group} className="btn btn-secondary" onClick={() => setNavPath([group])}>
-                      {group}
-                    </button>
-                  ))}
-                  
-                  {navPath.length === 1 && MUSCLE_GROUPS[navPath[0]].map(muscle => (
-                    <button key={muscle} className="btn btn-secondary" onClick={() => setNavPath([...navPath, muscle])} style={{ textTransform: 'capitalize' }}>
-                      {muscle}
-                    </button>
-                  ))}
+                  {loadingExercises ? (
+                    <div style={{ gridColumn: 'span 2', textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
+                      Loading exercise database...
+                    </div>
+                  ) : (
+                    <>
+                      {navPath.length === 0 && Object.keys(MUSCLE_GROUPS).map(group => (
+                        <button key={group} className="btn btn-secondary" onClick={() => setNavPath([group])}>
+                          {group}
+                        </button>
+                      ))}
+                      
+                      {navPath.length === 1 && MUSCLE_GROUPS[navPath[0]].map(muscle => (
+                        <button key={muscle} className="btn btn-secondary" onClick={() => setNavPath([...navPath, muscle])} style={{ textTransform: 'capitalize' }}>
+                          {muscle}
+                        </button>
+                      ))}
 
-                  {navPath.length === 2 && allExercises
-                    .filter(ex => ex.primaryMuscles?.includes(navPath[1]))
-                    .map(ex => (
-                      <button key={ex.id} className="btn btn-secondary" onClick={() => { addExercise(ex); setNavPath([]); }} style={{ fontSize: '0.8rem', textAlign: 'left', height: 'auto', padding: '0.5rem' }}>
-                        {ex.name}
-                      </button>
-                    ))
-                  }
+                      {navPath.length === 2 && (() => {
+                        const targetMuscle = navPath[1].toLowerCase().trim();
+                        const filtered = allExercises.filter(ex => 
+                          ex.primaryMuscles?.some(m => m.toLowerCase().trim() === targetMuscle)
+                        );
+                        
+                        if (filtered.length === 0) {
+                          return (
+                            <div style={{ gridColumn: 'span 2', textAlign: 'center', padding: '1rem', color: 'var(--text-muted)' }}>
+                              No exercises found for this muscle group.
+                            </div>
+                          );
+                        }
+
+                        return filtered.map(ex => (
+                          <button key={ex.id} className="btn btn-secondary" onClick={() => { addExercise(ex); setNavPath([]); }} style={{ fontSize: '0.8rem', textAlign: 'left', height: 'auto', padding: '0.5rem' }}>
+                            {ex.name}
+                          </button>
+                        ));
+                      })()}
+                    </>
+                  )}
                 </div>
               )}
             </div>
