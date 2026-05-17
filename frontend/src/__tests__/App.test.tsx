@@ -3,7 +3,8 @@ import { describe, it, expect, vi } from 'vitest'
 import App from '../App'
 
 // Mock fetch
-global.fetch = vi.fn()
+const fetchMock = vi.fn()
+globalThis.fetch = fetchMock as unknown as typeof fetch
 
 describe('App Component', () => {
   it('renders login screen when unauthenticated', () => {
@@ -23,7 +24,7 @@ describe('App Component', () => {
     localStorage.setItem('set_user', 'testuser')
     
     // Mock successful fetch responses
-    ;(global.fetch as unknown as { mockResolvedValue: (v: unknown) => void }).mockResolvedValue({
+    fetchMock.mockResolvedValue({
       ok: true,
       json: () => Promise.resolve([])
     })
