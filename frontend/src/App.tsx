@@ -573,28 +573,32 @@ function App() {
               Sign in with Google
             </button>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', margin: '0.5rem 0' }}>
-              <div style={{ flex: 1, height: '1px', background: 'var(--border-color)' }}></div>
-              <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>or mock login</span>
-              <div style={{ flex: 1, height: '1px', background: 'var(--border-color)' }}></div>
-            </div>
+            {import.meta.env.DEV && (
+              <>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', margin: '0.5rem 0' }}>
+                  <div style={{ flex: 1, height: '1px', background: 'var(--border-color)' }}></div>
+                  <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>or mock login</span>
+                  <div style={{ flex: 1, height: '1px', background: 'var(--border-color)' }}></div>
+                </div>
 
-            <form onSubmit={handleLogin}>
-              <div className="set-input-group" style={{ marginBottom: '1.5rem' }}>
-                <label htmlFor="username" className="set-input-label">Username</label>
-                <input 
-                  id="username"
-                  type="text" 
-                  value={loginUsername}
-                  onChange={(e) => setLoginUsername(e.target.value)}
-                  placeholder="Enter your username"
-                  required
-                />
-              </div>
-              <button className="btn btn-secondary" type="submit" style={{ padding: '0.6rem' }}>
-                Mock Login
-              </button>
-            </form>
+                <form onSubmit={handleLogin}>
+                  <div className="set-input-group" style={{ marginBottom: '1.5rem' }}>
+                    <label htmlFor="username" className="set-input-label">Username</label>
+                    <input 
+                      id="username"
+                      type="text" 
+                      value={loginUsername}
+                      onChange={(e) => setLoginUsername(e.target.value)}
+                      placeholder="Enter your username"
+                      required
+                    />
+                  </div>
+                  <button className="btn btn-secondary" type="submit" style={{ padding: '0.6rem' }}>
+                    Mock Login
+                  </button>
+                </form>
+              </>
+            )}
           </div>
         </div>
       </div>
