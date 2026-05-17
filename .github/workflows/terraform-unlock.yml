@@ -1,0 +1,40 @@
+name: Terraform State Unlock
+
+on:
+  workflow_dispatch:
+    inputs:
+      lock_id:
+        description: 'The ID of the lock to release'
+        required: true
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  unlock:
+    name: Force Unlock
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: eu-central-1
+      
+      - name: Setup OpenTofu
+        uses: opentofu/setup-opentofu@v2
+        with:
+          tofu_version: 1.11.6
+
+      - name: Tofu Init & Unlock
+        run: |
+          cd infra
+          tofu init
+          tofu force-unlock -force "${{ github.event.inputs.lock_id }}"
+        env:
+          TF_VAR_cloudflare_api_token: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          TF_VAR_google_client_id: ${{ secrets.GOOGLE_CLIENT_ID }}
+          TF_VAR_google_client_secret: ${{ secrets.GOOGLE_CLIENT_SECRET }}
