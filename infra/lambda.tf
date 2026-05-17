@@ -59,12 +59,8 @@ resource "aws_iam_policy" "lambda_dynamodb" {
         Action = [
           "dynamodb:GetItem",
           "dynamodb:PutItem",
-          "dynamodb:UpdateItem",
-          "dynamodb:DeleteItem",
           "dynamodb:Query",
-          "dynamodb:Scan",
-          "dynamodb:BatchWriteItem",
-          "dynamodb:BatchGetItem"
+          "dynamodb:BatchWriteItem"
         ]
         Effect   = "Allow"
         Resource = aws_dynamodb_table.workouts.arn
