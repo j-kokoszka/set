@@ -1,4 +1,7 @@
-.PHONY: dev test clean install-deps lint build verify
+.PHONY: dev test clean install-deps lint build verify test-backend test-frontend lint-frontend lint-backend build-frontend init-db
+
+# Configuration
+DYNAMODB_PORT ?= 8001
 
 # Default target: start the full dev environment
 dev:
@@ -6,29 +9,39 @@ dev:
 	python3 scripts/dev.py
 
 # Run all tests (Backend and Frontend)
-test:
+test: test-backend test-frontend
+
+test-backend:
 	@echo "Running backend API tests..."
 	@export PYTHONPATH=$${PYTHONPATH}:backend && \
-	export DYNAMODB_ENDPOINT_URL=http://localhost:8001 && \
+	export DYNAMODB_ENDPOINT_URL=http://localhost:$(DYNAMODB_PORT) && \
 	export AWS_ACCESS_KEY_ID=local && \
 	export AWS_SECRET_ACCESS_KEY=local && \
 	export AWS_DEFAULT_REGION=us-east-1 && \
 	export MOCK_AUTH=true && \
 	export VIRTUAL_ENV=backend/venv && \
 	uv run pytest tests/
+
+test-frontend:
 	@echo "Running frontend E2E tests..."
-	cd frontend && npx playwright test
+	cd frontend && npx playwright test $(PLAYWRIGHT_ARGS)
 
 # Run all linters
-lint:
+lint: lint-frontend lint-backend
+
+lint-frontend:
 	@echo "Linting frontend..."
 	cd frontend && npm run lint
+
+lint-backend:
 	@echo "Linting backend..."
-	# Assuming ruff or similar could be added here later, for now just checking frontend
-	cd frontend && npm run lint
+	# Placeholder for future backend linting (e.g. ruff)
+	@echo "No backend linter configured yet."
 
 # Build the project
-build:
+build: build-frontend
+
+build-frontend:
 	@echo "Building frontend..."
 	cd frontend && npm run build
 
@@ -37,8 +50,7 @@ verify: lint test build
 	@echo "✅ All checks passed!"
 
 # Clean up local environment
-...
-
+clean:
 	@echo "Cleaning up..."
 	-podman stop dynamodb-local
 	-pkill -f uvicorn
