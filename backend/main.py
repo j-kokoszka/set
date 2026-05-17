@@ -8,6 +8,7 @@ from database import db
 from auth import get_current_user
 import uuid
 from contextlib import asynccontextmanager
+import os
 import structlog
 import logging
 import sys
