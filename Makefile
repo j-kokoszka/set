@@ -1,4 +1,4 @@
-.PHONY: dev test clean install-deps lint build verify test-backend test-frontend lint-frontend lint-backend build-frontend init-db
+.PHONY: dev test clean install-deps lint build verify test-backend test-frontend lint-frontend lint-backend build-frontend init-db test-unit test-backend-unit test-frontend-unit
 
 # Configuration
 DYNAMODB_PORT ?= 8001
@@ -8,9 +8,24 @@ dev:
 	@echo "Starting 'set' development environment..."
 	python3 scripts/dev.py
 
-# Run all tests (Backend and Frontend)
-test: test-backend test-frontend
+# Run all tests (Unit and E2E)
+test: test-unit test-backend test-frontend
 
+# Run all unit tests
+test-unit: test-backend-unit test-frontend-unit
+
+test-backend-unit:
+	@echo "Running backend unit tests..."
+	@export PYTHONPATH=$${PYTHONPATH}:backend && \
+	export MOCK_AUTH=true && \
+	export VIRTUAL_ENV=backend/venv && \
+	uv run pytest tests/unit/
+
+test-frontend-unit:
+	@echo "Running frontend unit tests..."
+	cd frontend && npm test
+
+# Run all integration/E2E tests
 test-backend:
 	@echo "Running backend API tests..."
 	@export PYTHONPATH=$${PYTHONPATH}:backend && \
@@ -21,7 +36,7 @@ test-backend:
 	export MOCK_AUTH=true && \
 	export VIRTUAL_ENV=backend/venv && \
 	uv run python -c "from backend.database import db; db.create_table_if_not_exists()" && \
-	uv run pytest tests/
+	uv run pytest tests/ --ignore=tests/unit/
 
 test-frontend:
 	@echo "Running frontend E2E tests..."
