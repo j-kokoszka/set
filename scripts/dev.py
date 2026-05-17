@@ -57,6 +57,7 @@ def run():
     env["AWS_SECRET_ACCESS_KEY"] = "local"
     env["MOCK_AUTH"] = "true"
     env["PYTHONPATH"] = os.getcwd() + "/backend"
+    env["VIRTUAL_ENV"] = os.environ.get("VIRTUAL_ENV", "venv")
     
     backend_proc = subprocess.Popen(
         ["uv", "run", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"],
