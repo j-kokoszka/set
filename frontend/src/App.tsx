@@ -57,6 +57,9 @@ interface WorkoutPlan {
 
 const KG_TO_LBS = 2.20462;
 const BASE_URL = import.meta.env.VITE_API_URL || '/api';
+const COGNITO_DOMAIN = import.meta.env.VITE_COGNITO_DOMAIN;
+const COGNITO_CLIENT_ID = import.meta.env.VITE_COGNITO_CLIENT_ID;
+const APP_URL = window.location.origin;
 
 function App() {
   const [token, setToken] = useState<string | null>(localStorage.getItem('set_token'));
@@ -155,7 +158,35 @@ function App() {
   };
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
+    // 1. Check for token in URL hash (returning from Cognito)
+    const hash = window.location.hash;
+    if (hash) {
+      const params = new URLSearchParams(hash.substring(1));
+      const idToken = params.get('id_token');
+      const accessToken = params.get('access_token');
+      const tokenToUse = idToken || accessToken;
+
+      if (tokenToUse) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setToken(tokenToUse);
+        localStorage.setItem('set_token', tokenToUse);
+        
+        // Try to extract user name from JWT payload
+        try {
+          const payload = JSON.parse(atob(tokenToUse.split('.')[1]));
+          const username = payload.email || payload['cognito:username'] || payload.sub;
+          setUser(username);
+          localStorage.setItem('set_user', username);
+        } catch {
+          setUser('Authenticated User');
+        }
+
+        // Clear hash from URL for cleanliness
+        window.history.replaceState(null, '', window.location.pathname);
+      }
+    }
+
+    // 2. Load exercises
     void fetchExercises();
   }, []);
 
@@ -180,6 +211,15 @@ function App() {
       localStorage.setItem('set_token', mockToken);
       localStorage.setItem('set_user', loginUsername.trim());
     }
+  };
+
+  const handleGoogleLogin = () => {
+    if (!COGNITO_DOMAIN || !COGNITO_CLIENT_ID) {
+      alert('Google SSO is not configured for this environment.');
+      return;
+    }
+    const loginUrl = `https://${COGNITO_DOMAIN}/oauth2/authorize?client_id=${COGNITO_CLIENT_ID}&response_type=token&scope=email+openid+profile&redirect_uri=${encodeURIComponent(APP_URL)}`;
+    window.location.href = loginUrl;
   };
 
   const handleLogout = () => {
@@ -457,23 +497,49 @@ function App() {
       <div className="app-container" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh' }}>
         <div className="card" style={{ width: '100%', maxWidth: '360px' }}>
           <h1 style={{ textAlign: 'center', marginBottom: '2.5rem' }}>set</h1>
-          <form onSubmit={handleLogin}>
-            <div className="set-input-group" style={{ marginBottom: '1.5rem' }}>
-              <label htmlFor="username" className="set-input-label">Username</label>
-              <input 
-                id="username"
-                type="text" 
-                value={loginUsername}
-                onChange={(e) => setLoginUsername(e.target.value)}
-                placeholder="Enter your username"
-                required
-                autoFocus
-              />
-            </div>
-            <button className="btn" type="submit" style={{ padding: '0.8rem' }}>
-              Login
+          
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <button 
+              className="btn" 
+              onClick={handleGoogleLogin}
+              style={{ 
+                background: 'white', 
+                color: '#3c4043', 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'center', 
+                gap: '0.75rem',
+                border: '1px solid #dadce0',
+                padding: '0.6rem'
+              }}
+            >
+              <img src="https://www.gstatic.com/images/branding/product/1x/gsa_512dp.png" alt="Google" style={{ width: '20px', height: '20px' }} />
+              Sign in with Google
             </button>
-          </form>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', margin: '0.5rem 0' }}>
+              <div style={{ flex: 1, height: '1px', background: 'var(--border-color)' }}></div>
+              <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>or mock login</span>
+              <div style={{ flex: 1, height: '1px', background: 'var(--border-color)' }}></div>
+            </div>
+
+            <form onSubmit={handleLogin}>
+              <div className="set-input-group" style={{ marginBottom: '1.5rem' }}>
+                <label htmlFor="username" className="set-input-label">Username</label>
+                <input 
+                  id="username"
+                  type="text" 
+                  value={loginUsername}
+                  onChange={(e) => setLoginUsername(e.target.value)}
+                  placeholder="Enter your username"
+                  required
+                />
+              </div>
+              <button className="btn btn-secondary" type="submit" style={{ padding: '0.6rem' }}>
+                Mock Login
+              </button>
+            </form>
+          </div>
         </div>
       </div>
     );

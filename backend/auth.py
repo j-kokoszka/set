@@ -1,4 +1,6 @@
 import os
+import json
+import requests
 from fastapi import Header, HTTPException, status
 from jose import jwt, JWTError
 import structlog
@@ -7,12 +9,30 @@ from typing import Optional
 logger = structlog.get_logger()
 
 # AWS Cognito Settings
-AWS_REGION = os.getenv("AWS_DEFAULT_REGION", "us-east-1")
+AWS_REGION = os.getenv("AWS_DEFAULT_REGION", "eu-central-1")
 COGNITO_USER_POOL_ID = os.getenv("COGNITO_USER_POOL_ID")
+COGNITO_APP_CLIENT_ID = os.getenv("COGNITO_APP_CLIENT_ID")
 MOCK_AUTH = os.getenv("MOCK_AUTH", "false").lower() == "true"
 
-# Scaffolding for Cognito validation
-# JWKS_URL = f"https://cognito-idp.{AWS_REGION}.amazonaws.com/{COGNITO_USER_POOL_ID}/.well-known/jwks.json"
+# JWKS Caching
+JWKS_URL = f"https://cognito-idp.{AWS_REGION}.amazonaws.com/{COGNITO_USER_POOL_ID}/.well-known/jwks.json"
+_jwks_cache = None
+
+def get_jwks():
+    global _jwks_cache
+    if _jwks_cache is None:
+        try:
+            response = requests.get(JWKS_URL, timeout=5)
+            response.raise_for_status()
+            _jwks_cache = response.json()
+            logger.info("JWKS fetched and cached")
+        except Exception as e:
+            logger.error("failed_to_fetch_jwks", error=str(e), url=JWKS_URL)
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Authentication service unavailable"
+            )
+    return _jwks_cache
 
 async def get_current_user(authorization: Optional[str] = Header(None)):
     if not authorization or not authorization.startswith("Bearer "):
@@ -34,28 +54,57 @@ async def get_current_user(authorization: Optional[str] = Header(None)):
                 detail="Mock auth failed: token must start with mock_",
             )
 
-    # Scaffolding for real Cognito validation
-    if not COGNITO_USER_POOL_ID:
+    if not COGNITO_USER_POOL_ID or not COGNITO_APP_CLIENT_ID:
+        logger.error("cognito_not_configured", pool_id=COGNITO_USER_POOL_ID, client_id=COGNITO_APP_CLIENT_ID)
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Auth not configured",
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Authentication not configured"
         )
 
     try:
-        # TODO: Implement real Cognito JWKS validation
-        # 1. Fetch JWKS from JWKS_URL
-        # 2. Find the correct public key
-        # 3. Decode and validate the token:
-        # payload = jwt.decode(token, public_key, algorithms=['RS256'], audience=CLIENT_ID)
-        # return payload['sub']
-        
-        # For now, this is just scaffolding.
-        raise HTTPException(
-            status_code=status.HTTP_501_NOT_IMPLEMENTED,
-            detail="Cognito validation not yet implemented",
+        # 1. Get the key ID from the header
+        unverified_header = jwt.get_unverified_header(token)
+        kid = unverified_header.get("kid")
+        if not kid:
+            raise JWTError("Missing kid in header")
+
+        # 2. Find the correct public key in JWKS
+        jwks = get_jwks()
+        key = next((k for k in jwks["keys"] if k["kid"] == kid), None)
+        if not key:
+            # Force refresh cache once if key not found
+            global _jwks_cache
+            _jwks_cache = None
+            jwks = get_jwks()
+            key = next((k for k in jwks["keys"] if k["kid"] == kid), None)
+            if not key:
+                raise JWTError("Public key not found in JWKS")
+
+        # 3. Decode and validate the token
+        payload = jwt.decode(
+            token,
+            key,
+            algorithms=["RS256"],
+            audience=COGNITO_APP_CLIENT_ID,
+            issuer=f"https://cognito-idp.{AWS_REGION}.amazonaws.com/{COGNITO_USER_POOL_ID}"
         )
-    except JWTError:
+        
+        # 4. Extract user identifier
+        user_id = payload.get("sub") or payload.get("username") or payload.get("email")
+        if not user_id:
+            raise JWTError("Token missing user identifier")
+            
+        return user_id
+
+    except JWTError as e:
+        logger.warning("invalid_token", error=str(e))
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid token",
+            detail=f"Invalid token: {str(e)}",
+        )
+    except Exception as e:
+        logger.error("token_validation_error", error=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication failed",
         )

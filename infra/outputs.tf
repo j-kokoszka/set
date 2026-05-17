@@ -14,6 +14,22 @@ output "s3_bucket_name" {
 }
 
 output "cloudfront_distribution_id" {
-  description = "CloudFront distribution ID"
+  description = "The ID of the CloudFront distribution"
   value       = aws_cloudfront_distribution.s3_distribution.id
 }
+
+output "cognito_user_pool_id" {
+  description = "The ID of the Cognito User Pool"
+  value       = aws_cognito_user_pool.user_pool.id
+}
+
+output "cognito_app_client_id" {
+  description = "The ID of the Cognito App Client"
+  value       = aws_cognito_user_pool_client.client.id
+}
+
+output "cognito_domain" {
+  description = "The domain of the Cognito Hosted UI"
+  value       = "${aws_cognito_user_pool_domain.main.domain}.auth.${var.aws_region}.amazoncognito.com"
+}
+

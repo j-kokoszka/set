@@ -30,7 +30,7 @@ test.describe('set app - workout saving', () => {
     await page.goto('/');
     // Login
     await page.getByLabel('Username').fill('testuser');
-    await page.getByRole('button', { name: 'Login' }).click();
+    await page.getByRole('button', { name: 'Mock Login' }).click();
   });
 
   test('should allow creating and saving a workout', async ({ page }) => {

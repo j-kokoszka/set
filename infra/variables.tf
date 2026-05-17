@@ -39,3 +39,15 @@ variable "log_level" {
   type        = string
   default     = "INFO"
 }
+
+variable "google_client_id" {
+  description = "Google OAuth 2.0 Client ID"
+  type        = string
+  sensitive   = false # Usually considered public in OAuth flows
+}
+
+variable "google_client_secret" {
+  description = "Google OAuth 2.0 Client Secret"
+  type        = string
+  sensitive   = true
+}

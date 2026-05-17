@@ -31,8 +31,9 @@ def test_get_current_user_mock_failure(monkeypatch):
 def test_get_current_user_no_cognito_config(monkeypatch):
     monkeypatch.setattr(auth, "MOCK_AUTH", False)
     monkeypatch.setattr(auth, "COGNITO_USER_POOL_ID", None)
-    
+
     with pytest.raises(HTTPException) as excinfo:
         asyncio.run(auth.get_current_user("Bearer some_token"))
-    assert excinfo.value.status_code == 401
-    assert "Auth not configured" in excinfo.value.detail
+    assert excinfo.value.status_code == 500
+
+    assert "Authentication not configured" in excinfo.value.detail

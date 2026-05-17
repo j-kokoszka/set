@@ -5,7 +5,7 @@ test.describe('set app', () => {
     await page.goto('/');
     // Login
     await page.getByLabel('Username').fill('testuser');
-    await page.getByRole('button', { name: 'Login' }).click();
+    await page.getByRole('button', { name: 'Mock Login' }).click();
   });
 
   test('should allow login and show user in header', async ({ page }) => {
