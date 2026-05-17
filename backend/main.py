@@ -56,8 +56,10 @@ app = FastAPI(
 async def log_requests(request: Request, call_next):
     logger.debug("Request received", method=request.method, url=str(request.url))
     response = await call_next(request)
-    if response.status_code >= 400:
+    if response.status_code >= 500:
         logger.error("Request failed", status=response.status_code, url=str(request.url))
+    elif response.status_code >= 400:
+        logger.warning("Request client error", status=response.status_code, url=str(request.url))
     return response
 
 app.add_middleware(
