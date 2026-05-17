@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import './index.css'
+import { parseBackendError } from './utils/error'
 
 interface Set {
   reps: number;
@@ -121,10 +122,11 @@ function App() {
       if (response.ok) {
         fetchHistory();
       } else {
-        alert('Failed to delete workout.');
+        const errorMessage = await parseBackendError(response, 'Failed to delete workout');
+        alert(errorMessage);
       }
-    } catch {
-      alert('Error connecting to backend.');
+    } catch (error) {
+      alert(`Error connecting to backend: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };
 
@@ -248,10 +250,11 @@ function App() {
         setView('history');
         fetchHistory();
       } else {
-        alert('Failed to save workout.');
+        const errorMessage = await parseBackendError(response, 'Failed to save workout');
+        alert(errorMessage);
       }
-    } catch {
-      alert('Error connecting to backend.');
+    } catch (error) {
+      alert(`Error connecting to backend: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };
 
