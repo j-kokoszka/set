@@ -16,6 +16,7 @@ resource "aws_lambda_function" "api" {
     variables = {
       DYNAMODB_TABLE = aws_dynamodb_table.workouts.name
       MOCK_AUTH      = "true" # Temporary fix: Enable mock auth until Cognito is fully configured
+      LOG_LEVEL      = var.log_level
     }
   }
 
