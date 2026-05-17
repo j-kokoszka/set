@@ -89,6 +89,7 @@ function App() {
   };
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void fetchExercises();
   }, []);
 
@@ -165,16 +166,18 @@ function App() {
   };
 
   const addExercise = (nameOrEx?: string | StandardExercise) => {
-    let name = "";
-    let id: string | undefined = undefined;
+    let name: string;
+    let id: string | undefined;
 
     if (typeof nameOrEx === 'object' && nameOrEx !== null) {
       name = nameOrEx.name;
       id = nameOrEx.id;
     } else if (typeof nameOrEx === 'string') {
       name = nameOrEx;
+      id = undefined;
     } else {
       name = newExName.trim();
+      id = undefined;
     }
 
     if (name) {
