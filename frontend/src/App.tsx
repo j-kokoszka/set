@@ -129,8 +129,12 @@ function App() {
           'Authorization': `Bearer ${token}`
         }
       });
-      const data = await response.json();
-      setPlans(data);
+      if (response.ok) {
+        const data = await response.json();
+        setPlans(data);
+      } else {
+        console.error('Failed to fetch plans');
+      }
     } catch (e) {
       console.error('Error fetching plans:', e);
     } finally {

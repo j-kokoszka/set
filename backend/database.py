@@ -205,6 +205,13 @@ class Database:
         try:
             pk = f"USER#{user_id}"
             sk = f"PLAN#{plan_id}"
+            
+            # Check if plan exists
+            response = self.table.get_item(Key={'pk': pk, 'sk': sk})
+            if 'Item' not in response:
+                logger.warning("Plan not found for deletion", user_id=user_id, plan_id=plan_id)
+                return False
+
             self.table.delete_item(Key={'pk': pk, 'sk': sk})
             logger.info("Workout plan deleted successfully", plan_id=plan_id)
             return True

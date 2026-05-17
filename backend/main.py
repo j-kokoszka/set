@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from mangum import Mangum
 from typing import List
-from models import Workout, ExerciseRecord, WorkoutPlan
+from models import Workout, WorkoutPlan
 from database import db
 from auth import get_current_user
 import uuid
@@ -25,7 +25,6 @@ logging.basicConfig(
 structlog.configure(
     processors=[
         structlog.contextvars.merge_contextvars,
-        structlog.processors.add_log_level,
         structlog.processors.add_log_level,
         structlog.stdlib.filter_by_level,
         structlog.processors.StackInfoRenderer(),
