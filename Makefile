@@ -26,7 +26,7 @@ clean:
 # Install all dependencies (Backend & Frontend)
 install-deps:
 	@echo "Installing backend dependencies..."
-	cd backend && ./venv/bin/pip install -r requirements.txt
+	cd backend && uv venv venv && VIRTUAL_ENV=venv uv pip install -r requirements.txt
 	@echo "Installing frontend dependencies..."
 	cd frontend && npm install
 

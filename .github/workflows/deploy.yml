@@ -26,6 +26,11 @@ jobs:
         with:
           tofu_version: 1.11.6
 
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
       # 1. Apply Infrastructure
       - name: Tofu Apply
         run: |
@@ -41,7 +46,7 @@ jobs:
           mkdir -p lambda_package
           cp backend/*.py lambda_package/
           grep -vE "boto3|botocore" backend/requirements.txt > temp_reqs.txt
-          pip install -r temp_reqs.txt -t lambda_package/ --platform manylinux2014_x86_64 --implementation cp --python-version 3.11 --only-binary=:all:
+          uv pip install -r temp_reqs.txt -t lambda_package/ --python-platform x86_64-manylinux_2_17 --python-version 3.11 --only-binary :all:
           cd lambda_package
           rm -rf *.dist-info __pycache__ bin
           zip -r ../infra/lambda_function_payload.zip .
