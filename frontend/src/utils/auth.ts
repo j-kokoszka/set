@@ -18,7 +18,7 @@ export interface JwtPayload {
   email?: string;
   sub?: string;
   'cognito:username'?: string;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 export function base64UrlDecode(str: string): JwtPayload | null {
