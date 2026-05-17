@@ -48,8 +48,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="set API", 
     lifespan=lifespan,
-    root_path="/api",
-    redirect_slashes=False
+    root_path="/api"
 )
 
 app.add_middleware(
