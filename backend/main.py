@@ -203,6 +203,8 @@ def delete_plan(plan_id: str, user_id: str = Depends(get_current_user)):
         if not success:
             raise HTTPException(status_code=404, detail="Plan not found")
         return {"message": "Workout plan deleted successfully"}
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error("Failed to delete workout plan", error=str(e), user_id=user_id, plan_id=plan_id)
         raise HTTPException(status_code=500, detail=str(e))
