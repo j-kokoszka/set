@@ -19,3 +19,10 @@ crash.log
 *.tfplan
 *.zip
 .terraform.lock.hcl
+
+# Git Worktrees
+*-worktree/
+fix-workout-deletion-permissions/
+set-frontend-ui-fix/
+tmp_target/
+tmp_venv/
