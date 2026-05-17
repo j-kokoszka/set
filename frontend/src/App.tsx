@@ -9,24 +9,25 @@ interface Set {
 }
 
 interface Exercise {
+  id?: string;
   name: string;
   sets: Set[];
+}
+
+interface StandardExercise {
+  id: string;
+  name: string;
 }
 
 interface WorkoutHistoryItem {
   sk: string;
   name: string;
   exercises: {
+    exercise_id?: string;
     exercise_name: string;
     sets: Set[];
   }[];
 }
-
-const COMMON_EXERCISES = [
-  "Squats", "Bench Press", "Deadlift", "Overhead Press", "Barbell Row", 
-  "Pull Ups", "Dips", "Lunges", "Leg Press", "Lateral Raise", 
-  "Bicep Curls", "Tricep Extensions", "Plank", "Leg Curls"
-];
 
 const KG_TO_LBS = 2.20462;
 const BASE_URL = import.meta.env.VITE_API_URL || '/api';
@@ -39,6 +40,7 @@ function App() {
   const [view, setView] = useState<'workout' | 'history'>('workout');
   const [workoutName, setWorkoutName] = useState('New Workout');
   const [exercises, setExercises] = useState<Exercise[]>([]);
+  const [allExercises, setAllExercises] = useState<StandardExercise[]>([]);
   const [history, setHistory] = useState<WorkoutHistoryItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [isAdding, setIsAdding] = useState(false);
@@ -47,12 +49,24 @@ function App() {
   const [editingWorkoutId, setEditingWorkoutId] = useState<string | null>(null);
   const [editingWorkoutDate, setEditingWorkoutDate] = useState<string | null>(null);
 
+  const fetchExercises = async () => {
+    try {
+      const response = await fetch(`${BASE_URL}/exercises`);
+      if (!response.ok) throw new Error('Failed to fetch exercises');
+      const data = await response.json();
+      setAllExercises(data);
+    } catch (error) {
+      console.error('Error fetching exercises:', error);
+      alert('Could not load exercise database. Some features may be limited.');
+    }
+  };
+
   const filteredExercises = useMemo(() => {
-    if (!newExName.trim()) return COMMON_EXERCISES;
-    return COMMON_EXERCISES.filter(ex => 
-      ex.toLowerCase().includes(newExName.toLowerCase())
-    );
-  }, [newExName]);
+    if (!newExName.trim()) return allExercises.slice(0, 15); // Show first 15 as default suggestions
+    return allExercises.filter(ex => 
+      ex.name.toLowerCase().includes(newExName.toLowerCase())
+    ).slice(0, 10); // Limit search results to top 10 for performance
+  }, [newExName, allExercises]);
 
   const fetchHistory = async () => {
     if (!token) return;
@@ -73,6 +87,11 @@ function App() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void fetchExercises();
+  }, []);
 
   useEffect(() => {
     if (token && view === 'history') {
@@ -139,16 +158,30 @@ function App() {
     setEditingWorkoutDate(date);
     setWorkoutName(workout.name);
     setExercises(workout.exercises.map(ex => ({
+      id: ex.exercise_id,
       name: ex.exercise_name,
       sets: ex.sets
     })));
     setView('workout');
   };
 
-  const addExercise = (name?: string) => {
-    const finalName = name || newExName.trim();
-    if (finalName) {
-      setExercises([...exercises, { name: finalName, sets: [] }]);
+  const addExercise = (nameOrEx?: string | StandardExercise) => {
+    let name: string;
+    let id: string | undefined;
+
+    if (typeof nameOrEx === 'object' && nameOrEx !== null) {
+      name = nameOrEx.name;
+      id = nameOrEx.id;
+    } else if (typeof nameOrEx === 'string') {
+      name = nameOrEx;
+      id = undefined;
+    } else {
+      name = newExName.trim();
+      id = undefined;
+    }
+
+    if (name) {
+      setExercises([...exercises, { id, name, sets: [] }]);
       setNewExName("");
       setSearchIndex(-1);
       setIsAdding(false);
@@ -207,6 +240,7 @@ function App() {
     interface WorkoutPayload {
       name: string;
       exercises: {
+        exercise_id?: string;
         exercise_name: string;
         sets: Set[];
       }[];
@@ -217,6 +251,7 @@ function App() {
     const workout: WorkoutPayload = {
       name: workoutName,
       exercises: exercises.map(ex => ({
+        exercise_id: ex.id,
         exercise_name: ex.name,
         sets: ex.sets
       })),
@@ -435,12 +470,12 @@ function App() {
                   <div className="exercise-suggestions">
                     {filteredExercises.map((ex, i) => (
                       <div 
-                        key={ex} 
+                        key={ex.id} 
                         className={`suggestion-item ${i === searchIndex ? 'active' : ''}`}
                         onClick={() => addExercise(ex)}
                         onMouseEnter={() => setSearchIndex(i)}
                       >
-                        {ex}
+                        {ex.name}
                       </div>
                     ))}
                   </div>

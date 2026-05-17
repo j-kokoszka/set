@@ -7,8 +7,9 @@ from models import Workout, ExerciseRecord
 from database import db
 from auth import get_current_user
 import uuid
-from contextlib import asynccontextmanager
+import json
 import os
+from contextlib import asynccontextmanager
 import structlog
 import logging
 import sys
@@ -62,6 +63,22 @@ async def log_requests(request: Request, call_next):
     elif response.status_code >= 400:
         logger.warning("Request client error", status=response.status_code, url=str(request.url))
     return response
+
+# Load exercises data
+EXERCISES_FILE = os.path.join(os.path.dirname(__file__), "data", "exercises.json")
+exercises_cache = []
+if os.path.exists(EXERCISES_FILE):
+    try:
+        with open(EXERCISES_FILE, "r") as f:
+            exercises_cache = json.load(f)
+    except Exception as e:
+        logger.error("failed_to_load_exercises", error=str(e))
+else:
+    logger.warning("exercises_file_missing", path=EXERCISES_FILE)
+
+@app.get("/exercises")
+def list_exercises():
+    return exercises_cache
 
 app.add_middleware(
     CORSMiddleware,

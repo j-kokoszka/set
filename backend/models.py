@@ -8,6 +8,7 @@ class ExerciseSet(BaseModel):
     unit: str = "kg"  # "kg" or "lbs"
 
 class ExerciseRecord(BaseModel):
+    exercise_id: Optional[str] = None
     exercise_name: str
     sets: List[ExerciseSet]
     notes: Optional[str] = None
