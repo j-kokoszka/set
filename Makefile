@@ -20,6 +20,7 @@ test-backend:
 	export AWS_DEFAULT_REGION=us-east-1 && \
 	export MOCK_AUTH=true && \
 	export VIRTUAL_ENV=backend/venv && \
+	uv run python -c "from backend.database import db; db.create_table_if_not_exists()" && \
 	uv run pytest tests/
 
 test-frontend:
