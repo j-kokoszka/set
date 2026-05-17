@@ -16,7 +16,7 @@ import sys
 logging.basicConfig(
     format="%(message)s",
     stream=sys.stdout,
-    level=logging.INFO,
+    level=logging.DEBUG,
 )
 
 structlog.configure(
@@ -35,6 +35,15 @@ structlog.configure(
 )
 
 logger = structlog.get_logger()
+
+# Middleware for request/response logging
+@app.middleware("http")
+async def log_requests(request, call_next):
+    logger.debug("Request received", method=request.method, url=str(request.url))
+    response = await call_next(request)
+    if response.status_code >= 400:
+        logger.error("Request failed", status=response.status_code, url=str(request.url))
+    return response
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
