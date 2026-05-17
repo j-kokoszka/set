@@ -14,7 +14,14 @@ export async function generateCodeChallenge(verifier: string): Promise<string> {
     .replace(/=+$/, '');
 }
 
-export function base64UrlDecode(str: string): Record<string, unknown> | null {
+export interface JwtPayload {
+  email?: string;
+  sub?: string;
+  'cognito:username'?: string;
+  [key: string]: any;
+}
+
+export function base64UrlDecode(str: string): JwtPayload | null {
   try {
     const base64 = str.replace(/-/g, '+').replace(/_/g, '/');
     const jsonPayload = decodeURIComponent(window.atob(base64).split('').map(function(c) {
