@@ -16,7 +16,7 @@ To support multiple concurrent tasks (e.g., security hardening and feature devel
     *   Create a worktree: `git worktree add ../<directory-name> -b <branch-name> main`
     *   Perform all work (installing deps, running tests, editing files) within that directory.
     *   Commit and push from within the worktree directory.
-5.  **Workspace Protection**: Do not modify files in the project root or switch branches in the root directory if other sessions are active.
+6.  **Workspace Protection**: Do not modify files in the project root or switch branches in the root directory if other sessions are active.
 
 ## Testing Standards
 *   **E2E Testing**: All new features must include Playwright E2E tests located in `frontend/e2e/`.
