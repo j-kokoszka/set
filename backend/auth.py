@@ -8,7 +8,7 @@ from typing import Optional
 logger = structlog.get_logger()
 
 # AWS Cognito Settings
-AWS_REGION = os.getenv("AWS_DEFAULT_REGION", "eu-central-1")
+AWS_REGION = os.getenv("SET_AWS_REGION", "eu-central-1")
 COGNITO_USER_POOL_ID = os.getenv("COGNITO_USER_POOL_ID")
 COGNITO_APP_CLIENT_ID = os.getenv("COGNITO_APP_CLIENT_ID")
 MOCK_AUTH = os.getenv("MOCK_AUTH", "false").lower() == "true"

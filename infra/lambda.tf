@@ -19,7 +19,7 @@ resource "aws_lambda_function" "api" {
       LOG_LEVEL              = var.log_level
       COGNITO_USER_POOL_ID   = aws_cognito_user_pool.user_pool.id
       COGNITO_APP_CLIENT_ID  = aws_cognito_user_pool_client.client.id
-      AWS_DEFAULT_REGION     = var.aws_region
+      SET_AWS_REGION         = var.aws_region
     }
   }
 
