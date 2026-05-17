@@ -1,7 +1,8 @@
 import os
-from fastapi import Header, HTTPException, status, Request
+from fastapi import Header, HTTPException, status
 from jose import jwt, JWTError
 import structlog
+from typing import Optional
 
 logger = structlog.get_logger()
 
@@ -13,7 +14,7 @@ MOCK_AUTH = os.getenv("MOCK_AUTH", "false").lower() == "true"
 # Scaffolding for Cognito validation
 # JWKS_URL = f"https://cognito-idp.{AWS_REGION}.amazonaws.com/{COGNITO_USER_POOL_ID}/.well-known/jwks.json"
 
-async def get_current_user(authorization: str = Header(None)):
+async def get_current_user(authorization: Optional[str] = Header(None)):
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
