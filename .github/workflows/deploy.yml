@@ -63,10 +63,13 @@ jobs:
           node-version: 20
       - name: Install & Build Frontend
         run: |
-          cd frontend
+          cd infra
+          VITE_COGNITO_DOMAIN=$(tofu output -raw cognito_domain)
+          VITE_COGNITO_CLIENT_ID=$(tofu output -raw cognito_app_client_id)
+          cd ../frontend
           npm ci
           cd ..
-          make build-frontend
+          VITE_COGNITO_DOMAIN=$VITE_COGNITO_DOMAIN VITE_COGNITO_CLIENT_ID=$VITE_COGNITO_CLIENT_ID make build-frontend
       - name: Sync S3
         run: |
           S3_BUCKET=$(cd infra && tofu output -raw s3_bucket_name)
