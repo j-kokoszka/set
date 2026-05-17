@@ -121,10 +121,23 @@ function App() {
       if (response.ok) {
         fetchHistory();
       } else {
-        alert('Failed to delete workout.');
+        let errorMessage = 'Failed to delete workout.';
+        try {
+          const errorData = await response.json();
+          if (errorData && errorData.detail) {
+            errorMessage = `Failed to delete workout: ${errorData.detail} (Status: ${response.status})`;
+          } else if (errorData && errorData.error) {
+            errorMessage = `Failed to delete workout: ${errorData.error} (Status: ${response.status})`;
+          } else {
+            errorMessage = `Failed to delete workout. Status: ${response.status}`;
+          }
+        } catch {
+          errorMessage = `Failed to delete workout. Status: ${response.status}`;
+        }
+        alert(errorMessage);
       }
-    } catch {
-      alert('Error connecting to backend.');
+    } catch (error) {
+      alert(`Error connecting to backend: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };
 
@@ -248,10 +261,23 @@ function App() {
         setView('history');
         fetchHistory();
       } else {
-        alert('Failed to save workout.');
+        let errorMessage = 'Failed to save workout.';
+        try {
+          const errorData = await response.json();
+          if (errorData && errorData.detail) {
+            errorMessage = `Failed to save workout: ${errorData.detail} (Status: ${response.status})`;
+          } else if (errorData && errorData.error) {
+            errorMessage = `Failed to save workout: ${errorData.error} (Status: ${response.status})`;
+          } else {
+            errorMessage = `Failed to save workout. Status: ${response.status}`;
+          }
+        } catch {
+          errorMessage = `Failed to save workout. Status: ${response.status}`;
+        }
+        alert(errorMessage);
       }
-    } catch {
-      alert('Error connecting to backend.');
+    } catch (error) {
+      alert(`Error connecting to backend: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };
 
