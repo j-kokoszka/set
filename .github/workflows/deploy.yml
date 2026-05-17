@@ -62,7 +62,8 @@ jobs:
         run: |
           cd frontend
           npm ci
-          npm run build
+          cd ..
+          make build-frontend
       - name: Sync S3
         run: |
           S3_BUCKET=$(cd infra && tofu output -raw s3_bucket_name)
