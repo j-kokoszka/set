@@ -29,7 +29,7 @@ jobs:
           enable-cache: true
       - name: Install Deps
         run: |
-          uv venv
+          uv venv --allow-existing
           uv pip install -r backend/requirements.txt
           uv pip install pytest httpx pytest-mock moto
       - name: Initialize DynamoDB Table
