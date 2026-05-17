@@ -16,6 +16,7 @@ resource "aws_lambda_function" "api" {
     variables = {
       DYNAMODB_TABLE = aws_dynamodb_table.workouts.name
       MOCK_AUTH      = "true" # Temporary fix: Enable mock auth until Cognito is fully configured
+      LOG_LEVEL      = var.log_level
     }
   }
 
@@ -58,10 +59,8 @@ resource "aws_iam_policy" "lambda_dynamodb" {
         Action = [
           "dynamodb:GetItem",
           "dynamodb:PutItem",
-          "dynamodb:UpdateItem",
-          "dynamodb:DeleteItem",
           "dynamodb:Query",
-          "dynamodb:Scan"
+          "dynamodb:BatchWriteItem"
         ]
         Effect   = "Allow"
         Resource = aws_dynamodb_table.workouts.arn

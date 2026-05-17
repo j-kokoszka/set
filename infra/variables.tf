@@ -33,3 +33,9 @@ variable "cloudflare_zone_id" {
   type        = string
   default     = "dbd91891fabf248c5845c99f7479e865"
 }
+
+variable "log_level" {
+  description = "Log level for the application"
+  type        = string
+  default     = "INFO"
+}

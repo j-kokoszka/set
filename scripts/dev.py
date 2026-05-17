@@ -59,7 +59,7 @@ def run():
     env["PYTHONPATH"] = os.getcwd() + "/backend"
     
     backend_proc = subprocess.Popen(
-        ["./venv/bin/python", "-m", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"],
+        ["uv", "run", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"],
         cwd="backend",
         env=env,
         stdout=subprocess.PIPE,

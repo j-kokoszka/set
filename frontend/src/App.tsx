@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import './index.css'
+import { parseBackendError } from './utils/error'
 
 interface Set {
   reps: number;
@@ -137,10 +138,11 @@ function App() {
       if (response.ok) {
         fetchHistory();
       } else {
-        alert('Failed to delete workout.');
+        const errorMessage = await parseBackendError(response, 'Failed to delete workout');
+        alert(errorMessage);
       }
-    } catch {
-      alert('Error connecting to backend.');
+    } catch (error) {
+      alert(`Error connecting to backend: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };
 
@@ -278,10 +280,11 @@ function App() {
         setView('history');
         fetchHistory();
       } else {
-        alert('Failed to save workout.');
+        const errorMessage = await parseBackendError(response, 'Failed to save workout');
+        alert(errorMessage);
       }
-    } catch {
-      alert('Error connecting to backend.');
+    } catch (error) {
+      alert(`Error connecting to backend: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };
 
@@ -303,7 +306,7 @@ function App() {
                 autoFocus
               />
             </div>
-            <button className="btn" type="submit" style={{ width: '100%', padding: '0.8rem' }}>
+            <button className="btn" type="submit" style={{ padding: '0.8rem' }}>
               Login
             </button>
           </form>
@@ -325,16 +328,18 @@ function App() {
           <button 
             className={`btn ${view === 'workout' ? '' : 'btn-secondary'}`} 
             onClick={() => setView('workout')}
+            style={{ width: 'auto' }}
           >
             Log
           </button>
           <button 
             className={`btn ${view === 'history' ? '' : 'btn-secondary'}`} 
             onClick={() => { setView('history'); }}
+            style={{ width: 'auto' }}
           >
             History
           </button>
-          <button className="btn btn-secondary" onClick={handleLogout} title="Sign Out">
+          <button className="btn btn-secondary" onClick={handleLogout} title="Sign Out" style={{ width: 'auto' }}>
             Logout
           </button>
         </div>
@@ -362,7 +367,7 @@ function App() {
                       ✕
                     </button>
                   </div>
-                  <button className="btn btn-secondary" style={{ padding: '0.2rem 0.6rem', fontSize: '0.8rem' }} onClick={() => addSet(exIdx)}>
+                  <button className="btn btn-secondary" style={{ padding: '0.2rem 0.6rem', fontSize: '0.8rem', width: 'auto' }} onClick={() => addSet(exIdx)}>
                     + Set
                   </button>
                 </div>
@@ -423,7 +428,7 @@ function App() {
           </div>
 
           {!isAdding ? (
-            <button className="btn" style={{ width: '100%', marginTop: '1.5rem', background: '#2d2d2d', border: '1px dashed var(--border-color)' }} onClick={() => setIsAdding(true)}>
+            <button className="btn" style={{ background: '#2d2d2d', border: '1px dashed var(--border-color)', marginTop: '1.5rem' }} onClick={() => setIsAdding(true)}>
               + Add Exercise
             </button>
           ) : (

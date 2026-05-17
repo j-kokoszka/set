@@ -26,6 +26,11 @@ jobs:
         with:
           tofu_version: 1.11.6
 
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
       # 1. Apply Infrastructure
       - name: Tofu Apply
         run: |
@@ -41,7 +46,7 @@ jobs:
           mkdir -p lambda_package
           cp backend/*.py lambda_package/
           grep -vE "boto3|botocore" backend/requirements.txt > temp_reqs.txt
-          pip install -r temp_reqs.txt -t lambda_package/
+          uv pip install -r temp_reqs.txt -t lambda_package/ --python-platform x86_64-manylinux_2_17 --python-version 3.11 --only-binary :all:
           cd lambda_package
           rm -rf *.dist-info __pycache__ bin
           zip -r ../infra/lambda_function_payload.zip .
@@ -61,4 +66,12 @@ jobs:
       - name: Sync S3
         run: |
           S3_BUCKET=$(cd infra && tofu output -raw s3_bucket_name)
-          aws s3 sync frontend/dist/ s3://$S3_BUCKET/ --delete
+          # Sync all files with long-term caching (Vite hashes assets)
+          aws s3 sync frontend/dist/ s3://$S3_BUCKET/ --delete --cache-control "max-age=31536000, public"
+          # Overwrite index.html with no-cache to ensure users always get the latest version
+          aws s3 cp frontend/dist/index.html s3://$S3_BUCKET/index.html --cache-control "no-cache, no-store, must-revalidate"
+
+      - name: Invalidate CloudFront
+        run: |
+          DISTRIBUTION_ID=$(cd infra && tofu output -raw cloudfront_distribution_id)
+          aws cloudfront create-invalidation --distribution-id $DISTRIBUTION_ID --paths "/*"

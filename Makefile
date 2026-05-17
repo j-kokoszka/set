@@ -14,7 +14,9 @@ test:
 	export AWS_SECRET_ACCESS_KEY=local && \
 	export AWS_DEFAULT_REGION=us-east-1 && \
 	export MOCK_AUTH=true && \
-	pytest tests/test_api.py tests/test_workout_edit.py
+	export VIRTUAL_ENV=backend/venv && \
+	uv run python -c "from backend.database import db; db.create_table_if_not_exists()" && \
+	uv run pytest tests/test_api.py tests/test_workout_edit.py
 
 # Clean up local environment
 clean:
@@ -26,7 +28,7 @@ clean:
 # Install all dependencies (Backend & Frontend)
 install-deps:
 	@echo "Installing backend dependencies..."
-	cd backend && ./venv/bin/pip install -r requirements.txt
+	cd backend && uv venv venv --allow-existing && VIRTUAL_ENV=venv uv pip install -r requirements.txt && VIRTUAL_ENV=venv uv pip install pytest httpx pytest-mock moto
 	@echo "Installing frontend dependencies..."
 	cd frontend && npm install
 
