@@ -11,11 +11,18 @@ describe('App Component', () => {
     // Ensure no token in localStorage
     localStorage.removeItem('set_token')
     
+    // Mock successful fetch response for exercises
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve([])
+    })
+
     render(<App />)
     
     expect(screen.getByText('set')).toBeInTheDocument()
     expect(screen.getByLabelText('Username')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Login' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Mock Login' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Sign in with Google/i })).toBeInTheDocument()
   })
 
   it('renders app header and tabs when authenticated', () => {

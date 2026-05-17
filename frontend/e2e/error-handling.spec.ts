@@ -5,7 +5,7 @@ test.describe('set app - error handling', () => {
     await page.goto('/');
     // Login
     await page.getByLabel('Username').fill('testuser');
-    await page.getByRole('button', { name: 'Login' }).click();
+    await page.getByRole('button', { name: 'Mock Login' }).click();
   });
 
   test('should show descriptive error when saving a workout fails', async ({ page }) => {

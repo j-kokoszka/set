@@ -75,7 +75,7 @@ clean:
 # Install all dependencies (Backend & Frontend)
 install-deps:
 	@echo "Installing backend dependencies..."
-	cd backend && uv venv venv --allow-existing && VIRTUAL_ENV=venv uv pip install -r requirements.txt && VIRTUAL_ENV=venv uv pip install pytest httpx pytest-mock moto
+	cd backend && uv venv venv --allow-existing && VIRTUAL_ENV=venv uv pip install -r requirements.txt && VIRTUAL_ENV=venv uv pip install pytest httpx pytest-mock moto pytest-asyncio anyio
 	@echo "Installing frontend dependencies..."
 	cd frontend && npm install
 
