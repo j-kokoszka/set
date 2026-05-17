@@ -37,6 +37,24 @@ interface WorkoutHistoryItem {
   }[];
 }
 
+interface PlanExerciseSet {
+  reps?: number;
+  weight?: number;
+  unit: 'kg' | 'lbs';
+}
+
+interface PlanExercise {
+  exercise_id?: string;
+  exercise_name: string;
+  sets: PlanExerciseSet[];
+}
+
+interface WorkoutPlan {
+  id: string;
+  name: string;
+  exercises: PlanExercise[];
+}
+
 const KG_TO_LBS = 2.20462;
 const BASE_URL = import.meta.env.VITE_API_URL || '/api';
 
@@ -45,17 +63,20 @@ function App() {
   const [user, setUser] = useState<string | null>(localStorage.getItem('set_user'));
   const [loginUsername, setLoginUsername] = useState('');
 
-  const [view, setView] = useState<'workout' | 'history'>('workout');
+  const [view, setView] = useState<'workout' | 'history' | 'plans'>('workout');
   const [workoutName, setWorkoutName] = useState('New Workout');
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [allExercises, setAllExercises] = useState<StandardExercise[]>([]);
   const [history, setHistory] = useState<WorkoutHistoryItem[]>([]);
+  const [plans, setPlans] = useState<WorkoutPlan[]>([]);
   const [loading, setLoading] = useState(false);
   const [isAdding, setIsAdding] = useState(false);
+  const [isSelectingPlan, setIsSelectingPlan] = useState(false);
   const [newExName, setNewExName] = useState("");
   const [searchIndex, setSearchIndex] = useState(-1);
   const [editingWorkoutId, setEditingWorkoutId] = useState<string | null>(null);
   const [editingWorkoutDate, setEditingWorkoutDate] = useState<string | null>(null);
+  const [editingPlanId, setEditingPlanId] = useState<string | null>(null);
 
   // Navigation state
   const [navPath, setNavPath] = useState<string[]>([]);
@@ -99,15 +120,41 @@ function App() {
     }
   };
 
+  const fetchPlans = async () => {
+    if (!token) return;
+    setLoading(true);
+    try {
+      const response = await fetch(`${BASE_URL}/plans`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setPlans(data);
+      } else {
+        console.error('Failed to fetch plans');
+      }
+    } catch (e) {
+      console.error('Error fetching plans:', e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void fetchExercises();
   }, []);
 
   useEffect(() => {
-    if (token && view === 'history') {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      void fetchHistory();
+    if (token) {
+      if (view === 'history') {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        void fetchHistory();
+      } else if (view === 'plans') {
+        void fetchPlans();
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token, view]);
@@ -129,6 +176,36 @@ function App() {
     localStorage.removeItem('set_token');
     localStorage.removeItem('set_user');
     setView('workout');
+  };
+
+  const deletePlan = async (id: string) => {
+    if (!token) return;
+    if (!window.confirm('Are you sure you want to delete this plan?')) return;
+
+    try {
+      const response = await fetch(`${BASE_URL}/plans/${id}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (response.ok) fetchPlans();
+    } catch (e) {
+      console.error('Error deleting plan:', e);
+      alert('Error deleting plan');
+    }
+  };
+
+  const startFromPlan = (plan: WorkoutPlan) => {
+    setWorkoutName(plan.name);
+    setExercises(plan.exercises.map(ex => ({
+      id: ex.exercise_id,
+      name: ex.exercise_name,
+      sets: ex.sets.map(s => ({
+        reps: s.reps || 10,
+        weight: s.weight || 0,
+        unit: s.unit
+      }))
+    })));
+    setIsSelectingPlan(false);
   };
 
   const deleteWorkout = async (sk: string) => {
@@ -172,6 +249,21 @@ function App() {
       id: ex.exercise_id,
       name: ex.exercise_name,
       sets: ex.sets
+    })));
+    setView('workout');
+  };
+
+  const startPlanEdit = (plan: WorkoutPlan) => {
+    setEditingPlanId(plan.id);
+    setWorkoutName(plan.name);
+    setExercises(plan.exercises.map(ex => ({
+      id: ex.exercise_id,
+      name: ex.exercise_name,
+      sets: ex.sets.map(s => ({
+        reps: s.reps || 10,
+        weight: s.weight || 0,
+        unit: s.unit
+      }))
     })));
     setView('workout');
   };
@@ -299,8 +391,52 @@ function App() {
         const errorMessage = await parseBackendError(response, 'Failed to save workout');
         alert(errorMessage);
       }
-    } catch (error) {
-      alert(`Error connecting to backend: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } catch (e) {
+      console.error('Error saving workout:', e);
+      alert(`Error connecting to backend: ${e instanceof Error ? e.message : 'Unknown error'}`);
+    }
+  };
+
+  const savePlan = async () => {
+    if (!token) return;
+    const plan: Partial<WorkoutPlan> = {
+      name: workoutName,
+      exercises: exercises.map(ex => ({
+        exercise_id: ex.id,
+        exercise_name: ex.name,
+        sets: ex.sets.map(s => ({
+          reps: s.reps,
+          weight: s.weight,
+          unit: s.unit
+        }))
+      }))
+    };
+
+    if (editingPlanId) plan.id = editingPlanId;
+
+    try {
+      const response = await fetch(`${BASE_URL}/plans${editingPlanId ? `/${editingPlanId}` : ''}`, {
+        method: editingPlanId ? 'PUT' : 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(plan)
+      });
+      if (response.ok) {
+        alert(editingPlanId ? 'Plan updated!' : 'Plan saved!');
+        setEditingPlanId(null);
+        setWorkoutName('New Workout');
+        setExercises([]);
+        setView('plans');
+        fetchPlans();
+      } else {
+        const errorMessage = await parseBackendError(response, 'Failed to save plan');
+        alert(errorMessage);
+      }
+    } catch (e) {
+      console.error('Error saving plan:', e);
+      alert('Error saving plan');
     }
   };
 
@@ -355,6 +491,13 @@ function App() {
           >
             History
           </button>
+          <button 
+            className={`btn ${view === 'plans' ? '' : 'btn-secondary'}`} 
+            onClick={() => { setView('plans'); }}
+            style={{ width: 'auto' }}
+          >
+            Plans
+          </button>
           <button className="btn btn-secondary" onClick={handleLogout} title="Sign Out" style={{ width: 'auto' }}>
             Logout
           </button>
@@ -363,12 +506,43 @@ function App() {
 
       {view === 'workout' ? (
         <div className="card">
-          <input 
-            style={{ fontSize: '1.2rem', fontWeight: 'bold', marginBottom: '1rem', border: 'none', background: 'transparent', padding: '0', color: 'white' }}
-            value={workoutName} 
-            onChange={(e) => setWorkoutName(e.target.value)} 
-            placeholder="Workout Name"
-          />
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+            <input 
+              style={{ fontSize: '1.2rem', fontWeight: 'bold', border: 'none', background: 'transparent', padding: '0', color: 'white', flex: 1 }}
+              value={workoutName} 
+              onChange={(e) => setWorkoutName(e.target.value)} 
+              placeholder="Workout Name"
+            />
+            {!editingWorkoutId && !editingPlanId && (
+              <button 
+                className="btn btn-secondary" 
+                style={{ width: 'auto', fontSize: '0.8rem' }}
+                onClick={() => setIsSelectingPlan(true)}
+              >
+                Start from Plan
+              </button>
+            )}
+          </div>
+
+          {isSelectingPlan && (
+            <div className="modal-overlay" onClick={() => setIsSelectingPlan(false)}>
+              <div className="card modal-content" onClick={e => e.stopPropagation()}>
+                <h3>Select a Plan</h3>
+                {plans.length === 0 ? (
+                  <p style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '1rem' }}>No plans found. Create one in the Plans tab!</p>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                    {plans.map(p => (
+                      <button key={p.id} className="btn btn-secondary" style={{ textAlign: 'left' }} onClick={() => startFromPlan(p)}>
+                        {p.name}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                <button className="btn" style={{ marginTop: '1rem' }} onClick={() => setIsSelectingPlan(false)}>Cancel</button>
+              </div>
+            </div>
+          )}
           
           <div className="workout-grid">
             {exercises.map((ex, exIdx) => (
@@ -550,13 +724,28 @@ function App() {
             </div>
           )}
           
-          {exercises.length > 0 && (
-            <button className="btn" style={{ width: '100%', background: 'var(--success-color)', padding: '1rem', fontSize: '1rem', marginTop: '1.5rem' }} onClick={saveWorkout}>
-              {editingWorkoutId ? 'Update Workout' : 'Save Workout'}
-            </button>
-          )}
+          <div style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem' }}>
+            {exercises.length > 0 && (
+              <button 
+                className="btn" 
+                style={{ flex: 2, background: 'var(--success-color)', padding: '1rem', fontSize: '1rem' }} 
+                onClick={saveWorkout}
+              >
+                {editingWorkoutId ? 'Update Workout' : 'Save Workout'}
+              </button>
+            )}
+            {exercises.length > 0 && !editingWorkoutId && (
+              <button 
+                className="btn btn-secondary" 
+                style={{ flex: 1, padding: '1rem', fontSize: '1rem' }} 
+                onClick={savePlan}
+              >
+                {editingPlanId ? 'Update Plan' : 'Save as Plan'}
+              </button>
+            )}
+          </div>
         </div>
-      ) : (
+      ) : view === 'history' ? (
         <div className="history-list">
           {loading ? (
             <p style={{ textAlign: 'center' }}>Loading history...</p>
@@ -593,6 +782,57 @@ function App() {
                   {w.exercises?.map((ex, eIdx: number) => (
                     <div key={eIdx} style={{ fontSize: '0.8rem', background: '#2d2d2d', padding: '0.2rem 0.5rem', borderRadius: '4px' }}>
                       {ex.exercise_name} ({ex.sets?.length} sets)
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      ) : (
+        <div className="plans-list">
+          {loading ? (
+            <p style={{ textAlign: 'center' }}>Loading plans...</p>
+          ) : plans.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '2rem' }}>
+              <p style={{ color: 'var(--text-muted)', marginBottom: '1.5rem' }}>No plans found. Templates help you start workouts faster!</p>
+              <button className="btn" onClick={() => { setView('workout'); setWorkoutName('New Plan'); setExercises([]); }}>
+                Create My First Plan
+              </button>
+            </div>
+          ) : (
+            plans.map((p) => (
+              <div key={p.id} className="card" style={{ marginBottom: '1rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                  <strong style={{ fontSize: '1.1rem' }}>{p.name}</strong>
+                  <div style={{ display: 'flex', gap: '0.5rem' }}>
+                    <button 
+                      className="btn btn-secondary" 
+                      style={{ width: 'auto', fontSize: '0.8rem', padding: '0.2rem 0.6rem' }}
+                      onClick={() => startFromPlan(p)}
+                    >
+                      Use
+                    </button>
+                    <button 
+                      onClick={() => startPlanEdit(p)}
+                      style={{ background: 'transparent', border: 'none', color: 'var(--primary-color)', cursor: 'pointer', fontSize: '0.9rem', padding: '0.5rem' }}
+                      title="Edit plan"
+                    >
+                      ✎
+                    </button>
+                    <button 
+                      onClick={() => deletePlan(p.id)}
+                      style={{ background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '0.9rem', padding: '0.5rem' }}
+                      title="Delete plan"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                </div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                  {p.exercises.map((ex, eIdx) => (
+                    <div key={eIdx} style={{ fontSize: '0.8rem', background: '#2d2d2d', padding: '0.2rem 0.5rem', borderRadius: '4px' }}>
+                      {ex.exercise_name}
                     </div>
                   ))}
                 </div>
