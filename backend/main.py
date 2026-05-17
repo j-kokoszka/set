@@ -36,28 +36,20 @@ structlog.configure(
 
 logger = structlog.get_logger()
 
-# Middleware for request/response logging
-@app.middleware("http")
-async def log_requests(request, call_next):
-    logger.debug("Request received", method=request.method, url=str(request.url))
-    response = await call_next(request)
-    if response.status_code >= 400:
-        logger.error("Request failed", status=response.status_code, url=str(request.url))
-    return response
-
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    try:
-        db.create_table_if_not_exists()
-    except Exception as e:
-        logger.warning("Startup table creation skipped/failed", error=str(e))
-    yield
-
 app = FastAPI(
     title="set API", 
     lifespan=lifespan,
     root_path="/api"
 )
+
+# Middleware for request/response logging
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    logger.debug("Request received", method=request.method, url=str(request.url))
+    response = await call_next(request)
+    if response.status_code >= 400:
+        logger.error("Request failed", status=response.status_code, url=str(request.url))
+    return response
 
 app.add_middleware(
     CORSMiddleware,
