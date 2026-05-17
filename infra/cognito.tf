@@ -74,4 +74,7 @@ resource "aws_cognito_user_pool_client" "client" {
   ]
 
   generate_secret = false
+
+  # Ensure IdP is fully recognized before creating client that depends on it
+  depends_on = [aws_cognito_identity_provider.google]
 }
