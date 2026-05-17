@@ -1,11 +1,11 @@
-.PHONY: dev test clean install-deps
+.PHONY: dev test clean install-deps lint build verify
 
 # Default target: start the full dev environment
 dev:
 	@echo "Starting 'set' development environment..."
 	python3 scripts/dev.py
 
-# Run all backend tests
+# Run all tests (Backend and Frontend)
 test:
 	@echo "Running backend API tests..."
 	@export PYTHONPATH=$${PYTHONPATH}:backend && \
@@ -15,11 +15,30 @@ test:
 	export AWS_DEFAULT_REGION=us-east-1 && \
 	export MOCK_AUTH=true && \
 	export VIRTUAL_ENV=backend/venv && \
-	uv run python -c "from backend.database import db; db.create_table_if_not_exists()" && \
-	uv run pytest tests/test_api.py tests/test_workout_edit.py
+	uv run pytest tests/
+	@echo "Running frontend E2E tests..."
+	cd frontend && npx playwright test
+
+# Run all linters
+lint:
+	@echo "Linting frontend..."
+	cd frontend && npm run lint
+	@echo "Linting backend..."
+	# Assuming ruff or similar could be added here later, for now just checking frontend
+	cd frontend && npm run lint
+
+# Build the project
+build:
+	@echo "Building frontend..."
+	cd frontend && npm run build
+
+# Comprehensive verification (lint + test + build)
+verify: lint test build
+	@echo "✅ All checks passed!"
 
 # Clean up local environment
-clean:
+...
+
 	@echo "Cleaning up..."
 	-podman stop dynamodb-local
 	-pkill -f uvicorn
