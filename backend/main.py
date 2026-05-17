@@ -36,6 +36,14 @@ structlog.configure(
 
 logger = structlog.get_logger()
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    try:
+        db.create_table_if_not_exists()
+    except Exception as e:
+        logger.warning("Startup table creation skipped/failed", error=str(e))
+    yield
+
 app = FastAPI(
     title="set API", 
     lifespan=lifespan,
