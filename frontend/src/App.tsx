@@ -493,11 +493,13 @@ function App() {
                       } else if (e.key === 'ArrowUp') {
                         e.preventDefault();
                         setSearchIndex(prev => Math.max(prev - 1, -1));
+                      } else if (e.key === 'Escape') {
+                        setIsAdding(false);
                       }
-                    }}
-                  />
-                  {newExName.trim() !== "" && (
-                    <div className="exercise-suggestions" style={{ position: 'static', marginTop: '0.5rem', border: '1px solid var(--border-color)' }}>
+                      }}
+                      />
+                      {newExName.trim() !== "" && (
+                      <div className="exercise-suggestions" style={{ position: 'static', marginTop: '0.5rem', border: '1px solid var(--border-color)' }}>
                       {filteredExercises.length > 0 ? filteredExercises.map((ex, i) => (
                         <div 
                           key={ex.id} 
@@ -507,9 +509,10 @@ function App() {
                         >
                           <div style={{ display: 'flex', flexDirection: 'column' }}>
                             <span>{ex.name}</span>
-                            <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{ex.primaryMuscles.join(', ')}</span>
+                            <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{ex.primaryMuscles?.join(', ')}</span>
                           </div>
                         </div>
+
                       )) : (
                         <div className="suggestion-item" onClick={() => addExercise()}>
                           Add custom: "{newExName}"
@@ -535,7 +538,7 @@ function App() {
                   ))}
 
                   {navPath.length === 2 && allExercises
-                    .filter(ex => ex.primaryMuscles.includes(navPath[1]))
+                    .filter(ex => ex.primaryMuscles?.includes(navPath[1]))
                     .map(ex => (
                       <button key={ex.id} className="btn btn-secondary" onClick={() => { addExercise(ex); setNavPath([]); }} style={{ fontSize: '0.8rem', textAlign: 'left', height: 'auto', padding: '0.5rem' }}>
                         {ex.name}

@@ -70,7 +70,15 @@ exercises_cache = []
 if os.path.exists(EXERCISES_FILE):
     try:
         with open(EXERCISES_FILE, "r") as f:
-            exercises_cache = json.load(f)
+            raw_exercises = json.load(f)
+            # Ensure each exercise has primaryMuscles as an array to prevent frontend crashes
+            exercises_cache = []
+            for ex in raw_exercises:
+                if not isinstance(ex, dict): continue
+                ex["primaryMuscles"] = ex.get("primaryMuscles") or []
+                if not isinstance(ex["primaryMuscles"], list):
+                    ex["primaryMuscles"] = [str(ex["primaryMuscles"])]
+                exercises_cache.append(ex)
     except Exception as e:
         logger.error("failed_to_load_exercises", error=str(e))
 else:
