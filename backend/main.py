@@ -13,10 +13,11 @@ import logging
 import sys
 
 # Configure structured logging
+log_level = os.getenv("LOG_LEVEL", "INFO").upper()
 logging.basicConfig(
     format="%(message)s",
     stream=sys.stdout,
-    level=logging.DEBUG,
+    level=getattr(logging, log_level, logging.INFO),
 )
 
 structlog.configure(
