@@ -47,4 +47,15 @@ def test_workout_lifecycle():
     assert len(history) >= 1
     assert history[0]["sets"][0]["weight"] == 100.5
     
+    # 5. Delete workout
+    resp = client.delete(f"/workouts/{workout_id}?date={workout_data['date']}", headers=headers)
+    assert resp.status_code == 200
+    assert resp.json()["message"] == "Workout deleted successfully"
+    
+    # 6. Verify deletion
+    resp = client.get("/workouts", headers=headers)
+    assert resp.status_code == 200
+    workouts = resp.json()
+    assert not any(w["id"] == workout_id for w in workouts)
+    
     print("\n✅ API Lifecycle Test Passed!")
