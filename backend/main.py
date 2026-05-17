@@ -44,7 +44,11 @@ async def lifespan(app: FastAPI):
         logger.warning("Startup table creation skipped/failed", error=str(e))
     yield
 
-app = FastAPI(title="set API", lifespan=lifespan)
+app = FastAPI(
+    title="set API", 
+    lifespan=lifespan,
+    root_path="/api"
+)
 
 app.add_middleware(
     CORSMiddleware,

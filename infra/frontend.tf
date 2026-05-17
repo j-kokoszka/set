@@ -45,9 +45,8 @@ function handler(event) {
     var request = event.request;
     var uri = request.uri;
 
-    // 1. Handle API requests (strip /api prefix)
+    // 1. Handle API requests (keep /api prefix for FastAPI root_path)
     if (uri.startsWith('/api/')) {
-        request.uri = uri.replace(/^\/api/, '');
         return request;
     }
 
