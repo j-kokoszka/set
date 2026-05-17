@@ -4,7 +4,7 @@ import json
 from decimal import Decimal
 from botocore.exceptions import ClientError
 from typing import List, Optional
-from models import Workout
+from models import Workout, WorkoutPlan
 import structlog
 
 logger = structlog.get_logger()
@@ -169,6 +169,47 @@ class Database:
             return True
         except Exception as e:
             logger.error("Error updating in DynamoDB", error=str(e), user_id=workout.user_id, workout_id=workout.id)
+            raise e
+
+    def save_plan(self, plan: WorkoutPlan):
+        try:
+            plan_data = to_dynamo_item(plan.model_dump())
+            item = {
+                'pk': f"USER#{plan.user_id}",
+                'sk': f"PLAN#{plan.id}",
+                'type': 'PLAN',
+                **plan_data
+            }
+            logger.info("Saving workout plan", user_id=plan.user_id, plan_id=plan.id)
+            self.table.put_item(Item=item)
+            logger.info("Workout plan saved successfully", plan_id=plan.id)
+        except Exception as e:
+            logger.error("Error saving plan to DynamoDB", error=str(e), user_id=plan.user_id, plan_id=plan.id)
+            raise e
+
+    def get_plans(self, user_id: str) -> List[dict]:
+        try:
+            response = self.table.query(
+                KeyConditionExpression="pk = :pk AND begins_with(sk, :sk)",
+                ExpressionAttributeValues={
+                    ':pk': f"USER#{user_id}",
+                    ':sk': "PLAN#"
+                }
+            )
+            return from_dynamo_item(response.get('Items', []))
+        except Exception as e:
+            logger.error("Error querying plans", error=str(e), user_id=user_id)
+            raise e
+
+    def delete_plan(self, user_id: str, plan_id: str):
+        try:
+            pk = f"USER#{user_id}"
+            sk = f"PLAN#{plan_id}"
+            self.table.delete_item(Key={'pk': pk, 'sk': sk})
+            logger.info("Workout plan deleted successfully", plan_id=plan_id)
+            return True
+        except Exception as e:
+            logger.error("Error deleting plan from DynamoDB", error=str(e), user_id=user_id, plan_id=plan_id)
             raise e
 
 db = Database()

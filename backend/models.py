@@ -19,3 +19,19 @@ class Workout(BaseModel):
     date: str = Field(default_factory=lambda: datetime.now().isoformat())
     exercises: List[ExerciseRecord]
     user_id: Optional[str] = None
+
+class PlanExerciseSet(BaseModel):
+    reps: Optional[int] = None
+    weight: Optional[float] = None
+    unit: str = "kg"
+
+class PlanExercise(BaseModel):
+    exercise_id: Optional[str] = None
+    exercise_name: str
+    sets: List[PlanExerciseSet]
+
+class WorkoutPlan(BaseModel):
+    id: Optional[str] = None
+    name: str
+    exercises: List[PlanExercise]
+    user_id: Optional[str] = None

@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from mangum import Mangum
 from typing import List
-from models import Workout, ExerciseRecord
+from models import Workout, ExerciseRecord, WorkoutPlan
 from database import db
 from auth import get_current_user
 import uuid
@@ -25,6 +25,7 @@ logging.basicConfig(
 structlog.configure(
     processors=[
         structlog.contextvars.merge_contextvars,
+        structlog.processors.add_log_level,
         structlog.processors.add_log_level,
         structlog.stdlib.filter_by_level,
         structlog.processors.StackInfoRenderer(),
@@ -170,6 +171,55 @@ def update_workout(workout_id: str, workout: Workout, old_date: str, user_id: st
         return workout
     except Exception as e:
         logger.error("Failed to update workout", error=str(e), user_id=user_id, workout_id=workout_id)
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/plans", response_model=WorkoutPlan)
+def create_plan(plan: WorkoutPlan, user_id: str = Depends(get_current_user)):
+    plan.user_id = user_id
+    if not plan.id:
+        plan.id = str(uuid.uuid4())
+    
+    logger.info("Creating workout plan", user_id=user_id, plan_id=plan.id)
+    try:
+        db.save_plan(plan)
+        return plan
+    except Exception as e:
+        logger.error("Failed to create workout plan", error=str(e), user_id=user_id)
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/plans")
+def list_plans(user_id: str = Depends(get_current_user)):
+    logger.info("Listing workout plans", user_id=user_id)
+    try:
+        return db.get_plans(user_id)
+    except Exception as e:
+        logger.error("Failed to list workout plans", error=str(e), user_id=user_id)
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.delete("/plans/{plan_id}")
+def delete_plan(plan_id: str, user_id: str = Depends(get_current_user)):
+    logger.info("Deleting workout plan", user_id=user_id, plan_id=plan_id)
+    try:
+        success = db.delete_plan(user_id, plan_id)
+        if not success:
+            raise HTTPException(status_code=404, detail="Plan not found")
+        return {"message": "Workout plan deleted successfully"}
+    except Exception as e:
+        logger.error("Failed to delete workout plan", error=str(e), user_id=user_id, plan_id=plan_id)
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.put("/plans/{plan_id}", response_model=WorkoutPlan)
+def update_plan(plan_id: str, plan: WorkoutPlan, user_id: str = Depends(get_current_user)):
+    plan.user_id = user_id
+    if plan.id != plan_id:
+        raise HTTPException(status_code=400, detail="Plan ID mismatch")
+    
+    logger.info("Updating workout plan", user_id=user_id, plan_id=plan_id)
+    try:
+        db.save_plan(plan)
+        return plan
+    except Exception as e:
+        logger.error("Failed to update workout plan", error=str(e), user_id=user_id, plan_id=plan_id)
         raise HTTPException(status_code=500, detail=str(e))
 
 # Mangum handler for AWS Lambda
