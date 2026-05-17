@@ -7,3 +7,4 @@ python-dotenv
 structlog
 python-jose[cryptography]
 requests
+httpx

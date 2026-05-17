@@ -1,6 +1,5 @@
 import os
-import json
-import requests
+import httpx
 from fastapi import Header, HTTPException, status
 from jose import jwt, JWTError
 import structlog
@@ -18,14 +17,15 @@ MOCK_AUTH = os.getenv("MOCK_AUTH", "false").lower() == "true"
 JWKS_URL = f"https://cognito-idp.{AWS_REGION}.amazonaws.com/{COGNITO_USER_POOL_ID}/.well-known/jwks.json"
 _jwks_cache = None
 
-def get_jwks():
+async def get_jwks():
     global _jwks_cache
     if _jwks_cache is None:
         try:
-            response = requests.get(JWKS_URL, timeout=5)
-            response.raise_for_status()
-            _jwks_cache = response.json()
-            logger.info("JWKS fetched and cached")
+            async with httpx.AsyncClient() as client:
+                response = await client.get(JWKS_URL, timeout=5.0)
+                response.raise_for_status()
+                _jwks_cache = response.json()
+                logger.info("JWKS fetched and cached")
         except Exception as e:
             logger.error("failed_to_fetch_jwks", error=str(e), url=JWKS_URL)
             raise HTTPException(
@@ -69,13 +69,13 @@ async def get_current_user(authorization: Optional[str] = Header(None)):
             raise JWTError("Missing kid in header")
 
         # 2. Find the correct public key in JWKS
-        jwks = get_jwks()
+        jwks = await get_jwks()
         key = next((k for k in jwks["keys"] if k["kid"] == kid), None)
         if not key:
             # Force refresh cache once if key not found
             global _jwks_cache
             _jwks_cache = None
-            jwks = get_jwks()
+            jwks = await get_jwks()
             key = next((k for k in jwks["keys"] if k["kid"] == kid), None)
             if not key:
                 raise JWTError("Public key not found in JWKS")

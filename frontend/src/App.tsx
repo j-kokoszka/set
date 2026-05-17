@@ -173,7 +173,14 @@ function App() {
         
         // Try to extract user name from JWT payload
         try {
-          const payload = JSON.parse(atob(tokenToUse.split('.')[1]));
+          // Robust Base64URL decoding
+          const base64Url = tokenToUse.split('.')[1];
+          const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+          const jsonPayload = decodeURIComponent(window.atob(base64).split('').map(function(c) {
+              return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+          }).join(''));
+          
+          const payload = JSON.parse(jsonPayload);
           const username = payload.email || payload['cognito:username'] || payload.sub;
           setUser(username);
           localStorage.setItem('set_user', username);
