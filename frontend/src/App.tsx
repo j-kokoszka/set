@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import './index.css'
 import { parseBackendError } from './utils/error'
+import { generateCodeVerifier, generateCodeChallenge, base64UrlDecode } from './utils/auth'
 
 interface Set {
   reps: number;
@@ -158,42 +159,75 @@ function App() {
   };
 
   useEffect(() => {
-    // 1. Check for token in URL hash (returning from Cognito)
-    const hash = window.location.hash;
-    if (hash) {
-      const params = new URLSearchParams(hash.substring(1));
-      const idToken = params.get('id_token');
-      const accessToken = params.get('access_token');
-      const tokenToUse = idToken || accessToken;
-
-      if (tokenToUse) {
-        // eslint-disable-next-line react-hooks/set-state-in-effect
-        setToken(tokenToUse);
-        localStorage.setItem('set_token', tokenToUse);
-        
-        // Try to extract user name from JWT payload
-        try {
-          // Robust Base64URL decoding
-          const base64Url = tokenToUse.split('.')[1];
-          const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-          const jsonPayload = decodeURIComponent(window.atob(base64).split('').map(function(c) {
-              return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
-          }).join(''));
-          
-          const payload = JSON.parse(jsonPayload);
-          const username = payload.email || payload['cognito:username'] || payload.sub;
-          setUser(username);
-          localStorage.setItem('set_user', username);
-        } catch {
-          setUser('Authenticated User');
+    const handleAuth = async () => {
+      // 1. Check for 'code' in URL query (returning from Cognito with Auth Code Flow)
+      const params = new URLSearchParams(window.location.search);
+      const code = params.get('code');
+      
+      if (code) {
+        const codeVerifier = sessionStorage.getItem('code_verifier');
+        if (!codeVerifier) {
+          console.error('Missing code_verifier in sessionStorage');
+          return;
         }
 
-        // Clear hash from URL for cleanliness
-        window.history.replaceState(null, '', window.location.pathname);
-      }
-    }
+        try {
+          // Exchange code for tokens
+          const response = await fetch(`https://${COGNITO_DOMAIN}/oauth2/token`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: new URLSearchParams({
+              grant_type: 'authorization_code',
+              client_id: COGNITO_CLIENT_ID!,
+              code: code,
+              redirect_uri: APP_URL,
+              code_verifier: codeVerifier
+            })
+          });
 
-    // 2. Load exercises
+          const data = await response.json();
+          const idToken = data.id_token;
+
+          if (idToken) {
+            setToken(idToken);
+            localStorage.setItem('set_token', idToken);
+            
+            const payload = base64UrlDecode(idToken.split('.')[1]);
+            const username = payload?.email || payload?.['cognito:username'] || payload?.sub || 'Authenticated User';
+            setUser(username);
+            localStorage.setItem('set_user', username);
+
+            // Clean up
+            sessionStorage.removeItem('code_verifier');
+            window.history.replaceState(null, '', window.location.pathname);
+          }
+        } catch (e) {
+          console.error('Token exchange failed:', e);
+        }
+      }
+
+      // 2. Legacy check for token in hash (Implicit flow fallback)
+      const hash = window.location.hash;
+      if (hash) {
+        const hashParams = new URLSearchParams(hash.substring(1));
+        const idToken = hashParams.get('id_token') || hashParams.get('access_token');
+
+        if (idToken) {
+          setToken(idToken);
+          localStorage.setItem('set_token', idToken);
+          
+          const payload = base64UrlDecode(idToken.split('.')[1]);
+          const username = payload?.email || payload?.['cognito:username'] || payload?.sub || 'Authenticated User';
+          setUser(username);
+          localStorage.setItem('set_user', username);
+
+          window.history.replaceState(null, '', window.location.pathname);
+        }
+      }
+    };
+
+    void handleAuth();
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void fetchExercises();
   }, []);
 
@@ -220,12 +254,27 @@ function App() {
     }
   };
 
-  const handleGoogleLogin = () => {
+  const handleGoogleLogin = async () => {
     if (!COGNITO_DOMAIN || !COGNITO_CLIENT_ID) {
       alert('Google SSO is not configured for this environment.');
       return;
     }
-    const loginUrl = `https://${COGNITO_DOMAIN}/oauth2/authorize?client_id=${COGNITO_CLIENT_ID}&response_type=token&scope=email+openid+profile&redirect_uri=${encodeURIComponent(APP_URL)}`;
+
+    // Secure Authorization Code Flow with PKCE
+    const codeVerifier = generateCodeVerifier();
+    sessionStorage.setItem('code_verifier', codeVerifier);
+    const codeChallenge = await generateCodeChallenge(codeVerifier);
+
+    const loginUrl = `https://${COGNITO_DOMAIN}/oauth2/authorize?` + new URLSearchParams({
+      client_id: COGNITO_CLIENT_ID,
+      response_type: 'code',
+      scope: 'email openid profile',
+      redirect_uri: APP_URL,
+      code_challenge_method: 'S256',
+      code_challenge: codeChallenge,
+      identity_provider: 'Google' // Direct to Google login
+    }).toString();
+
     window.location.href = loginUrl;
   };
 
