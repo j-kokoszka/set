@@ -39,6 +39,8 @@ jobs:
           tofu apply -auto-approve
         env:
           TF_VAR_cloudflare_api_token: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          TF_VAR_google_client_id: ${{ secrets.GOOGLE_CLIENT_ID }}
+          TF_VAR_google_client_secret: ${{ secrets.GOOGLE_CLIENT_SECRET }}
 
       # 2. Deploy Backend (Lambda)
       - name: Package & Deploy Lambda
