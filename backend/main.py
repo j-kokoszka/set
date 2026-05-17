@@ -10,7 +10,6 @@ import uuid
 import json
 import os
 from contextlib import asynccontextmanager
-import os
 import structlog
 import logging
 import sys
@@ -74,6 +73,8 @@ if os.path.exists(EXERCISES_FILE):
             exercises_cache = json.load(f)
     except Exception as e:
         logger.error("failed_to_load_exercises", error=str(e))
+else:
+    logger.warning("exercises_file_missing", path=EXERCISES_FILE)
 
 @app.get("/exercises")
 def list_exercises():

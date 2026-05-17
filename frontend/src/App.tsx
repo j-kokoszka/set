@@ -52,18 +52,20 @@ function App() {
   const fetchExercises = async () => {
     try {
       const response = await fetch(`${BASE_URL}/exercises`);
+      if (!response.ok) throw new Error('Failed to fetch exercises');
       const data = await response.json();
       setAllExercises(data);
     } catch (error) {
       console.error('Error fetching exercises:', error);
+      alert('Could not load exercise database. Some features may be limited.');
     }
   };
 
   const filteredExercises = useMemo(() => {
-    if (!newExName.trim()) return [];
+    if (!newExName.trim()) return allExercises.slice(0, 15); // Show first 15 as default suggestions
     return allExercises.filter(ex => 
       ex.name.toLowerCase().includes(newExName.toLowerCase())
-    ).slice(0, 10); // Limit to top 10 for performance
+    ).slice(0, 10); // Limit search results to top 10 for performance
   }, [newExName, allExercises]);
 
   const fetchHistory = async () => {

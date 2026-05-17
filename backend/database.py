@@ -78,7 +78,7 @@ class Database:
 
     def save_workout(self, workout: Workout):
         try:
-            workout_data = to_dynamo_item(workout.dict())
+            workout_data = to_dynamo_item(workout.model_dump())
             item = {
                 'pk': f"USER#{workout.user_id}",
                 'sk': f"WORKOUT#{workout.date}#{workout.id}",
@@ -90,7 +90,7 @@ class Database:
             
             # Save individual exercise records
             for ex in workout.exercises:
-                ex_data = to_dynamo_item(ex.dict())
+                ex_data = to_dynamo_item(ex.model_dump())
                 self.table.put_item(
                     Item={
                         'pk': f"USER#{workout.user_id}",
