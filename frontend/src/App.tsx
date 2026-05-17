@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import './index.css'
+import { parseBackendError } from './utils/error'
 
 interface Set {
   reps: number;
@@ -121,19 +122,7 @@ function App() {
       if (response.ok) {
         fetchHistory();
       } else {
-        let errorMessage = 'Failed to delete workout.';
-        try {
-          const errorData = await response.json();
-          if (errorData && errorData.detail) {
-            errorMessage = `Failed to delete workout: ${errorData.detail} (Status: ${response.status})`;
-          } else if (errorData && errorData.error) {
-            errorMessage = `Failed to delete workout: ${errorData.error} (Status: ${response.status})`;
-          } else {
-            errorMessage = `Failed to delete workout. Status: ${response.status}`;
-          }
-        } catch {
-          errorMessage = `Failed to delete workout. Status: ${response.status}`;
-        }
+        const errorMessage = await parseBackendError(response, 'Failed to delete workout');
         alert(errorMessage);
       }
     } catch (error) {
@@ -261,19 +250,7 @@ function App() {
         setView('history');
         fetchHistory();
       } else {
-        let errorMessage = 'Failed to save workout.';
-        try {
-          const errorData = await response.json();
-          if (errorData && errorData.detail) {
-            errorMessage = `Failed to save workout: ${errorData.detail} (Status: ${response.status})`;
-          } else if (errorData && errorData.error) {
-            errorMessage = `Failed to save workout: ${errorData.error} (Status: ${response.status})`;
-          } else {
-            errorMessage = `Failed to save workout. Status: ${response.status}`;
-          }
-        } catch {
-          errorMessage = `Failed to save workout. Status: ${response.status}`;
-        }
+        const errorMessage = await parseBackendError(response, 'Failed to save workout');
         alert(errorMessage);
       }
     } catch (error) {
