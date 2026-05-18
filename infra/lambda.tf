@@ -20,13 +20,25 @@ resource "aws_lambda_function" "api" {
       COGNITO_USER_POOL_ID   = aws_cognito_user_pool.user_pool.id
       COGNITO_APP_CLIENT_ID  = aws_cognito_user_pool_client.client.id
       SET_AWS_REGION         = var.aws_region
-      GITHUB_PAT             = var.github_pat
+      GITHUB_PAT_SECRET_ID   = aws_secretsmanager_secret.github_pat.name
     }
   }
 
   lifecycle {
     ignore_changes = [filename, source_code_hash]
   }
+}
+
+# Secrets Manager for GITHUB_PAT
+resource "aws_secretsmanager_secret" "github_pat" {
+  name        = "${var.project_name}-github-pat"
+  description = "GitHub Personal Access Token for issue reporting"
+  recovery_window_in_days = 0 # For development/demo purposes
+}
+
+resource "aws_secretsmanager_secret_version" "github_pat" {
+  secret_id     = aws_secretsmanager_secret.github_pat.id
+  secret_string = var.github_pat
 }
 
 # IAM Role for Lambda
@@ -46,10 +58,31 @@ resource "aws_iam_role" "lambda_exec" {
   })
 }
 
-# IAM Policy for DynamoDB and Logging
+# IAM Policy for DynamoDB, Secrets Manager, and Logging
 resource "aws_iam_role_policy_attachment" "lambda_logs" {
   role       = aws_iam_role.lambda_exec.name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+}
+
+resource "aws_iam_policy" "lambda_secrets" {
+  name        = "${var.project_name}-lambda-secrets"
+  description = "IAM policy for Lambda to access Secrets Manager"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action   = "secretsmanager:GetSecretValue"
+        Effect   = "Allow"
+        Resource = aws_secretsmanager_secret.github_pat.arn
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "lambda_secrets_attach" {
+  role       = aws_iam_role.lambda_exec.name
+  policy_arn = aws_iam_policy.lambda_secrets.arn
 }
 
 resource "aws_iam_policy" "lambda_dynamodb" {
@@ -88,7 +121,10 @@ resource "aws_iam_policy" "lambda_bedrock" {
       {
         Action   = "bedrock:InvokeModel"
         Effect   = "Allow"
-        Resource = "*"
+        Resource = [
+          "arn:aws:bedrock:${var.aws_region}::foundation-model/amazon.nova-lite-v1:0",
+          "arn:aws:bedrock:${var.aws_region}::foundation-model/amazon.nova-micro-v1:0"
+        ]
       }
     ]
   })
