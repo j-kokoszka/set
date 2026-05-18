@@ -89,7 +89,10 @@ async def test_get_current_user_token_use_validation(monkeypatch):
     monkeypatch.setattr(auth, "get_jwks", mock_jwks)
 
     # Mock jwt.decode
+    decoded_options = {}
     def mock_decode(token, key, **kwargs):
+        nonlocal decoded_options
+        decoded_options = kwargs.get("options", {})
         if "id_token" in token:
             return {"token_use": "id", "aud": "client123", "sub": "user123"}
         if "access_token" in token:
@@ -105,6 +108,7 @@ async def test_get_current_user_token_use_validation(monkeypatch):
     # Test ID token success
     user_id = await auth.get_current_user("Bearer id_token")
     assert user_id == "user123"
+    assert decoded_options.get("verify_at_hash") is False
 
     # Test Access token success
     user_id = await auth.get_current_user("Bearer access_token")
