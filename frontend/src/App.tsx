@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import './index.css'
 import { parseBackendError } from './utils/error'
 import { generateCodeVerifier, generateCodeChallenge, base64UrlDecode } from './utils/auth'
@@ -96,53 +96,78 @@ function App() {
     setView('workout');
   };
 
+  const refreshPromise = useRef<Promise<string | null> | null>(null);
+
   const refreshIdToken = async () => {
-    const refreshToken = localStorage.getItem('set_refresh_token');
-    if (!refreshToken || !COGNITO_DOMAIN || !COGNITO_CLIENT_ID) {
-      handleLogout();
-      return null;
+    if (refreshPromise.current) {
+      return refreshPromise.current;
     }
 
-    try {
-      const response = await fetch(`https://${COGNITO_DOMAIN}/oauth2/token`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams({
-          grant_type: 'refresh_token',
-          client_id: COGNITO_CLIENT_ID,
-          refresh_token: refreshToken
-        })
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        const newIdToken = data.id_token;
-        if (newIdToken) {
-          setToken(newIdToken);
-          localStorage.setItem('set_token', newIdToken);
-          return newIdToken;
-        }
-      } else {
+    refreshPromise.current = (async () => {
+      const refreshToken = localStorage.getItem('set_refresh_token');
+      if (!refreshToken || !COGNITO_DOMAIN || !COGNITO_CLIENT_ID) {
         handleLogout();
+        return null;
       }
-    } catch (e) {
-      console.error('Failed to refresh token', e);
-    }
-    return null;
+
+      try {
+        const response = await fetch(`https://${COGNITO_DOMAIN}/oauth2/token`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: new URLSearchParams({
+            grant_type: 'refresh_token',
+            client_id: COGNITO_CLIENT_ID,
+            refresh_token: refreshToken
+          })
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          const newIdToken = data.id_token;
+          const newRefreshToken = data.refresh_token;
+          if (newIdToken) {
+            setToken(newIdToken);
+            localStorage.setItem('set_token', newIdToken);
+            if (newRefreshToken) {
+              localStorage.setItem('set_refresh_token', newRefreshToken);
+            }
+            return newIdToken;
+          }
+        } else {
+          handleLogout();
+        }
+      } catch (e) {
+        console.error('Failed to refresh token', e);
+      } finally {
+        refreshPromise.current = null;
+      }
+      return null;
+    })();
+
+    return refreshPromise.current;
   };
 
   const getValidToken = async () => {
     if (!token) return null;
     if (token.startsWith('mock_')) return token;
 
-    const payload = base64UrlDecode(token.split('.')[1]);
-    if (!payload || typeof payload.exp !== 'number') return token;
+    const parts = token.split('.');
+    if (parts.length !== 3) {
+      handleLogout();
+      return null;
+    }
+
+    const payload = base64UrlDecode(parts[1]);
+    if (!payload || typeof payload.exp !== 'number') {
+      handleLogout();
+      return null;
+    }
 
     const currentTime = Math.floor(Date.now() / 1000);
     // Refresh if expiring in less than 5 minutes
     if (payload.exp - currentTime < 300) {
       const newToken = await refreshIdToken();
-      return newToken || token;
+      return newToken;
     }
     return token;
   };
@@ -636,7 +661,7 @@ function App() {
               Sign in with Google
             </button>
 
-            {import.meta.env.DEV && (
+            {(import.meta.env.DEV || import.meta.env.VITE_ENABLE_MOCK_LOGIN === 'true') && (
               <>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', margin: '0.5rem 0' }}>
                   <div style={{ flex: 1, height: '1px', background: 'var(--border-color)' }}></div>
