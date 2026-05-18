@@ -92,6 +92,7 @@ async def get_current_user(authorization: Optional[str] = Header(None)):
             options={
                 "leeway": 60,
                 "verify_aud": False,
+                "verify_at_hash": False,
             }
         )
         
