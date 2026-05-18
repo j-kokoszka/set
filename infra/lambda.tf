@@ -20,6 +20,7 @@ resource "aws_lambda_function" "api" {
       COGNITO_USER_POOL_ID   = aws_cognito_user_pool.user_pool.id
       COGNITO_APP_CLIENT_ID  = aws_cognito_user_pool_client.client.id
       SET_AWS_REGION         = var.aws_region
+      GITHUB_PAT             = var.github_pat
     }
   }
 
@@ -75,6 +76,27 @@ resource "aws_iam_policy" "lambda_dynamodb" {
 resource "aws_iam_role_policy_attachment" "lambda_dynamodb_attach" {
   role       = aws_iam_role.lambda_exec.name
   policy_arn = aws_iam_policy.lambda_dynamodb.arn
+}
+
+resource "aws_iam_policy" "lambda_bedrock" {
+  name        = "${var.project_name}-lambda-bedrock"
+  description = "IAM policy for Lambda to invoke Bedrock models"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action   = "bedrock:InvokeModel"
+        Effect   = "Allow"
+        Resource = "*"
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "lambda_bedrock_attach" {
+  role       = aws_iam_role.lambda_exec.name
+  policy_arn = aws_iam_policy.lambda_bedrock.arn
 }
 
 # API Gateway (HTTP API)
