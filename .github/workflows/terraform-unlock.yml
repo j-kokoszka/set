@@ -2,10 +2,6 @@ name: Terraform State Unlock
 
 on:
   workflow_dispatch:
-    inputs:
-      lock_id:
-        description: 'The ID of the lock to release'
-        required: true
 
 permissions:
   id-token: write
@@ -24,17 +20,29 @@ jobs:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: eu-central-1
       
-      - name: Setup OpenTofu
-        uses: opentofu/setup-opentofu@v2
-        with:
-          tofu_version: 1.11.6
-
-      - name: Tofu Init & Unlock
+      - name: Clear DynamoDB Locks
         run: |
-          cd infra
-          tofu init
-          tofu force-unlock -force "${{ github.event.inputs.lock_id }}"
-        env:
-          TF_VAR_cloudflare_api_token: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          TF_VAR_google_client_id: ${{ secrets.GOOGLE_CLIENT_ID }}
-          TF_VAR_google_client_secret: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          echo "::warning:: This is a forceful operation that will clear ALL active Terraform locks in DynamoDB."
+          
+          # Identify the DynamoDB lock table name from backend.tf
+          TABLE_NAME=$(grep 'dynamodb_table' infra/backend.tf | awk -F'"' '{print $2}')
+          echo "Target DynamoDB table: $TABLE_NAME"
+          
+          if [ -z "$TABLE_NAME" ]; then
+            echo "Error: Could not identify DynamoDB table name from infra/backend.tf"
+            exit 1
+          fi
+
+          # Get all LockIDs from the table
+          LOCK_IDS=$(aws dynamodb scan --table-name "$TABLE_NAME" --projection-expression "LockID" --query "Items[].LockID.S" --output text)
+          
+          if [ -z "$LOCK_IDS" ] || [ "$LOCK_IDS" == "None" ]; then
+            echo "No active locks found in $TABLE_NAME."
+          else
+            echo "Found locks: $LOCK_IDS"
+            for lock_id in $LOCK_IDS; do
+              echo "Forcefully removing lock: $lock_id"
+              aws dynamodb delete-item --table-name "$TABLE_NAME" --key "{\"LockID\": {\"S\": \"$lock_id\"}}"
+            done
+            echo "Successfully cleared all locks."
+          fi
