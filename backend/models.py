@@ -35,3 +35,6 @@ class WorkoutPlan(BaseModel):
     name: str
     exercises: List[PlanExercise]
     user_id: Optional[str] = None
+
+class Feedback(BaseModel):
+    text: str

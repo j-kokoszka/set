@@ -3,12 +3,14 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from mangum import Mangum
 from typing import List
-from models import Workout, WorkoutPlan
+from models import Workout, WorkoutPlan, Feedback
 from database import db
 from auth import get_current_user
 import uuid
 import json
 import os
+import boto3
+import httpx
 from contextlib import asynccontextmanager
 import structlog
 import logging
@@ -222,6 +224,93 @@ def update_plan(plan_id: str, plan: WorkoutPlan, user_id: str = Depends(get_curr
     except Exception as e:
         logger.error("Failed to update workout plan", error=str(e), user_id=user_id, plan_id=plan_id)
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/feedback")
+async def submit_feedback(feedback: Feedback, user_id: str = Depends(get_current_user)):
+    logger.info("Received feedback", user_id=user_id)
+    
+    # 1. Call Bedrock to parse feedback
+    try:
+        bedrock = boto3.client("bedrock-runtime", region_name="us-east-1")
+        
+        prompt = f"""
+        Analyze the following user feedback for a workout tracking app and return a JSON object.
+        The JSON object must have the following keys:
+        - "title": A concise summary of the feedback.
+        - "body": A formatted Markdown description, categorizing it as a Bug or Feature Request and extracting relevant details.
+        - "labels": An array of labels (e.g., ["bug"], ["enhancement"], ["ui"]).
+
+        User Feedback:
+        {feedback.text}
+
+        JSON Output:
+        """
+        
+        response = bedrock.invoke_model(
+            modelId="amazon.nova-micro-v1:0",
+            body=json.dumps({
+                "inferenceConfig": {
+                    "max_new_tokens": 500,
+                },
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": [
+                            {"text": prompt}
+                        ]
+                    }
+                ]
+            })
+        )
+        
+        response_body = json.loads(response.get("body").read())
+        llm_text = response_body["output"]["message"]["content"][0]["text"]
+        
+        # Extract JSON from llm_text
+        if "```json" in llm_text:
+            llm_text = llm_text.split("```json")[1].split("```")[0].strip()
+        elif "```" in llm_text:
+            llm_text = llm_text.split("```")[1].split("```")[0].strip()
+            
+        parsed_feedback = json.loads(llm_text)
+        
+    except Exception as e:
+        logger.error("Failed to parse feedback with Bedrock", error=str(e))
+        parsed_feedback = {
+            "title": "User Feedback",
+            "body": feedback.text,
+            "labels": ["feedback"]
+        }
+
+    # 2. Call GitHub API to create issue
+    github_pat = os.getenv("GITHUB_PAT")
+    if not github_pat:
+        logger.error("GITHUB_PAT not set")
+        raise HTTPException(status_code=500, detail="GitHub integration not configured")
+        
+    repo_owner = "j-kokoszka"
+    repo_name = "set"
+    url = f"https://api.github.com/repos/{repo_owner}/{repo_name}/issues"
+    
+    headers = {
+        "Authorization": f"token {github_pat}",
+        "Accept": "application/vnd.github.v3+json"
+    }
+    
+    issue_data = {
+        "title": parsed_feedback.get("title", "User Feedback"),
+        "body": f"{parsed_feedback.get('body', feedback.text)}\n\n---\nSubmitted by: {user_id}",
+        "labels": parsed_feedback.get("labels", [])
+    }
+    
+    async with httpx.AsyncClient() as client:
+        gh_response = await client.post(url, headers=headers, json=issue_data)
+        
+    if gh_response.status_code != 201:
+        logger.error("Failed to create GitHub issue", status=gh_response.status_code, response=gh_response.text)
+        raise HTTPException(status_code=500, detail="Failed to submit feedback to GitHub")
+        
+    return {"message": "Feedback submitted successfully", "issue_url": gh_response.json().get("html_url")}
 
 # Mangum handler for AWS Lambda
 handler = Mangum(app)
