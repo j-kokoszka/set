@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useRef } from 'react'
 import './index.css'
 import { parseBackendError } from './utils/error'
 import { generateCodeVerifier, generateCodeChallenge, base64UrlDecode } from './utils/auth'
+import FeedbackButton from './FeedbackButton'
 
 interface Set {
   reps: number;
@@ -1101,6 +1102,7 @@ function App() {
           )}
         </div>
       )}
+      <FeedbackButton getValidToken={getValidToken} />
     </div>
   )
 }
