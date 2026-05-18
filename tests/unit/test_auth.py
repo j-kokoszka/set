@@ -73,3 +73,51 @@ async def test_get_current_user_invalid_token(monkeypatch):
         await auth.get_current_user("Bearer invalid.token.string")
     assert excinfo.value.status_code == 401
     assert "Invalid token" in excinfo.value.detail
+
+@pytest.mark.asyncio
+async def test_get_current_user_token_use_validation(monkeypatch):
+    monkeypatch.setattr(auth, "MOCK_AUTH", False)
+    monkeypatch.setattr(auth, "COGNITO_USER_POOL_ID", "pool123")
+    monkeypatch.setattr(auth, "COGNITO_APP_CLIENT_ID", "client123")
+
+    # Mock get_unverified_header
+    monkeypatch.setattr("jose.jwt.get_unverified_header", lambda t: {"kid": "123"})
+    
+    # Mock get_jwks
+    async def mock_jwks():
+        return {"keys": [{"kid": "123", "alg": "RS256"}]}
+    monkeypatch.setattr(auth, "get_jwks", mock_jwks)
+
+    # Mock jwt.decode
+    def mock_decode(token, key, **kwargs):
+        if "id_token" in token:
+            return {"token_use": "id", "aud": "client123", "sub": "user123"}
+        if "access_token" in token:
+            return {"token_use": "access", "client_id": "client123", "sub": "user123"}
+        if "wrong_client" in token:
+            return {"token_use": "id", "aud": "wrong", "sub": "user123"}
+        if "invalid_use" in token:
+            return {"token_use": "something_else", "sub": "user123"}
+        return {}
+
+    monkeypatch.setattr("jose.jwt.decode", mock_decode)
+
+    # Test ID token success
+    user_id = await auth.get_current_user("Bearer id_token")
+    assert user_id == "user123"
+
+    # Test Access token success
+    user_id = await auth.get_current_user("Bearer access_token")
+    assert user_id == "user123"
+
+    # Test wrong client ID
+    with pytest.raises(HTTPException) as excinfo:
+        await auth.get_current_user("Bearer wrong_client")
+    assert excinfo.value.status_code == 401
+    assert "Token not intended for this application" in excinfo.value.detail
+
+    # Test invalid token_use
+    with pytest.raises(HTTPException) as excinfo:
+        await auth.get_current_user("Bearer invalid_use")
+    assert excinfo.value.status_code == 401
+    assert "Invalid or missing token_use claim" in excinfo.value.detail

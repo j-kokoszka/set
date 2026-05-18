@@ -96,10 +96,23 @@ async def get_current_user(authorization: Optional[str] = Header(None)):
         )
         
         # 4. Verify the token is intended for our client
-        # ID tokens use 'aud', Access tokens use 'client_id'
-        token_client_id = payload.get("aud") or payload.get("client_id")
+        # Cognito ID tokens use 'aud', Access tokens use 'client_id'.
+        # We check 'token_use' to determine which claim to validate, as recommended
+        # to avoid mismatches if 'aud' contains the User Pool ARN.
+        token_use = payload.get("token_use")
+        if token_use == "id":
+            token_client_id = payload.get("aud")
+        elif token_use == "access":
+            token_client_id = payload.get("client_id")
+        else:
+            logger.warning("invalid_token_use", token_use=token_use)
+            raise JWTError("Invalid or missing token_use claim")
+
         if token_client_id != COGNITO_APP_CLIENT_ID:
-            logger.warning("token_client_id_mismatch", expected=COGNITO_APP_CLIENT_ID, actual=token_client_id)
+            logger.warning("token_client_id_mismatch", 
+                           expected=COGNITO_APP_CLIENT_ID, 
+                           actual=token_client_id, 
+                           token_use=token_use)
             raise JWTError("Token not intended for this application")
 
         # 5. Extract user identifier
