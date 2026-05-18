@@ -234,6 +234,19 @@ def update_plan(plan_id: str, plan: WorkoutPlan, user_id: str = Depends(get_curr
         logger.error("Failed to update workout plan", error=str(e), user_id=user_id, plan_id=plan_id)
         raise HTTPException(status_code=500, detail=str(e))
 
+def get_github_pat():
+    secret_id = os.getenv("GITHUB_PAT_SECRET_ID")
+    if not secret_id:
+        return os.getenv("GITHUB_PAT")
+    
+    try:
+        client = boto3.client("secretsmanager", region_name=AWS_REGION)
+        response = client.get_secret_value(SecretId=secret_id)
+        return response.get("SecretString")
+    except Exception as e:
+        logger.error("Failed to retrieve GITHUB_PAT from Secrets Manager", error=str(e))
+        return None
+
 @app.post("/feedback")
 async def submit_feedback(feedback: Feedback, user_id: str = Depends(get_current_user)):
     logger.info("Received feedback", user_id=user_id)
@@ -292,7 +305,7 @@ async def submit_feedback(feedback: Feedback, user_id: str = Depends(get_current
         }
 
     # 2. Call GitHub API to create issue
-    github_pat = os.getenv("GITHUB_PAT")
+    github_pat = get_github_pat()
     if not github_pat:
         logger.error("GITHUB_PAT not set")
         raise HTTPException(status_code=500, detail="GitHub integration not configured")
