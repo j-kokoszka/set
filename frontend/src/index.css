@@ -34,6 +34,53 @@ header {
   padding: 1rem 0;
   border-bottom: 1px solid var(--border-color);
   margin-bottom: 2rem;
+  position: relative;
+}
+
+.hamburger {
+  display: none;
+  background: transparent;
+  border: none;
+  color: var(--text-color);
+  font-size: 1.5rem;
+  cursor: pointer;
+  padding: 0.5rem;
+  line-height: 1;
+}
+
+.nav-menu {
+  display: flex;
+  gap: 0.5rem;
+}
+
+@media (max-width: 600px) {
+  .hamburger {
+    display: block;
+  }
+
+  .nav-menu {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: -1rem;
+    right: -1rem;
+    background: var(--surface-color);
+    flex-direction: column;
+    padding: 1rem;
+    border-bottom: 1px solid var(--border-color);
+    z-index: 100;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
+  }
+
+  .nav-menu.open {
+    display: flex;
+  }
+
+  .nav-menu .btn {
+    width: 100%;
+    justify-content: flex-start;
+    padding: 0.8rem 1.2rem;
+  }
 }
 
 h1 {
