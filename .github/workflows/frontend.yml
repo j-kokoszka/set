@@ -29,4 +29,6 @@ jobs:
       - name: Install Playwright Browsers
         run: cd frontend && npx playwright install --with-deps chromium
       - name: Run E2E Tests
+        env:
+          VITE_ENABLE_MOCK_LOGIN: 'true'
         run: make test-frontend PLAYWRIGHT_ARGS="--project=chromium"

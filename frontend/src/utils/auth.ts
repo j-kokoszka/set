@@ -18,6 +18,7 @@ export interface JwtPayload {
   email?: string;
   sub?: string;
   'cognito:username'?: string;
+  exp?: number;
   [key: string]: unknown;
 }
 

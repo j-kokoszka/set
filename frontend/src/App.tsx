@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import './index.css'
 import { parseBackendError } from './utils/error'
 import { generateCodeVerifier, generateCodeChallenge, base64UrlDecode } from './utils/auth'
@@ -82,9 +82,95 @@ function App() {
   const [editingWorkoutId, setEditingWorkoutId] = useState<string | null>(null);
   const [editingWorkoutDate, setEditingWorkoutDate] = useState<string | null>(null);
   const [editingPlanId, setEditingPlanId] = useState<string | null>(null);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   // Navigation state
   const [navPath, setNavPath] = useState<string[]>([]);
+
+  const handleLogout = () => {
+    setToken(null);
+    setUser(null);
+    localStorage.removeItem('set_token');
+    localStorage.removeItem('set_refresh_token');
+    localStorage.removeItem('set_user');
+    setView('workout');
+  };
+
+  const refreshPromise = useRef<Promise<string | null> | null>(null);
+
+  const refreshIdToken = async () => {
+    if (refreshPromise.current) {
+      return refreshPromise.current;
+    }
+
+    refreshPromise.current = (async () => {
+      const refreshToken = localStorage.getItem('set_refresh_token');
+      if (!refreshToken || !COGNITO_DOMAIN || !COGNITO_CLIENT_ID) {
+        handleLogout();
+        return null;
+      }
+
+      try {
+        const response = await fetch(`https://${COGNITO_DOMAIN}/oauth2/token`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: new URLSearchParams({
+            grant_type: 'refresh_token',
+            client_id: COGNITO_CLIENT_ID,
+            refresh_token: refreshToken
+          })
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          const newIdToken = data.id_token;
+          const newRefreshToken = data.refresh_token;
+          if (newIdToken) {
+            setToken(newIdToken);
+            localStorage.setItem('set_token', newIdToken);
+            if (newRefreshToken) {
+              localStorage.setItem('set_refresh_token', newRefreshToken);
+            }
+            return newIdToken;
+          }
+        } else {
+          handleLogout();
+        }
+      } catch (e) {
+        console.error('Failed to refresh token', e);
+      } finally {
+        refreshPromise.current = null;
+      }
+      return null;
+    })();
+
+    return refreshPromise.current;
+  };
+
+  const getValidToken = async () => {
+    if (!token) return null;
+    if (token.startsWith('mock_')) return token;
+
+    const parts = token.split('.');
+    if (parts.length !== 3) {
+      handleLogout();
+      return null;
+    }
+
+    const payload = base64UrlDecode(parts[1]);
+    if (!payload || typeof payload.exp !== 'number') {
+      handleLogout();
+      return null;
+    }
+
+    const currentTime = Math.floor(Date.now() / 1000);
+    // Refresh if expiring in less than 5 minutes
+    if (payload.exp - currentTime < 300) {
+      const newToken = await refreshIdToken();
+      return newToken;
+    }
+    return token;
+  };
 
   const fetchExercises = async () => {
     setLoadingExercises(true);
@@ -117,12 +203,13 @@ function App() {
   }, [navPath, allExercises]);
 
   const fetchHistory = async () => {
-    if (!token) return;
+    const validToken = await getValidToken();
+    if (!validToken) return;
     setLoading(true);
     try {
       const response = await fetch(`${BASE_URL}/workouts`, {
         headers: {
-          'Authorization': `Bearer ${token}`
+          'Authorization': `Bearer ${validToken}`
         }
       });
       const data = await response.json();
@@ -137,12 +224,13 @@ function App() {
   };
 
   const fetchPlans = async () => {
-    if (!token) return;
+    const validToken = await getValidToken();
+    if (!validToken) return;
     setLoading(true);
     try {
       const response = await fetch(`${BASE_URL}/plans`, {
         headers: {
-          'Authorization': `Bearer ${token}`
+          'Authorization': `Bearer ${validToken}`
         }
       });
       if (response.ok) {
@@ -187,10 +275,14 @@ function App() {
 
           const data = await response.json();
           const idToken = data.id_token;
+          const refreshToken = data.refresh_token;
 
           if (idToken) {
             setToken(idToken);
             localStorage.setItem('set_token', idToken);
+            if (refreshToken) {
+              localStorage.setItem('set_refresh_token', refreshToken);
+            }
             
             const payload = base64UrlDecode(idToken.split('.')[1]);
             const username = payload?.email || payload?.['cognito:username'] || payload?.sub || 'Authenticated User';
@@ -278,22 +370,15 @@ function App() {
     window.location.href = loginUrl;
   };
 
-  const handleLogout = () => {
-    setToken(null);
-    setUser(null);
-    localStorage.removeItem('set_token');
-    localStorage.removeItem('set_user');
-    setView('workout');
-  };
-
   const deletePlan = async (id: string) => {
-    if (!token) return;
+    const validToken = await getValidToken();
+    if (!validToken) return;
     if (!window.confirm('Are you sure you want to delete this plan?')) return;
 
     try {
       const response = await fetch(`${BASE_URL}/plans/${id}`, {
         method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` }
+        headers: { 'Authorization': `Bearer ${validToken}` }
       });
       if (response.ok) fetchPlans();
     } catch (e) {
@@ -317,7 +402,8 @@ function App() {
   };
 
   const deleteWorkout = async (sk: string) => {
-    if (!token) return;
+    const validToken = await getValidToken();
+    if (!validToken) return;
     const parts = sk.split('#');
     const date = parts[1];
     const workoutId = parts[2];
@@ -330,7 +416,7 @@ function App() {
       const response = await fetch(`${BASE_URL}/workouts/${workoutId}?date=${encodeURIComponent(date)}`, {
         method: 'DELETE',
         headers: {
-          'Authorization': `Bearer ${token}`
+          'Authorization': `Bearer ${validToken}`
         }
       });
 
@@ -447,7 +533,8 @@ function App() {
   };
 
   const saveWorkout = async () => {
-    if (!token) return;
+    const validToken = await getValidToken();
+    if (!validToken) return;
     interface WorkoutPayload {
       name: string;
       exercises: {
@@ -482,7 +569,7 @@ function App() {
         method: editingWorkoutId ? 'PUT' : 'POST',
         headers: { 
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          'Authorization': `Bearer ${validToken}`
         },
         body: JSON.stringify(workout),
       });
@@ -506,7 +593,8 @@ function App() {
   };
 
   const savePlan = async () => {
-    if (!token) return;
+    const validToken = await getValidToken();
+    if (!validToken) return;
     const plan: Partial<WorkoutPlan> = {
       name: workoutName,
       exercises: exercises.map(ex => ({
@@ -527,7 +615,7 @@ function App() {
         method: editingPlanId ? 'PUT' : 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          'Authorization': `Bearer ${validToken}`
         },
         body: JSON.stringify(plan)
       });
@@ -573,7 +661,7 @@ function App() {
               Sign in with Google
             </button>
 
-            {import.meta.env.DEV && (
+            {(import.meta.env.DEV || import.meta.env.VITE_ENABLE_MOCK_LOGIN === 'true') && (
               <>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', margin: '0.5rem 0' }}>
                   <div style={{ flex: 1, height: '1px', background: 'var(--border-color)' }}></div>
@@ -614,29 +702,39 @@ function App() {
             {user}
           </span>
         </div>
-        <div style={{ display: 'flex', gap: '0.5rem' }}>
+
+        <button className="hamburger" onClick={() => setIsMenuOpen(!isMenuOpen)} aria-label="Toggle menu">
+          {isMenuOpen ? '✕' : '☰'}
+        </button>
+
+        <div className={`nav-menu ${isMenuOpen ? 'open' : ''}`}>
           <button 
             className={`btn ${view === 'workout' ? '' : 'btn-secondary'}`} 
-            onClick={() => setView('workout')}
+            onClick={() => { setView('workout'); setIsMenuOpen(false); }}
             style={{ width: 'auto' }}
           >
             Log
           </button>
           <button 
             className={`btn ${view === 'history' ? '' : 'btn-secondary'}`} 
-            onClick={() => { setView('history'); }}
+            onClick={() => { setView('history'); setIsMenuOpen(false); }}
             style={{ width: 'auto' }}
           >
             History
           </button>
           <button 
             className={`btn ${view === 'plans' ? '' : 'btn-secondary'}`} 
-            onClick={() => { setView('plans'); }}
+            onClick={() => { setView('plans'); setIsMenuOpen(false); }}
             style={{ width: 'auto' }}
           >
             Plans
           </button>
-          <button className="btn btn-secondary" onClick={handleLogout} title="Sign Out" style={{ width: 'auto' }}>
+          <button 
+            className="btn btn-secondary" 
+            onClick={() => { handleLogout(); setIsMenuOpen(false); }} 
+            title="Sign Out" 
+            style={{ width: 'auto' }}
+          >
             Logout
           </button>
         </div>
