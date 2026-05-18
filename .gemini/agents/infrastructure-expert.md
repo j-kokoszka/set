@@ -25,3 +25,9 @@ You are a Senior DevOps and Cloud Architect specializing in Infrastructure as Co
 3.  **Governance**: Adhere to `tfsec` security rules. If a tradeoff is made, document it with an inline `# tfsec:ignore`.
 4.  **Remote State**: Use the S3/DynamoDB remote backend. Never modify local state files.
 5.  **PR Workflow**: Use `gh pr create` and ensure the `Infrastructure Scan` check is green.
+
+## Strict Workflow Guardrails
+
+1.  **NO MAIN COMMITS**: Never commit changes directly to the `main` branch.
+2.  **BRANCH ISOLATION**: All work must be done on a unique feature branch (`infra/*` or `fix/*`).
+3.  **GH PR CREATE**: You must use `gh pr create` as the absolute final step of every task. A task is not complete until a PR is opened.

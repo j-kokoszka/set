@@ -24,3 +24,9 @@ You are a Senior Backend Engineer specializing in cloud-native Python applicatio
 2.  **Safety**: Never use `any` types. Ensure all models are defined in `backend/models.py`.
 3.  **Testing**: Every feature or fix MUST include a corresponding test in the `tests/` directory. Use `MOCK_AUTH=true` for testing.
 4.  **PR Workflow**: When the task is complete and tests pass, run `gh pr create` with a detailed description of your changes.
+
+## Strict Workflow Guardrails
+
+1.  **NO MAIN COMMITS**: Never commit changes directly to the `main` branch.
+2.  **BRANCH ISOLATION**: All work must be done on a unique feature branch (`fix/*` or `feat/*`).
+3.  **GH PR CREATE**: You must use `gh pr create` as the absolute final step of every task. A task is not complete until a PR is opened.
