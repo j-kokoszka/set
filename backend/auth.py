@@ -81,15 +81,41 @@ async def get_current_user(authorization: Optional[str] = Header(None)):
                 raise JWTError("Public key not found in JWKS")
 
         # 3. Decode and validate the token
+        # We use a leeway of 60 seconds to account for clock skew.
+        # We validate the issuer and signature here, and check audience/client_id manually
+        # to support both ID tokens (which have 'aud') and Access tokens (which have 'client_id').
         payload = jwt.decode(
             token,
             key,
             algorithms=["RS256"],
-            audience=COGNITO_APP_CLIENT_ID,
-            issuer=f"https://cognito-idp.{AWS_REGION}.amazonaws.com/{COGNITO_USER_POOL_ID}"
+            issuer=f"https://cognito-idp.{AWS_REGION}.amazonaws.com/{COGNITO_USER_POOL_ID}",
+            options={
+                "leeway": 60,
+                "verify_aud": False,
+            }
         )
         
-        # 4. Extract user identifier
+        # 4. Verify the token is intended for our client
+        # Cognito ID tokens use 'aud', Access tokens use 'client_id'.
+        # We check 'token_use' to determine which claim to validate, as recommended
+        # to avoid mismatches if 'aud' contains the User Pool ARN.
+        token_use = payload.get("token_use")
+        if token_use == "id":
+            token_client_id = payload.get("aud")
+        elif token_use == "access":
+            token_client_id = payload.get("client_id")
+        else:
+            logger.warning("invalid_token_use", token_use=token_use)
+            raise JWTError("Invalid or missing token_use claim")
+
+        if token_client_id != COGNITO_APP_CLIENT_ID:
+            logger.warning("token_client_id_mismatch", 
+                           expected=COGNITO_APP_CLIENT_ID, 
+                           actual=token_client_id, 
+                           token_use=token_use)
+            raise JWTError("Token not intended for this application")
+
+        # 5. Extract user identifier
         user_id = payload.get("sub") or payload.get("username") or payload.get("email")
         if not user_id:
             raise JWTError("Token missing user identifier")
