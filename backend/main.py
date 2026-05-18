@@ -41,6 +41,14 @@ structlog.configure(
 
 logger = structlog.get_logger()
 
+# Configuration
+AWS_REGION = os.getenv("AWS_REGION", "us-east-1")
+GITHUB_REPO_OWNER = os.getenv("GITHUB_REPO_OWNER", "j-kokoszka")
+GITHUB_REPO_NAME = os.getenv("GITHUB_REPO_NAME", "set")
+
+# Global HTTP client for connection pooling
+http_client: httpx.AsyncClient = httpx.AsyncClient()
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     try:
@@ -48,6 +56,7 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning("Startup table creation skipped/failed", error=str(e))
     yield
+    await http_client.aclose()
 
 app = FastAPI(
     title="set API", 
@@ -231,7 +240,7 @@ async def submit_feedback(feedback: Feedback, user_id: str = Depends(get_current
     
     # 1. Call Bedrock to parse feedback
     try:
-        bedrock = boto3.client("bedrock-runtime", region_name="us-east-1")
+        bedrock = boto3.client("bedrock-runtime", region_name=AWS_REGION)
         
         prompt = f"""
         Analyze the following user feedback for a workout tracking app and return a JSON object.
@@ -288,9 +297,7 @@ async def submit_feedback(feedback: Feedback, user_id: str = Depends(get_current
         logger.error("GITHUB_PAT not set")
         raise HTTPException(status_code=500, detail="GitHub integration not configured")
         
-    repo_owner = "j-kokoszka"
-    repo_name = "set"
-    url = f"https://api.github.com/repos/{repo_owner}/{repo_name}/issues"
+    url = f"https://api.github.com/repos/{GITHUB_REPO_OWNER}/{GITHUB_REPO_NAME}/issues"
     
     headers = {
         "Authorization": f"token {github_pat}",
@@ -303,8 +310,7 @@ async def submit_feedback(feedback: Feedback, user_id: str = Depends(get_current
         "labels": parsed_feedback.get("labels", [])
     }
     
-    async with httpx.AsyncClient() as client:
-        gh_response = await client.post(url, headers=headers, json=issue_data)
+    gh_response = await http_client.post(url, headers=headers, json=issue_data)
         
     if gh_response.status_code != 201:
         logger.error("Failed to create GitHub issue", status=gh_response.status_code, response=gh_response.text)

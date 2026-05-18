@@ -37,4 +37,4 @@ class WorkoutPlan(BaseModel):
     user_id: Optional[str] = None
 
 class Feedback(BaseModel):
-    text: str
+    text: str = Field(..., max_length=1000)
