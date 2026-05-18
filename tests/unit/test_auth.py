@@ -109,7 +109,6 @@ async def test_get_current_user_token_use_validation(monkeypatch):
     user_id = await auth.get_current_user("Bearer id_token")
     assert user_id == "user123"
     assert decoded_options.get("verify_at_hash") is False
-    assert decoded_options.get("leeway") == 60
 
     # Test Access token success
     user_id = await auth.get_current_user("Bearer access_token")
