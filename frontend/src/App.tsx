@@ -502,6 +502,12 @@ function App() {
     setExercises(newExercises);
   };
 
+  const removeSet = (exerciseIndex: number, setIndex: number) => {
+    const newExercises = [...exercises];
+    newExercises[exerciseIndex].sets.splice(setIndex, 1);
+    setExercises(newExercises);
+  };
+
   const updateSet = (exerciseIndex: number, setIndex: number, field: keyof Set, value: string | number) => {
     const newExercises = [...exercises];
     const targetSet = newExercises[exerciseIndex].sets[setIndex];
@@ -803,7 +809,16 @@ function App() {
                   {ex.sets.map((set, sIdx) => (
                     <div key={sIdx} className="set-item">
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span style={{ fontSize: '0.8rem', fontWeight: '800', color: 'var(--primary-color)' }}>SET {sIdx + 1}</span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                          <span style={{ fontSize: '0.8rem', fontWeight: '800', color: 'var(--primary-color)' }}>SET {sIdx + 1}</span>
+                          <button 
+                            onClick={() => removeSet(exIdx, sIdx)}
+                            style={{ background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '0.7rem', padding: '0 0.2rem' }}
+                            title="Remove set"
+                          >
+                            ✕
+                          </button>
+                        </div>
                       </div>
                       
                       <div className="set-input-row">
