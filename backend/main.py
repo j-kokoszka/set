@@ -46,9 +46,6 @@ AWS_REGION = os.getenv("AWS_REGION", "us-east-1")
 GITHUB_REPO_OWNER = os.getenv("GITHUB_REPO_OWNER", "j-kokoszka")
 GITHUB_REPO_NAME = os.getenv("GITHUB_REPO_NAME", "set")
 
-# Global HTTP client for connection pooling
-http_client: httpx.AsyncClient = httpx.AsyncClient()
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     try:
@@ -56,7 +53,6 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning("Startup table creation skipped/failed", error=str(e))
     yield
-    await http_client.aclose()
 
 app = FastAPI(
     title="set API", 
@@ -269,7 +265,7 @@ async def submit_feedback(feedback: Feedback, user_id: str = Depends(get_current
         """
         
         response = bedrock.invoke_model(
-            modelId="amazon.nova-micro-v1:0",
+            modelId="eu.amazon.nova-micro-v1:0",
             body=json.dumps({
                 "inferenceConfig": {
                     "max_new_tokens": 500,
@@ -323,13 +319,14 @@ async def submit_feedback(feedback: Feedback, user_id: str = Depends(get_current
         "labels": parsed_feedback.get("labels", [])
     }
     
-    gh_response = await http_client.post(url, headers=headers, json=issue_data)
+    async with httpx.AsyncClient() as client:
+        gh_response = await client.post(url, headers=headers, json=issue_data)
         
-    if gh_response.status_code != 201:
-        logger.error("Failed to create GitHub issue", status=gh_response.status_code, response=gh_response.text)
-        raise HTTPException(status_code=500, detail="Failed to submit feedback to GitHub")
+        if gh_response.status_code != 201:
+            logger.error("Failed to create GitHub issue", status=gh_response.status_code, response=gh_response.text)
+            raise HTTPException(status_code=500, detail="Failed to submit feedback to GitHub")
         
-    return {"message": "Feedback submitted successfully", "issue_url": gh_response.json().get("html_url")}
+        return {"message": "Feedback submitted successfully", "issue_url": gh_response.json().get("html_url")}
 
 # Mangum handler for AWS Lambda
 handler = Mangum(app)
