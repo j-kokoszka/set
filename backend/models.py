@@ -6,6 +6,8 @@ class ExerciseSet(BaseModel):
     reps: int
     weight: float
     unit: str = "kg"  # "kg" or "lbs"
+    difficulty: Optional[str] = None # "easy", "moderate", "hard", "pass"
+    completed: bool = False
 
 class ExerciseRecord(BaseModel):
     exercise_id: Optional[str] = None

@@ -143,6 +143,17 @@ h1 {
   box-shadow: 0 0 0 1px var(--primary-color);
 }
 
+.set-item.completed {
+  border-color: var(--success-color);
+  background: rgba(16, 185, 129, 0.05);
+}
+
+.set-item.completed:focus-within {
+  border-color: var(--success-color);
+  box-shadow: 0 0 0 1px var(--success-color);
+}
+
+
 .set-input-row {
   display: grid;
   grid-template-columns: 1fr 1fr;

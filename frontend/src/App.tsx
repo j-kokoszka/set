@@ -8,6 +8,8 @@ interface Set {
   reps: number;
   weight: number;
   unit: 'kg' | 'lbs';
+  difficulty?: 'easy' | 'moderate' | 'hard' | 'pass';
+  completed?: boolean;
 }
 
 interface Exercise {
@@ -502,13 +504,18 @@ function App() {
     setExercises(newExercises);
   };
 
-  const updateSet = (exerciseIndex: number, setIndex: number, field: keyof Set, value: string | number) => {
+  const updateSet = (exerciseIndex: number, setIndex: number, field: keyof Set, value: any) => {
     const newExercises = [...exercises];
     const targetSet = newExercises[exerciseIndex].sets[setIndex];
     if (field === 'weight') {
       targetSet.weight = typeof value === 'string' ? parseFloat(value) : value;
     } else if (field === 'reps') {
       targetSet.reps = typeof value === 'string' ? parseInt(value) : value;
+    } else if (field === 'difficulty') {
+      targetSet.difficulty = value;
+      targetSet.completed = true;
+    } else if (field === 'completed') {
+      targetSet.completed = value;
     }
     setExercises(newExercises);
   };
@@ -801,9 +808,20 @@ function App() {
                 
                 <div className="set-list">
                   {ex.sets.map((set, sIdx) => (
-                    <div key={sIdx} className="set-item">
+                    <div key={sIdx} className={`set-item ${set.completed ? 'completed' : ''}`}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span style={{ fontSize: '0.8rem', fontWeight: '800', color: 'var(--primary-color)' }}>SET {sIdx + 1}</span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                          <span style={{ fontSize: '0.8rem', fontWeight: '800', color: set.completed ? 'var(--success-color)' : 'var(--primary-color)' }}>
+                            SET {sIdx + 1}
+                          </span>
+                          {set.completed && <span style={{ fontSize: '0.8rem' }}>✓</span>}
+                        </div>
+                        <button 
+                          onClick={() => updateSet(exIdx, sIdx, 'completed', !set.completed)}
+                          style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '0.7rem' }}
+                        >
+                          {set.completed ? 'Undo' : 'Done'}
+                        </button>
                       </div>
                       
                       <div className="set-input-row">
@@ -846,6 +864,30 @@ function App() {
                             style={{ textAlign: 'center' }}
                           />
                         </div>
+                      </div>
+
+                      <div className="difficulty-row" style={{ display: 'flex', gap: '0.25rem', marginTop: '0.75rem' }}>
+                        {(['pass', 'easy', 'moderate', 'hard'] as const).map(diff => (
+                          <button
+                            key={diff}
+                            onClick={() => updateSet(exIdx, sIdx, 'difficulty', diff)}
+                            style={{ 
+                              flex: 1, 
+                              fontSize: '0.65rem', 
+                              padding: '0.4rem 0.2rem', 
+                              textTransform: 'capitalize',
+                              background: set.difficulty === diff ? 'var(--primary-color)' : '#3d3d3d',
+                              color: 'white',
+                              border: 'none',
+                              borderRadius: '4px',
+                              cursor: 'pointer',
+                              fontWeight: set.difficulty === diff ? 'bold' : 'normal',
+                              transition: 'all 0.2s'
+                            }}
+                          >
+                            {diff}
+                          </button>
+                        ))}
                       </div>
                     </div>
                   ))}
