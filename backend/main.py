@@ -3,12 +3,14 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from mangum import Mangum
 from typing import List
-from models import Workout, WorkoutPlan
+from models import Workout, WorkoutPlan, Feedback
 from database import db
 from auth import get_current_user
 import uuid
 import json
 import os
+import boto3
+import httpx
 from contextlib import asynccontextmanager
 import structlog
 import logging
@@ -39,6 +41,14 @@ structlog.configure(
 
 logger = structlog.get_logger()
 
+# Configuration
+AWS_REGION = os.getenv("AWS_REGION", "us-east-1")
+GITHUB_REPO_OWNER = os.getenv("GITHUB_REPO_OWNER", "j-kokoszka")
+GITHUB_REPO_NAME = os.getenv("GITHUB_REPO_NAME", "set")
+
+# Global HTTP client for connection pooling
+http_client: httpx.AsyncClient = httpx.AsyncClient()
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     try:
@@ -46,6 +56,7 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning("Startup table creation skipped/failed", error=str(e))
     yield
+    await http_client.aclose()
 
 app = FastAPI(
     title="set API", 
@@ -222,6 +233,103 @@ def update_plan(plan_id: str, plan: WorkoutPlan, user_id: str = Depends(get_curr
     except Exception as e:
         logger.error("Failed to update workout plan", error=str(e), user_id=user_id, plan_id=plan_id)
         raise HTTPException(status_code=500, detail=str(e))
+
+def get_github_pat():
+    secret_id = os.getenv("GITHUB_PAT_SECRET_ID")
+    if not secret_id:
+        return os.getenv("GITHUB_PAT")
+    
+    try:
+        client = boto3.client("secretsmanager", region_name=AWS_REGION)
+        response = client.get_secret_value(SecretId=secret_id)
+        return response.get("SecretString")
+    except Exception as e:
+        logger.error("Failed to retrieve GITHUB_PAT from Secrets Manager", error=str(e))
+        return None
+
+@app.post("/feedback")
+async def submit_feedback(feedback: Feedback, user_id: str = Depends(get_current_user)):
+    logger.info("Received feedback", user_id=user_id)
+    
+    # 1. Call Bedrock to parse feedback
+    try:
+        bedrock = boto3.client("bedrock-runtime", region_name=AWS_REGION)
+        
+        prompt = f"""
+        Analyze the following user feedback for a workout tracking app and return a JSON object.
+        The JSON object must have the following keys:
+        - "title": A concise summary of the feedback.
+        - "body": A formatted Markdown description, categorizing it as a Bug or Feature Request and extracting relevant details.
+        - "labels": An array of labels (e.g., ["bug"], ["enhancement"], ["ui"]).
+
+        User Feedback:
+        {feedback.text}
+
+        JSON Output:
+        """
+        
+        response = bedrock.invoke_model(
+            modelId="amazon.nova-micro-v1:0",
+            body=json.dumps({
+                "inferenceConfig": {
+                    "max_new_tokens": 500,
+                },
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": [
+                            {"text": prompt}
+                        ]
+                    }
+                ]
+            })
+        )
+        
+        response_body = json.loads(response.get("body").read())
+        llm_text = response_body["output"]["message"]["content"][0]["text"]
+        
+        # Extract JSON from llm_text
+        if "```json" in llm_text:
+            llm_text = llm_text.split("```json")[1].split("```")[0].strip()
+        elif "```" in llm_text:
+            llm_text = llm_text.split("```")[1].split("```")[0].strip()
+            
+        parsed_feedback = json.loads(llm_text)
+        
+    except Exception as e:
+        logger.error("Failed to parse feedback with Bedrock", error=str(e))
+        parsed_feedback = {
+            "title": "User Feedback",
+            "body": feedback.text,
+            "labels": ["feedback"]
+        }
+
+    # 2. Call GitHub API to create issue
+    github_pat = get_github_pat()
+    if not github_pat:
+        logger.error("GITHUB_PAT not set")
+        raise HTTPException(status_code=500, detail="GitHub integration not configured")
+        
+    url = f"https://api.github.com/repos/{GITHUB_REPO_OWNER}/{GITHUB_REPO_NAME}/issues"
+    
+    headers = {
+        "Authorization": f"token {github_pat}",
+        "Accept": "application/vnd.github.v3+json"
+    }
+    
+    issue_data = {
+        "title": parsed_feedback.get("title", "User Feedback"),
+        "body": f"{parsed_feedback.get('body', feedback.text)}\n\n---\nSubmitted by: {user_id}",
+        "labels": parsed_feedback.get("labels", [])
+    }
+    
+    gh_response = await http_client.post(url, headers=headers, json=issue_data)
+        
+    if gh_response.status_code != 201:
+        logger.error("Failed to create GitHub issue", status=gh_response.status_code, response=gh_response.text)
+        raise HTTPException(status_code=500, detail="Failed to submit feedback to GitHub")
+        
+    return {"message": "Feedback submitted successfully", "issue_url": gh_response.json().get("html_url")}
 
 # Mangum handler for AWS Lambda
 handler = Mangum(app)
