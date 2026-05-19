@@ -504,18 +504,18 @@ function App() {
     setExercises(newExercises);
   };
 
-  const updateSet = (exerciseIndex: number, setIndex: number, field: keyof Set, value: any) => {
+  const updateSet = <K extends keyof Set>(exerciseIndex: number, setIndex: number, field: K, value: Set[K]) => {
     const newExercises = [...exercises];
     const targetSet = newExercises[exerciseIndex].sets[setIndex];
     if (field === 'weight') {
-      targetSet.weight = typeof value === 'string' ? parseFloat(value) : value;
+      targetSet.weight = typeof value === "string" ? parseFloat(value) : value as number;
     } else if (field === 'reps') {
-      targetSet.reps = typeof value === 'string' ? parseInt(value) : value;
+      targetSet.reps = typeof value === "string" ? parseInt(value) : value as number;
     } else if (field === 'difficulty') {
-      targetSet.difficulty = value;
+      targetSet.difficulty = value as Set["difficulty"];
       targetSet.completed = true;
     } else if (field === 'completed') {
-      targetSet.completed = value;
+      targetSet.completed = value as boolean;
     }
     setExercises(newExercises);
   };
