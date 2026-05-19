@@ -817,7 +817,7 @@ function App() {
                           {set.completed && <span style={{ fontSize: '0.8rem' }}>✓</span>}
                         </div>
                         <button 
-                          onClick={() => updateSet(exIdx, sIdx, 'completed', !set.completed as any)}
+                          onClick={() => updateSet(exIdx, sIdx, 'completed', !set.completed)}
                           style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '0.7rem' }}
                         >
                           {set.completed ? 'Undo' : 'Done'}
@@ -832,7 +832,7 @@ function App() {
                               type="number" 
                               value={set.weight || ''} 
                               placeholder="0"
-                              onChange={(e) => updateSet(exIdx, sIdx, 'weight', parseFloat(e.target.value) as any)} 
+                              onChange={(e) => updateSet(exIdx, sIdx, 'weight', parseFloat(e.target.value))} 
                               style={{ paddingRight: '2.5rem' }}
                             />
                             <button 
@@ -860,7 +860,7 @@ function App() {
                             type="number" 
                             value={set.reps || ''} 
                             placeholder="0"
-                            onChange={(e) => updateSet(exIdx, sIdx, 'reps', parseInt(e.target.value) as any)} 
+                            onChange={(e) => updateSet(exIdx, sIdx, 'reps', parseInt(e.target.value))} 
                             style={{ textAlign: 'center' }}
                           />
                         </div>
@@ -877,7 +877,7 @@ function App() {
                             key={diff.id}
                             className={`difficulty-btn ${set.difficulty === diff.id ? 'active' : ''}`}
                             data-diff={diff.id}
-                            onClick={() => updateSet(exIdx, sIdx, 'difficulty', diff.id as any)}
+                            onClick={() => updateSet(exIdx, sIdx, 'difficulty', diff.id)}
                           >
                             <span className="difficulty-icon">{diff.icon}</span>
                             <span>{diff.id}</span>
