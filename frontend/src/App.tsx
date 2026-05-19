@@ -867,26 +867,23 @@ function App() {
                       </div>
 
                       <div className="difficulty-row" style={{ display: 'flex', gap: '0.25rem', marginTop: '0.75rem' }}>
-                        {(['pass', 'easy', 'moderate', 'hard'] as const).map(diff => (
+                        {([
+                          { id: 'pass', icon: '⚪' },
+                          { id: 'easy', icon: '🟢' },
+                          { id: 'moderate', icon: '🟡' },
+                          { id: 'hard', icon: '🔴' }
+                        ] as const).map(diff => (
                           <button
-                            key={diff}
-                            onClick={() => updateSet(exIdx, sIdx, 'difficulty', diff)}
-                            style={{ 
-                              flex: 1, 
-                              fontSize: '0.65rem', 
-                              padding: '0.4rem 0.2rem', 
-                              textTransform: 'capitalize',
-                              background: set.difficulty === diff ? 'var(--primary-color)' : '#3d3d3d',
-                              color: 'white',
-                              border: 'none',
-                              borderRadius: '4px',
-                              cursor: 'pointer',
-                              fontWeight: set.difficulty === diff ? 'bold' : 'normal',
-                              transition: 'all 0.2s'
-                            }}
+                            key={diff.id}
+                            className={`difficulty-btn ${set.difficulty === diff.id ? 'active' : ''}`}
+                            data-diff={diff.id}
+                            onClick={() => updateSet(exIdx, sIdx, 'difficulty', diff.id)}
                           >
-                            {diff}
+                            <span className="difficulty-icon">{diff.icon}</span>
+                            <span>{diff.id}</span>
                           </button>
+                        ))}
+                      </div>
                         ))}
                       </div>
                     </div>

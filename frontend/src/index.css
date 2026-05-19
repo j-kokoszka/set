@@ -322,3 +322,40 @@ input[type=number] {
 .modal-actions .btn {
   width: auto;
 }
+
+.difficulty-btn {
+  flex: 1;
+  font-size: 0.7rem;
+  padding: 0.5rem 0.25rem;
+  text-transform: capitalize;
+  background: #3d3d3d;
+  color: white;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.2s;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.difficulty-btn:hover {
+  background: #4d4d4d;
+}
+
+.difficulty-btn.active {
+  font-weight: 700;
+  border-color: var(--primary-color);
+  background: rgba(59, 130, 246, 0.2);
+}
+
+.difficulty-btn.active[data-diff="pass"] { border-color: #9ca3af; background: rgba(156, 163, 175, 0.2); }
+.difficulty-btn.active[data-diff="easy"] { border-color: #10b981; background: rgba(16, 185, 129, 0.2); }
+.difficulty-btn.active[data-diff="moderate"] { border-color: #f59e0b; background: rgba(245, 158, 11, 0.2); }
+.difficulty-btn.active[data-diff="hard"] { border-color: #ef4444; background: rgba(239, 68, 68, 0.2); }
+
+.difficulty-icon {
+  font-size: 1rem;
+}
