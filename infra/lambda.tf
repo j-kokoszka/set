@@ -187,7 +187,6 @@ resource "aws_apigatewayv2_stage" "prod" {
     })
   }
 }
-}
 
 resource "aws_apigatewayv2_integration" "lambda_integration" {
   api_id           = aws_apigatewayv2_api.http_api.id

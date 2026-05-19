@@ -60,6 +60,13 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "logs" {
   }
 }
 
+resource "aws_s3_bucket_logging" "logs" {
+  bucket = aws_s3_bucket.logs.id
+
+  target_bucket = aws_s3_bucket.logs.id
+  target_prefix = "s3-logs/"
+}
+
 resource "aws_s3_bucket_public_access_block" "logs" {
   bucket = aws_s3_bucket.logs.id
 
