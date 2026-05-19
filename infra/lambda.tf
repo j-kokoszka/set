@@ -34,6 +34,20 @@ resource "aws_kms_key" "secrets" {
   description             = "KMS key for encrypting project secrets"
   deletion_window_in_days = 7
   enable_key_rotation     = true
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "Enable IAM User Permissions"
+        Effect = "Allow"
+        Principal = {
+          AWS = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:root"
+        }
+        Action   = "kms:*"
+        Resource = "*"
+      }
+    ]
+  })
 }
 
 resource "aws_kms_alias" "secrets" {
@@ -144,8 +158,8 @@ resource "aws_iam_policy" "lambda_bedrock" {
         Resource = [
           "arn:aws:bedrock:${var.aws_region}::foundation-model/amazon.nova-lite-v1:0",
           "arn:aws:bedrock:${var.aws_region}::foundation-model/amazon.nova-micro-v1:0",
-          "arn:aws:bedrock:${var.aws_region}:*:inference-profile/eu.amazon.nova-lite-v1:0",
-          "arn:aws:bedrock:${var.aws_region}:*:inference-profile/eu.amazon.nova-micro-v1:0"
+          "arn:aws:bedrock:${var.aws_region}:${data.aws_caller_identity.current.account_id}:inference-profile/eu.amazon.nova-lite-v1:0",
+          "arn:aws:bedrock:${var.aws_region}:${data.aws_caller_identity.current.account_id}:inference-profile/eu.amazon.nova-micro-v1:0"
         ]
       }
     ]

@@ -3,6 +3,13 @@ resource "aws_s3_bucket" "frontend" {
   bucket = "${var.project_name}-frontend-${var.environment}"
 }
 
+resource "aws_s3_bucket_ownership_controls" "frontend" {
+  bucket = aws_s3_bucket.frontend.id
+  rule {
+    object_ownership = "BucketOwnerEnforced"
+  }
+}
+
 resource "aws_s3_bucket_versioning" "frontend" {
   bucket = aws_s3_bucket.frontend.id
   versioning_configuration {
@@ -40,6 +47,13 @@ resource "aws_s3_bucket_public_access_block" "frontend" {
 # S3 Bucket for Logs
 resource "aws_s3_bucket" "logs" {
   bucket = "${var.project_name}-logs-${var.environment}"
+}
+
+resource "aws_s3_bucket_ownership_controls" "logs" {
+  bucket = aws_s3_bucket.logs.id
+  rule {
+    object_ownership = "BucketOwnerEnforced"
+  }
 }
 
 resource "aws_s3_bucket_versioning" "logs" {
