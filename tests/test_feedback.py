@@ -8,8 +8,8 @@ import os
 client = TestClient(app)
 
 @patch("backend.main.boto3.client")
-@patch("backend.main.http_client")
-def test_submit_feedback_success(mock_http_client, mock_boto3_client):
+@patch("backend.main.httpx.AsyncClient")
+def test_submit_feedback_success(mock_httpx_class, mock_boto3_client):
     # Mock Bedrock and Secrets Manager
     mock_bedrock = MagicMock()
     mock_secretsmanager = MagicMock()
@@ -39,8 +39,9 @@ def test_submit_feedback_success(mock_http_client, mock_boto3_client):
     # Mock Secrets Manager response
     mock_secretsmanager.get_secret_value.return_value = {"SecretString": "fake_pat_from_sm"}
     
-    # Mock http_client (global AsyncClient)
-    mock_http_client.post = AsyncMock()
+    # Mock httpx.AsyncClient instance
+    mock_http_client = AsyncMock()
+    mock_httpx_class.return_value.__aenter__.return_value = mock_http_client
     
     mock_gh_response = MagicMock()
     mock_gh_response.status_code = 201
@@ -73,8 +74,8 @@ def test_submit_feedback_success(mock_http_client, mock_boto3_client):
         assert kwargs["json"]["labels"] == ["bug"]
 
 @patch("backend.main.boto3.client")
-@patch("backend.main.http_client")
-def test_submit_feedback_bedrock_failure_fallback(mock_http_client, mock_boto3_client):
+@patch("backend.main.httpx.AsyncClient")
+def test_submit_feedback_bedrock_failure_fallback(mock_httpx_class, mock_boto3_client):
     # Mock Bedrock and Secrets Manager
     mock_bedrock = MagicMock()
     mock_secretsmanager = MagicMock()
@@ -94,8 +95,9 @@ def test_submit_feedback_bedrock_failure_fallback(mock_http_client, mock_boto3_c
     # Mock Secrets Manager response
     mock_secretsmanager.get_secret_value.return_value = {"SecretString": "fake_pat_from_sm"}
     
-    # Mock http_client
-    mock_http_client.post = AsyncMock()
+    # Mock httpx.AsyncClient instance
+    mock_http_client = AsyncMock()
+    mock_httpx_class.return_value.__aenter__.return_value = mock_http_client
     
     mock_gh_response = MagicMock()
     mock_gh_response.status_code = 201
