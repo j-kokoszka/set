@@ -79,7 +79,7 @@ resource "aws_iam_role_policy_attachment" "lambda_logs" {
 
 resource "aws_iam_policy" "lambda_secrets" {
   name        = "${var.project_name}-lambda-secrets"
-  description = "IAM policy for Lambda to access Secrets Manager"
+  description = "IAM policy for Lambda to access Secrets Manager and KMS"
 
   policy = jsonencode({
     Version = "2012-10-17"
@@ -88,6 +88,11 @@ resource "aws_iam_policy" "lambda_secrets" {
         Action   = "secretsmanager:GetSecretValue"
         Effect   = "Allow"
         Resource = aws_secretsmanager_secret.github_pat.arn
+      },
+      {
+        Action   = "kms:Decrypt"
+        Effect   = "Allow"
+        Resource = aws_kms_key.secrets.arn
       }
     ]
   })

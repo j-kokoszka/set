@@ -3,8 +3,11 @@
 ## Parallel Development with Git Worktrees
 To support multiple concurrent tasks (e.g., security hardening and feature development) without workspace interference, follow these rules:
 
-1.  **Isolation via Worktrees**: Always use `git worktree` to create isolated environments for new features or fixes that are being worked on in parallel sessions.
-2.  **Naming Convention**: Create worktrees in a dedicated directory OUTSIDE the project root (e.g., `../set-playwright-worktree`) to avoid IDE indexing issues or accidental inclusion in the main repository's untracked files.
+1.  **Isolation via Worktrees**: Always use `git worktree` to create isolated environments for new features or fixes.
+2.  **Naming & Placement**:
+    *   **Mandatory**: Worktrees MUST be created in the parent directory (e.g., `../set-feature-wt`) to avoid IDE performance issues and accidental inclusion in the main repository.
+    *   **Pattern**: Use `*-wt` or `*-worktree` suffixes.
+    *   **Command Template**: `git worktree add ../set-<feature>-wt -b <branch-name> main`
 3.  **Branching**: Every worktree must track a unique feature branch. Never work directly on `main` within a specialized worktree.
 4.  **Pull Request Lifecycle**:
     *   **Verification**: Before pushing changes to a branch associated with a Pull Request, always verify that the PR is still **Open**.

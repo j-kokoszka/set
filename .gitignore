@@ -20,9 +20,7 @@ crash.log
 *.zip
 .terraform.lock.hcl
 
-# Git Worktrees
+# Git Worktrees (Prevent accidental internal worktrees)
+*-wt/
 *-worktree/
-fix-workout-deletion-permissions/
-set-frontend-ui-fix/
-tmp_target/
-tmp_venv/
+
