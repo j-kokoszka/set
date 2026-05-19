@@ -265,7 +265,7 @@ async def submit_feedback(feedback: Feedback, user_id: str = Depends(get_current
         """
         
         response = bedrock.invoke_model(
-            modelId="us.amazon.nova-micro-v1:0",
+            modelId="eu.amazon.nova-micro-v1:0",
             body=json.dumps({
                 "inferenceConfig": {
                     "max_new_tokens": 500,

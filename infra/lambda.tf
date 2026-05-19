@@ -115,7 +115,9 @@ resource "aws_iam_policy" "lambda_dynamodb" {
           "dynamodb:GetItem",
           "dynamodb:PutItem",
           "dynamodb:Query",
-          "dynamodb:BatchWriteItem"
+          "dynamodb:BatchWriteItem",
+          "dynamodb:DeleteItem",
+          "dynamodb:UpdateItem"
         ]
         Effect   = "Allow"
         Resource = aws_dynamodb_table.workouts.arn
@@ -141,7 +143,9 @@ resource "aws_iam_policy" "lambda_bedrock" {
         Effect   = "Allow"
         Resource = [
           "arn:aws:bedrock:${var.aws_region}::foundation-model/amazon.nova-lite-v1:0",
-          "arn:aws:bedrock:${var.aws_region}::foundation-model/amazon.nova-micro-v1:0"
+          "arn:aws:bedrock:${var.aws_region}::foundation-model/amazon.nova-micro-v1:0",
+          "arn:aws:bedrock:${var.aws_region}:*:inference-profile/eu.amazon.nova-lite-v1:0",
+          "arn:aws:bedrock:${var.aws_region}:*:inference-profile/eu.amazon.nova-micro-v1:0"
         ]
       }
     ]
