@@ -85,9 +85,15 @@ resource "aws_iam_policy" "lambda_secrets" {
     Version = "2012-10-17"
     Statement = [
       {
-        Action   = "secretsmanager:GetSecretValue"
+        Action   = [
+          "secretsmanager:GetSecretValue",
+          "kms:Decrypt"
+        ]
         Effect   = "Allow"
-        Resource = aws_secretsmanager_secret.github_pat.arn
+        Resource = [
+          aws_secretsmanager_secret.github_pat.arn,
+          aws_kms_key.secrets.arn
+        ]
       }
     ]
   })
