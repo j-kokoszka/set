@@ -29,10 +29,23 @@ resource "aws_lambda_function" "api" {
   }
 }
 
+# KMS Key for Secret Encryption
+resource "aws_kms_key" "secrets" {
+  description             = "KMS key for encrypting project secrets"
+  deletion_window_in_days = 7
+  enable_key_rotation     = true
+}
+
+resource "aws_kms_alias" "secrets" {
+  name          = "alias/${var.project_name}-secrets"
+  target_key_id = aws_kms_key.secrets.key_id
+}
+
 # Secrets Manager for GITHUB_PAT
 resource "aws_secretsmanager_secret" "github_pat" {
   name        = "${var.project_name}-github-pat"
   description = "GitHub Personal Access Token for issue reporting"
+  kms_key_id  = aws_kms_key.secrets.arn
   recovery_window_in_days = 0 # For development/demo purposes
 }
 
