@@ -20,12 +20,38 @@ resource "aws_lambda_function" "api" {
       COGNITO_USER_POOL_ID   = aws_cognito_user_pool.user_pool.id
       COGNITO_APP_CLIENT_ID  = aws_cognito_user_pool_client.client.id
       SET_AWS_REGION         = var.aws_region
+      GITHUB_PAT_SECRET_ID   = aws_secretsmanager_secret.github_pat.name
     }
   }
 
   lifecycle {
     ignore_changes = [filename, source_code_hash]
   }
+}
+
+# KMS Key for Secret Encryption
+resource "aws_kms_key" "secrets" {
+  description             = "KMS key for encrypting project secrets"
+  deletion_window_in_days = 7
+  enable_key_rotation     = true
+}
+
+resource "aws_kms_alias" "secrets" {
+  name          = "alias/${var.project_name}-secrets"
+  target_key_id = aws_kms_key.secrets.key_id
+}
+
+# Secrets Manager for GITHUB_PAT
+resource "aws_secretsmanager_secret" "github_pat" {
+  name        = "${var.project_name}-github-pat"
+  description = "GitHub Personal Access Token for issue reporting"
+  kms_key_id  = aws_kms_key.secrets.arn
+  recovery_window_in_days = 0 # For development/demo purposes
+}
+
+resource "aws_secretsmanager_secret_version" "github_pat" {
+  secret_id     = aws_secretsmanager_secret.github_pat.id
+  secret_string = var.github_pat
 }
 
 # IAM Role for Lambda
@@ -45,10 +71,31 @@ resource "aws_iam_role" "lambda_exec" {
   })
 }
 
-# IAM Policy for DynamoDB and Logging
+# IAM Policy for DynamoDB, Secrets Manager, and Logging
 resource "aws_iam_role_policy_attachment" "lambda_logs" {
   role       = aws_iam_role.lambda_exec.name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+}
+
+resource "aws_iam_policy" "lambda_secrets" {
+  name        = "${var.project_name}-lambda-secrets"
+  description = "IAM policy for Lambda to access Secrets Manager"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action   = "secretsmanager:GetSecretValue"
+        Effect   = "Allow"
+        Resource = aws_secretsmanager_secret.github_pat.arn
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "lambda_secrets_attach" {
+  role       = aws_iam_role.lambda_exec.name
+  policy_arn = aws_iam_policy.lambda_secrets.arn
 }
 
 resource "aws_iam_policy" "lambda_dynamodb" {
@@ -75,6 +122,30 @@ resource "aws_iam_policy" "lambda_dynamodb" {
 resource "aws_iam_role_policy_attachment" "lambda_dynamodb_attach" {
   role       = aws_iam_role.lambda_exec.name
   policy_arn = aws_iam_policy.lambda_dynamodb.arn
+}
+
+resource "aws_iam_policy" "lambda_bedrock" {
+  name        = "${var.project_name}-lambda-bedrock"
+  description = "IAM policy for Lambda to invoke Bedrock models"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action   = "bedrock:InvokeModel"
+        Effect   = "Allow"
+        Resource = [
+          "arn:aws:bedrock:${var.aws_region}::foundation-model/amazon.nova-lite-v1:0",
+          "arn:aws:bedrock:${var.aws_region}::foundation-model/amazon.nova-micro-v1:0"
+        ]
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "lambda_bedrock_attach" {
+  role       = aws_iam_role.lambda_exec.name
+  policy_arn = aws_iam_policy.lambda_bedrock.arn
 }
 
 # API Gateway (HTTP API)
