@@ -8,6 +8,8 @@ interface Set {
   reps: number;
   weight: number;
   unit: 'kg' | 'lbs';
+  difficulty?: 'easy' | 'moderate' | 'hard' | 'pass';
+  completed?: boolean;
 }
 
 interface Exercise {
@@ -508,16 +510,22 @@ function App() {
     setExercises(newExercises);
   };
 
-  const updateSet = (exerciseIndex: number, setIndex: number, field: keyof Set, value: string | number) => {
+  const updateSet = <K extends keyof Set>(exerciseIndex: number, setIndex: number, field: K, value: Set[K]) => {
     const newExercises = [...exercises];
     const targetSet = newExercises[exerciseIndex].sets[setIndex];
     if (field === 'weight') {
-      targetSet.weight = typeof value === 'string' ? parseFloat(value) : value;
+      targetSet.weight = typeof value === 'string' ? parseFloat(value) : value as number;
     } else if (field === 'reps') {
-      targetSet.reps = typeof value === 'string' ? parseInt(value) : value;
+      targetSet.reps = typeof value === 'string' ? parseInt(value) : value as number;
+    } else if (field === 'difficulty') {
+      targetSet.difficulty = value as Set['difficulty'];
+      targetSet.completed = true;
+    } else if (field === 'completed') {
+      targetSet.completed = value as boolean;
     }
     setExercises(newExercises);
   };
+
 
   const toggleUnit = (exerciseIndex: number, setIndex: number) => {
     const newExercises = [...exercises];
@@ -799,17 +807,29 @@ function App() {
                 
                 <div className="set-list">
                   {ex.sets.map((set, sIdx) => (
-                    <div key={sIdx} className="set-item">
+                    <div key={sIdx} className={`set-item ${set.completed ? 'completed' : ''}`}>
                       <div className="set-header">
-                        <span className="set-label">SET {sIdx + 1}</span>
-                        <button 
-                          className="btn-danger"
-                          onClick={() => removeSet(exIdx, sIdx)}
-                          style={{ padding: '2px 4px', fontSize: '0.7rem' }}
-                          title="Remove set"
-                        >
-                          ✕
-                        </button>
+                        <div className="flex-center">
+                          <span className="set-label">SET {sIdx + 1}</span>
+                          {set.completed && <span style={{ color: 'var(--success-color)', fontSize: '0.9rem' }}>✓</span>}
+                        </div>
+                        <div className="flex-center">
+                          <button 
+                            className="btn-secondary btn-small"
+                            onClick={() => updateSet(exIdx, sIdx, 'completed', !set.completed)}
+                            style={{ fontSize: '0.65rem', padding: '0.2rem 0.5rem' }}
+                          >
+                            {set.completed ? 'Undo' : 'Done'}
+                          </button>
+                          <button 
+                            className="btn-danger"
+                            onClick={() => removeSet(exIdx, sIdx)}
+                            style={{ padding: '2px 4px', fontSize: '0.7rem' }}
+                            title="Remove set"
+                          >
+                            ✕
+                          </button>
+                        </div>
                       </div>
                       
                       <div className="set-input-row">
@@ -841,6 +861,25 @@ function App() {
                             onChange={(e) => updateSet(exIdx, sIdx, 'reps', parseInt(e.target.value))} 
                           />
                         </div>
+                      </div>
+
+                      <div className="difficulty-row">
+                        {([
+                          { id: 'pass', icon: '⚪' },
+                          { id: 'easy', icon: '🟢' },
+                          { id: 'moderate', icon: '🟡' },
+                          { id: 'hard', icon: '🔴' }
+                        ] as const).map(diff => (
+                          <button
+                            key={diff.id}
+                            className={`difficulty-btn ${set.difficulty === diff.id ? 'active' : ''}`}
+                            data-diff={diff.id}
+                            onClick={() => updateSet(exIdx, sIdx, 'difficulty', diff.id)}
+                          >
+                            <span className="difficulty-icon">{diff.icon}</span>
+                            <span>{diff.id}</span>
+                          </button>
+                        ))}
                       </div>
                     </div>
                   ))}

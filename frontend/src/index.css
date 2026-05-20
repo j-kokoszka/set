@@ -431,12 +431,6 @@ input[type=number] {
   color: var(--text-muted);
 }
 
-.tag-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-}
-
 .tag {
   font-size: 0.75rem;
   background: rgba(255, 255, 255, 0.05);
@@ -444,6 +438,65 @@ input[type=number] {
   border-radius: 6px;
   color: var(--text-muted);
   border: 1px solid var(--border-color);
+}
+
+.set-item.completed {
+  border-color: var(--success-color);
+  background: rgba(16, 185, 129, 0.05);
+}
+
+.difficulty-row {
+  display: flex;
+  gap: 0.25rem;
+  margin-top: 0.5rem;
+}
+
+.difficulty-btn {
+  flex: 1;
+  font-size: 0.65rem;
+  padding: 0.4rem 0.25rem;
+  text-transform: capitalize;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-muted);
+  border: 1px solid transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.2s;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+}
+
+.difficulty-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-color);
+}
+
+.difficulty-btn.active {
+  color: white;
+}
+
+.difficulty-btn.active[data-diff="pass"] { 
+  border-color: var(--text-muted); 
+  background: rgba(156, 163, 175, 0.2); 
+}
+.difficulty-btn.active[data-diff="easy"] { 
+  border-color: var(--success-color); 
+  background: rgba(16, 185, 129, 0.2); 
+}
+.difficulty-btn.active[data-diff="moderate"] { 
+  border-color: #f59e0b; 
+  background: rgba(245, 158, 11, 0.2); 
+}
+.difficulty-btn.active[data-diff="hard"] { 
+  border-color: var(--error-color); 
+  background: rgba(239, 68, 68, 0.2); 
+}
+
+.difficulty-icon {
+  font-size: 0.9rem;
 }
 
 .login-container {
