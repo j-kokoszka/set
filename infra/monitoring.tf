@@ -1,8 +1,8 @@
 # Grafana Cloud Observability Resources
 
-data "grafana_cloud_organization" "current" {
+data "grafana_cloud_stack" "main" {
   provider = grafana.cloud
-  slug     = var.grafana_cloud_org_slug
+  slug     = var.grafana_cloud_stack_slug
 }
 
 # 1. Access Policy for OTLP Ingestion (Metrics, Logs, Traces)
@@ -19,8 +19,8 @@ resource "grafana_cloud_access_policy" "otlp" {
   ]
 
   realm {
-    type       = "org"
-    identifier = data.grafana_cloud_organization.current.id
+    type       = "stack"
+    identifier = data.grafana_cloud_stack.main.id
   }
 }
 

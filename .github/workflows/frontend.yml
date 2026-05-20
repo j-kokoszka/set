@@ -22,6 +22,12 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
       - name: Install Deps
         run: cd frontend && npm ci
+      - name: Security Audit (npm audit)
+        run: cd frontend && npm audit --audit-level=high
+      - name: Static Security Analysis (njsscan)
+        uses: ajinabraham/njsscan-action@v0.0.3
+        with:
+          args: 'frontend/src'
       - name: Lint
         run: make lint-frontend
       - name: Build (Validate)

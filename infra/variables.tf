@@ -71,6 +71,12 @@ variable "grafana_cloud_org_slug" {
   default     = ""
 }
 
+variable "grafana_cloud_stack_slug" {
+  description = "Grafana Cloud Stack Slug (e.g., kokoszka)"
+  type        = string
+  default     = ""
+}
+
 variable "grafana_cloud_region" {
   description = "Grafana Cloud Region (e.g., prod-us-east-0)"
   type        = string
