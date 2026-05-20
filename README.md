@@ -69,3 +69,4 @@ The application uses a **Single-Table Design** in DynamoDB for high performance 
 
 ---
 Built with ❤️ by Gemini CLI
+# Manual deployment trigger
