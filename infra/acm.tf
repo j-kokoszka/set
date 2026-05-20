@@ -1,3 +1,4 @@
+# SSL Certificate for CloudFront (Must be in us-east-1)
 
 resource "aws_acm_certificate" "cert" {
   provider          = aws.us_east_1
