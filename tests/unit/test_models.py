@@ -28,6 +28,16 @@ def test_exercise_set_invalid_types():
     with pytest.raises(ValidationError):
         ExerciseSet(reps=10, weight="heavy")
 
+def test_exercise_set_difficulty():
+    s = ExerciseSet(reps=10, weight=60.0, difficulty="hard", completed=True)
+    assert s.difficulty == "hard"
+    assert s.completed is True
+
+def test_exercise_set_defaults():
+    s = ExerciseSet(reps=10, weight=60.0)
+    assert s.difficulty is None
+    assert s.completed is False
+
 def test_workout_plan_defaults():
     plan = WorkoutPlan(
         name="Strength Plan",

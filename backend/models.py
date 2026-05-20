@@ -1,11 +1,13 @@
 from pydantic import BaseModel, Field
-from typing import List, Optional
+from typing import List, Optional, Literal
 from datetime import datetime
 
 class ExerciseSet(BaseModel):
     reps: int
     weight: float
     unit: str = "kg"  # "kg" or "lbs"
+    difficulty: Optional[Literal["easy", "moderate", "hard", "pass"]] = None
+    completed: bool = False
 
 class ExerciseRecord(BaseModel):
     exercise_id: Optional[str] = None

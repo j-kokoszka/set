@@ -257,51 +257,48 @@ function App() {
       
       if (code) {
         const codeVerifier = sessionStorage.getItem('code_verifier');
-        if (!codeVerifier) {
-          console.error('Missing code_verifier in sessionStorage');
-          return;
-        }
+        if (codeVerifier) {
+          try {
+            const response = await fetch(`https://${COGNITO_DOMAIN}/oauth2/token`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+              body: new URLSearchParams({
+                grant_type: 'authorization_code',
+                client_id: COGNITO_CLIENT_ID!,
+                code: code,
+                redirect_uri: APP_URL,
+                code_verifier: codeVerifier
+              })
+            });
 
-        try {
-          // Exchange code for tokens
-          const response = await fetch(`https://${COGNITO_DOMAIN}/oauth2/token`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: new URLSearchParams({
-              grant_type: 'authorization_code',
-              client_id: COGNITO_CLIENT_ID!,
-              code: code,
-              redirect_uri: APP_URL,
-              code_verifier: codeVerifier
-            })
-          });
-
-          const data = await response.json();
-          const idToken = data.id_token;
-          const refreshToken = data.refresh_token;
-
-          if (idToken) {
-            setToken(idToken);
-            localStorage.setItem('set_token', idToken);
-            if (refreshToken) {
-              localStorage.setItem('set_refresh_token', refreshToken);
+            if (response.ok) {
+              const data = await response.json();
+              const idToken = data.id_token;
+              const refreshToken = data.refresh_token;
+              
+              if (idToken) {
+                setToken(idToken);
+                localStorage.setItem('set_token', idToken);
+                if (refreshToken) {
+                  localStorage.setItem('set_refresh_token', refreshToken);
+                }
+                
+                const payload = base64UrlDecode(idToken.split('.')[1]);
+                const username = payload?.email || payload?.['cognito:username'] || payload?.sub || 'Authenticated User';
+                setUser(username);
+                localStorage.setItem('set_user', username);
+              }
             }
-            
-            const payload = base64UrlDecode(idToken.split('.')[1]);
-            const username = payload?.email || payload?.['cognito:username'] || payload?.sub || 'Authenticated User';
-            setUser(username);
-            localStorage.setItem('set_user', username);
-
-            // Clean up
+          } catch (e) {
+            console.error('Token exchange failed', e);
+          } finally {
             sessionStorage.removeItem('code_verifier');
             window.history.replaceState(null, '', window.location.pathname);
           }
-        } catch (e) {
-          console.error('Token exchange failed:', e);
         }
       }
 
-      // 2. Legacy check for token in hash (Implicit flow fallback)
+      // 2. Legacy/Fallback: Implicit Flow check (checking for tokens in the hash)
       const hash = window.location.hash;
       if (hash) {
         const hashParams = new URLSearchParams(hash.substring(1));
