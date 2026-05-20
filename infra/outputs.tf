@@ -33,3 +33,12 @@ output "cognito_domain" {
   value       = "${aws_cognito_user_pool_domain.main.domain}.auth.${var.aws_region}.amazoncognito.com"
 }
 
+output "grafana_otlp_endpoint" {
+  value = "https://otlp-gateway-${var.grafana_cloud_region}.grafana.net"
+}
+
+output "grafana_otlp_token" {
+  value     = grafana_cloud_access_policy_token.otlp.token
+  sensitive = true
+}
+

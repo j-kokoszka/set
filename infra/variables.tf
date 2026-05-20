@@ -57,3 +57,22 @@ variable "github_pat" {
   type        = string
   sensitive   = true
 }
+
+variable "grafana_cloud_api_key" {
+  description = "Grafana Cloud Access Policy Token (Org level)"
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
+variable "grafana_cloud_org_slug" {
+  description = "Grafana Cloud Organization Slug"
+  type        = string
+  default     = ""
+}
+
+variable "grafana_cloud_region" {
+  description = "Grafana Cloud Region (e.g., prod-us-east-0)"
+  type        = string
+  default     = "prod-eu-west-0"
+}

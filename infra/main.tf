@@ -8,6 +8,10 @@ terraform {
       source  = "cloudflare/cloudflare"
       version = "~> 5.19"
     }
+    grafana = {
+      source  = "grafana/grafana"
+      version = "~> 3.0"
+    }
   }
 }
 
@@ -38,4 +42,10 @@ provider "aws" {
 
 provider "cloudflare" {
   api_token = var.cloudflare_api_token
+}
+
+# Grafana Cloud Management
+provider "grafana" {
+  alias                     = "cloud"
+  cloud_access_policy_token = var.grafana_cloud_api_key # This should be a Cloud Access Policy token
 }

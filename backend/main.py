@@ -15,6 +15,13 @@ from contextlib import asynccontextmanager
 import structlog
 import logging
 import sys
+from opentelemetry import trace
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import BatchSpanProcessor
+from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+from opentelemetry.instrumentation.botocore import BotocoreInstrumentor
+from opentelemetry.sdk.resources import SERVICE_NAME, Resource
 
 # Configure structured logging
 log_level = os.getenv("LOG_LEVEL", "INFO").upper()
@@ -46,6 +53,23 @@ AWS_REGION = os.getenv("SET_AWS_REGION", os.getenv("AWS_REGION", "us-east-1"))
 GITHUB_REPO_OWNER = os.getenv("GITHUB_REPO_OWNER", "j-kokoszka")
 GITHUB_REPO_NAME = os.getenv("GITHUB_REPO_NAME", "set")
 
+# Initialize OpenTelemetry
+otlp_endpoint = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
+if otlp_endpoint:
+    resource = Resource(attributes={
+        SERVICE_NAME: os.getenv("OTEL_SERVICE_NAME", "set-backend")
+    })
+    
+    provider = TracerProvider(resource=resource)
+    # The OTLPSpanExporter will automatically use OTEL_EXPORTER_OTLP_ENDPOINT 
+    # and OTEL_EXPORTER_OTLP_HEADERS from environment variables.
+    processor = BatchSpanProcessor(OTLPSpanExporter())
+    provider.add_span_processor(processor)
+    trace.set_tracer_provider(provider)
+    
+    # Instrument Botocore (DynamoDB, Bedrock, etc.)
+    BotocoreInstrumentor().instrument()
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     try:
@@ -59,6 +83,10 @@ app = FastAPI(
     lifespan=lifespan,
     root_path="/api"
 )
+
+# Instrument FastAPI
+if os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT"):
+    FastAPIInstrumentor.instrument_app(app)
 
 # Middleware for request/response logging
 @app.middleware("http")

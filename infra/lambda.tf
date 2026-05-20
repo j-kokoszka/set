@@ -21,6 +21,9 @@ resource "aws_lambda_function" "api" {
       COGNITO_APP_CLIENT_ID  = aws_cognito_user_pool_client.client.id
       SET_AWS_REGION         = var.aws_region
       GITHUB_PAT_SECRET_ID   = aws_secretsmanager_secret.github_pat.name
+      OTEL_EXPORTER_OTLP_ENDPOINT = "https://otlp-gateway-${var.grafana_cloud_region}.grafana.net"
+      OTEL_EXPORTER_OTLP_HEADERS  = "Authorization=Bearer ${grafana_cloud_access_policy_token.otlp.token}"
+      OTEL_SERVICE_NAME      = "${var.project_name}-backend"
     }
   }
 

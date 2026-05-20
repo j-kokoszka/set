@@ -42,6 +42,9 @@ jobs:
           TF_VAR_google_client_id: ${{ secrets.GOOGLE_CLIENT_ID }}
           TF_VAR_google_client_secret: ${{ secrets.GOOGLE_CLIENT_SECRET }}
           TF_VAR_github_pat: ${{ secrets.TF_VAR_GITHUB_PAT }}
+          TF_VAR_grafana_cloud_api_key: ${{ secrets.GRAFANA_CLOUD_API_KEY }}
+          TF_VAR_grafana_cloud_org_slug: ${{ secrets.GRAFANA_CLOUD_ORG_SLUG }}
+          TF_VAR_grafana_cloud_region: ${{ secrets.GRAFANA_CLOUD_REGION }}
 
       # 2. Deploy Backend (Lambda)
       - name: Package & Deploy Lambda
@@ -67,10 +70,24 @@ jobs:
           cd infra
           VITE_COGNITO_DOMAIN=$(tofu output -raw cognito_domain)
           VITE_COGNITO_CLIENT_ID=$(tofu output -raw cognito_app_client_id)
+          VITE_OTEL_EXPORTER_OTLP_ENDPOINT=$(tofu output -raw grafana_otlp_endpoint)
+          VITE_OTEL_TOKEN=$(tofu output -raw grafana_otlp_token)
+          
+          # Construct OTLP Headers (JSON string for tracing.ts)
+          if [ -n "$VITE_OTEL_EXPORTER_OTLP_ENDPOINT" ]; then
+            VITE_OTEL_EXPORTER_OTLP_HEADERS="{\"Authorization\":\"Bearer $VITE_OTEL_TOKEN\"}"
+          else
+            VITE_OTEL_EXPORTER_OTLP_HEADERS=""
+          fi
+
           cd ../frontend
           npm ci
           cd ..
-          VITE_COGNITO_DOMAIN=$VITE_COGNITO_DOMAIN VITE_COGNITO_CLIENT_ID=$VITE_COGNITO_CLIENT_ID make build-frontend
+          VITE_COGNITO_DOMAIN=$VITE_COGNITO_DOMAIN \
+          VITE_COGNITO_CLIENT_ID=$VITE_COGNITO_CLIENT_ID \
+          VITE_OTEL_EXPORTER_OTLP_ENDPOINT=$VITE_OTEL_EXPORTER_OTLP_ENDPOINT \
+          VITE_OTEL_EXPORTER_OTLP_HEADERS=$VITE_OTEL_EXPORTER_OTLP_HEADERS \
+          make build-frontend
       - name: Sync S3
         run: |
           S3_BUCKET=$(cd infra && tofu output -raw s3_bucket_name)
