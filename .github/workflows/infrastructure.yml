@@ -48,3 +48,6 @@ jobs:
           TF_VAR_google_client_id: ${{ secrets.GOOGLE_CLIENT_ID }}
           TF_VAR_google_client_secret: ${{ secrets.GOOGLE_CLIENT_SECRET }}
           TF_VAR_github_pat: ${{ secrets.TF_VAR_GITHUB_PAT }}
+          TF_VAR_grafana_cloud_api_key: ${{ secrets.GRAFANA_CLOUD_API_KEY }}
+          TF_VAR_grafana_cloud_org_slug: ${{ secrets.GRAFANA_CLOUD_ORG_SLUG }}
+          TF_VAR_grafana_cloud_region: ${{ secrets.GRAFANA_CLOUD_REGION }}
