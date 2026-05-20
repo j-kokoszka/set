@@ -4,7 +4,6 @@ import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
 import { registerInstrumentations } from '@opentelemetry/instrumentation';
 import { getWebAutoInstrumentations } from '@opentelemetry/auto-instrumentations-web';
 import { Resource } from '@opentelemetry/resources';
-import { SERVICE_NAME } from '@opentelemetry/semantic-conventions';
 import { ZoneContextManager } from '@opentelemetry/context-zone';
 
 const otlpEndpoint = import.meta.env.VITE_OTEL_EXPORTER_OTLP_ENDPOINT;
@@ -13,7 +12,7 @@ const otlpHeaders = import.meta.env.VITE_OTEL_EXPORTER_OTLP_HEADERS;
 if (otlpEndpoint) {
   const provider = new WebTracerProvider({
     resource: new Resource({
-      [SERVICE_NAME]: 'set-frontend',
+      'service.name': 'set-frontend',
     }),
   });
 
