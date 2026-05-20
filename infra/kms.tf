@@ -28,10 +28,51 @@ resource "aws_kms_key" "main" {
         Resource = "*"
       },
       {
+        Sid    = "Allow CloudFront to use the key"
+        Effect = "Allow"
+        Principal = {
+          Service = "cloudfront.amazonaws.com"
+        }
+        Action = [
+          "kms:Decrypt",
+          "kms:GenerateDataKey*"
+        ]
+        Resource = "*"
+        Condition = {
+          StringEquals = {
+            "AWS:SourceArn" = aws_cloudfront_distribution.s3_distribution.arn
+          }
+        }
+      },
+      {
         Sid    = "Allow DynamoDB to use the key"
         Effect = "Allow"
         Principal = {
           Service = "dynamodb.amazonaws.com"
+        }
+        Action = [
+          "kms:GenerateDataKey*",
+          "kms:Decrypt"
+        ]
+        Resource = "*"
+      },
+      {
+        Sid    = "Allow Lambda to use the key"
+        Effect = "Allow"
+        Principal = {
+          AWS = aws_iam_role.lambda_exec.arn
+        }
+        Action = [
+          "kms:Decrypt",
+          "kms:GenerateDataKey*"
+        ]
+        Resource = "*"
+      },
+      {
+        Sid    = "Allow S3 Logging to use the key"
+        Effect = "Allow"
+        Principal = {
+          Service = "delivery.logs.amazonaws.com"
         }
         Action = [
           "kms:GenerateDataKey*",
