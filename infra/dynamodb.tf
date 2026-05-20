@@ -1,5 +1,3 @@
-# tfsec:ignore:aws-dynamodb-table-customer-key
-# tfsec:ignore:aws-dynamodb-enable-recovery
 resource "aws_dynamodb_table" "workouts" {
   name         = "${var.project_name}-workouts"
   billing_mode = "PAY_PER_REQUEST"
@@ -7,7 +5,8 @@ resource "aws_dynamodb_table" "workouts" {
   range_key    = "sk"
 
   server_side_encryption {
-    enabled = true
+    enabled     = true
+    kms_key_arn = aws_kms_key.main.arn
   }
 
   point_in_time_recovery {

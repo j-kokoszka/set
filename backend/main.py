@@ -42,7 +42,7 @@ structlog.configure(
 logger = structlog.get_logger()
 
 # Configuration
-AWS_REGION = os.getenv("AWS_REGION", "us-east-1")
+AWS_REGION = os.getenv("SET_AWS_REGION", os.getenv("AWS_REGION", "us-east-1"))
 GITHUB_REPO_OWNER = os.getenv("GITHUB_REPO_OWNER", "j-kokoszka")
 GITHUB_REPO_NAME = os.getenv("GITHUB_REPO_NAME", "set")
 
@@ -264,8 +264,11 @@ async def submit_feedback(feedback: Feedback, user_id: str = Depends(get_current
         JSON Output:
         """
         
+        # Use cross-region inference profile for better availability and to avoid on-demand limitations
+        inference_profile_id = f"eu.{AWS_REGION}.amazon.nova-micro-v1:0"
+        
         response = bedrock.invoke_model(
-            modelId="eu.amazon.nova-micro-v1:0",
+            modelId=inference_profile_id,
             body=json.dumps({
                 "inferenceConfig": {
                     "max_new_tokens": 500,
