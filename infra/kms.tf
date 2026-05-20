@@ -68,4 +68,3 @@ resource "aws_kms_alias" "main" {
   target_key_id = aws_kms_key.main.key_id
 }
 
-data "aws_caller_identity" "current" {}
