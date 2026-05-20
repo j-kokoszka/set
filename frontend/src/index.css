@@ -2,10 +2,13 @@
   --bg-color: #121212;
   --surface-color: #1e1e1e;
   --primary-color: #3b82f6;
+  --primary-hover: #2563eb;
   --success-color: #10b981;
+  --error-color: #ef4444;
   --text-color: #f3f4f6;
   --text-muted: #9ca3af;
   --border-color: #374151;
+  --header-height: 70px;
 }
 
 * {
@@ -19,22 +22,40 @@ body {
   background-color: var(--bg-color);
   color: var(--text-color);
   -webkit-font-smoothing: antialiased;
+  line-height: 1.5;
 }
 
 .app-container {
   max-width: 800px;
   margin: 0 auto;
-  padding: 1rem;
+  padding: 0 1rem 2rem 1rem;
 }
 
 header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 1rem 0;
+  height: var(--header-height);
   border-bottom: 1px solid var(--border-color);
   margin-bottom: 2rem;
-  position: relative;
+  position: sticky;
+  top: 0;
+  background-color: var(--bg-color);
+  z-index: 500;
+}
+
+.header-brand {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.user-tag {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  border-left: 1px solid var(--border-color);
+  padding-left: 1rem;
+  font-weight: 500;
 }
 
 .hamburger {
@@ -46,6 +67,11 @@ header {
   cursor: pointer;
   padding: 0.5rem;
   line-height: 1;
+  border-radius: 4px;
+}
+
+.hamburger:hover {
+  background: rgba(255, 255, 255, 0.05);
 }
 
 .nav-menu {
@@ -61,9 +87,9 @@ header {
   .nav-menu {
     display: none;
     position: absolute;
-    top: 100%;
-    left: -1rem;
-    right: -1rem;
+    top: var(--header-height);
+    left: 0;
+    right: 0;
     background: var(--surface-color);
     flex-direction: column;
     padding: 1rem;
@@ -85,135 +111,205 @@ header {
 
 h1 {
   font-size: 1.5rem;
-  font-weight: 700;
+  font-weight: 800;
   color: var(--primary-color);
   margin: 0;
+  letter-spacing: -0.025em;
 }
 
 .card {
   background: var(--surface-color);
   border-radius: 12px;
   padding: 1.5rem;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
   margin-bottom: 1.5rem;
 }
 
 .workout-grid {
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
+  gap: 1rem;
 }
 
 .exercise-row {
   border: 1px solid var(--border-color);
-  border-radius: 8px;
-  padding: 1rem;
+  border-radius: 12px;
+  padding: 1.25rem;
+  background: rgba(255, 255, 255, 0.01);
 }
 
 .exercise-header {
   display: flex;
   justify-content: space-between;
-  margin-bottom: 1rem;
+  align-items: center;
+  margin-bottom: 1.25rem;
+}
+
+.exercise-title {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-weight: 700;
+  font-size: 1.1rem;
 }
 
 .set-list {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 1.25rem;
-}
-
-.set-item {
-  background: rgba(255, 255, 255, 0.02);
-  padding: 1.25rem;
-  border-radius: 12px;
-  border: 1px solid var(--border-color);
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  display: flex;
-  flex-direction: column;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
   gap: 1rem;
 }
 
-.set-item:hover {
-  border-color: rgba(255, 255, 255, 0.2);
+.set-item {
+  background: rgba(255, 255, 255, 0.03);
+  padding: 1rem;
+  border-radius: 10px;
+  border: 1px solid var(--border-color);
+  transition: all 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
 }
 
-.set-item:focus-within {
+.set-item:hover {
   border-color: var(--primary-color);
-  background: rgba(59, 130, 246, 0.08);
-  box-shadow: 0 0 0 1px var(--primary-color);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.set-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.set-label {
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: var(--primary-color);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
 .set-input-row {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1rem;
-  align-items: flex-end;
+  grid-template-columns: 1.2fr 1fr;
+  gap: 0.75rem;
 }
 
 .set-input-group {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.35rem;
 }
 
 .set-input-label {
-  font-size: 0.7rem;
+  font-size: 0.65rem;
   text-transform: uppercase;
-  letter-spacing: 0.075em;
+  letter-spacing: 0.05em;
   color: var(--text-muted);
-  font-weight: 800;
+  font-weight: 700;
+}
+
+.input-with-badge {
+  position: relative;
+  display: flex;
+  align-items: center;
 }
 
 .unit-badge {
   position: absolute;
-  right: 12px;
-  top: 50%;
-  transform: translateY(-50%);
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: var(--text-muted);
-  pointer-events: none;
-  background: #363636;
-  padding-left: 4px;
+  right: 6px;
+  background: var(--primary-color);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  cursor: pointer;
+  text-transform: uppercase;
+  transition: background 0.2s;
+}
+
+.unit-badge:hover {
+  background: var(--primary-hover);
 }
 
 .btn {
   background: var(--primary-color);
   color: white;
   border: none;
-  padding: 0.6rem 1.2rem;
+  padding: 0.75rem 1.25rem;
   border-radius: 8px;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s;
-  width: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  font-size: 0.95rem;
 }
 
 .btn:hover {
-  opacity: 0.9;
+  background: var(--primary-hover);
   transform: translateY(-1px);
+}
+
+.btn:active {
+  transform: translateY(0);
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
 }
 
 .btn-secondary {
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid var(--border-color);
-  color: var(--text-muted);
+  color: var(--text-color);
 }
 
-input {
-  background: #363636;
+.btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: var(--text-muted);
+}
+
+.btn-danger {
+  background: transparent;
+  color: var(--error-color);
+  padding: 0.4rem;
+  border-radius: 4px;
+}
+
+.btn-danger:hover {
+  background: rgba(239, 68, 68, 0.1);
+}
+
+.btn-small {
+  padding: 0.3rem 0.6rem;
+  font-size: 0.8rem;
+  border-radius: 6px;
+}
+
+input, textarea {
+  background: #2a2a2a;
   border: 1px solid var(--border-color);
   color: white;
-  padding: 0.5rem;
-  border-radius: 6px;
+  padding: 0.6rem;
+  border-radius: 8px;
   width: 100%;
   font-size: 1rem;
-  transition: border-color 0.2s;
+  font-family: inherit;
+  transition: all 0.2s;
 }
 
-input:focus {
+input:focus, textarea:focus {
   outline: none;
   border-color: var(--primary-color);
+  background: #323232;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
 }
 
 /* Chrome, Safari, Edge, Opera */
@@ -241,16 +337,16 @@ input[type=number] {
   display: flex;
   justify-content: center;
   align-items: center;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.4);
   cursor: pointer;
   z-index: 1000;
   border: none;
-  transition: transform 0.2s, background-color 0.2s;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .fab:hover {
-  transform: scale(1.1);
-  background-color: #2563eb;
+  transform: scale(1.1) rotate(5deg);
+  background-color: var(--primary-hover);
 }
 
 .modal-overlay {
@@ -259,7 +355,8 @@ input[type=number] {
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: rgba(0, 0, 0, 0.7);
+  background-color: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(4px);
   display: flex;
   justify-content: center;
   align-items: center;
@@ -269,37 +366,31 @@ input[type=number] {
 
 .modal-content {
   background-color: var(--surface-color);
-  border-radius: 12px;
-  padding: 1.5rem;
+  border-radius: 16px;
+  padding: 2rem;
   width: 100%;
   max-width: 500px;
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  animation: modalAppear 0.3s ease-out;
+}
+
+@keyframes modalAppear {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 .modal-title {
   margin-top: 0;
-  margin-bottom: 1rem;
-  font-size: 1.25rem;
+  margin-bottom: 1.5rem;
+  font-size: 1.5rem;
+  font-weight: 700;
   color: var(--text-color);
 }
 
 .feedback-textarea {
-  width: 100%;
   min-height: 150px;
-  background: #363636;
-  border: 1px solid var(--border-color);
-  color: white;
-  padding: 0.75rem;
-  border-radius: 8px;
-  font-size: 1rem;
   margin-bottom: 1.5rem;
   resize: vertical;
-  font-family: inherit;
-}
-
-.feedback-textarea:focus {
-  outline: none;
-  border-color: var(--primary-color);
 }
 
 .modal-actions {
@@ -310,4 +401,137 @@ input[type=number] {
 
 .modal-actions .btn {
   width: auto;
+  min-width: 100px;
 }
+
+.history-item, .plan-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.item-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.item-title {
+  display: flex;
+  flex-direction: column;
+}
+
+.item-name {
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.item-meta {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.tag {
+  font-size: 0.75rem;
+  background: rgba(255, 255, 255, 0.05);
+  padding: 0.25rem 0.6rem;
+  border-radius: 6px;
+  color: var(--text-muted);
+  border: 1px solid var(--border-color);
+}
+
+.login-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 1rem;
+}
+
+.login-card {
+  width: 100%;
+  max-width: 400px;
+  padding: 3rem 2.5rem;
+  text-align: center;
+}
+
+.login-title {
+  font-size: 3rem;
+  margin-bottom: 3rem;
+  letter-spacing: -0.05em;
+}
+
+.workout-name-input {
+  font-size: 1.5rem;
+  font-weight: 800;
+  border: none !important;
+  background: transparent !important;
+  padding: 0 !important;
+  color: white;
+  flex: 1;
+  box-shadow: none !important;
+}
+
+.workout-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+  gap: 1rem;
+}
+
+.error-message {
+  color: var(--error-color);
+  font-size: 0.85rem;
+  margin-bottom: 1rem;
+}
+
+.flex-between {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.flex-center {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.mt-2 { margin-top: 2rem; }
+.mb-1 { margin-bottom: 1rem; }
+.workout-name-input::placeholder {
+  color: rgba(255, 255, 255, 0.3);
+}
+
+.exercise-suggestions {
+  background: var(--surface-color);
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
+  z-index: 10;
+}
+
+.suggestion-item {
+  padding: 0.75rem 1rem;
+  cursor: pointer;
+  transition: background 0.2s;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.suggestion-item:last-child {
+  border-bottom: none;
+}
+
+.suggestion-item:hover, .suggestion-item.active {
+  background: rgba(59, 130, 246, 0.1);
+  color: var(--primary-color);
+}
+
+
