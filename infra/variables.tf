@@ -76,3 +76,4 @@ variable "grafana_cloud_region" {
   type        = string
   default     = "prod-eu-west-0"
 }
+# Triggering CI
