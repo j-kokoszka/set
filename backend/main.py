@@ -265,7 +265,7 @@ async def submit_feedback(feedback: Feedback, user_id: str = Depends(get_current
         """
         
         # Use cross-region inference profile for better availability and to avoid on-demand limitations
-        inference_profile_id = f"eu.{AWS_REGION}.amazon.nova-micro-v1:0"
+        inference_profile_id = "eu.amazon.nova-micro-v1:0"
         
         response = bedrock.invoke_model(
             modelId=inference_profile_id,
