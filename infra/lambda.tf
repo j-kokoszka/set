@@ -142,10 +142,10 @@ resource "aws_iam_policy" "lambda_bedrock" {
         Action   = "bedrock:InvokeModel"
         Effect   = "Allow"
         Resource = [
-          "arn:aws:bedrock:${var.aws_region}::foundation-model/amazon.nova-lite-v1:0",
-          "arn:aws:bedrock:${var.aws_region}::foundation-model/amazon.nova-micro-v1:0",
-          "arn:aws:bedrock:${var.aws_region}:${data.aws_caller_identity.current.account_id}:inference-profile/eu.amazon.nova-lite-v1:0",
-          "arn:aws:bedrock:${var.aws_region}:${data.aws_caller_identity.current.account_id}:inference-profile/eu.amazon.nova-micro-v1:0"
+          "arn:aws:bedrock:*::foundation-model/amazon.nova-lite-v1:0",
+          "arn:aws:bedrock:*::foundation-model/amazon.nova-micro-v1:0",
+          "arn:aws:bedrock:*:${data.aws_caller_identity.current.account_id}:inference-profile/eu.amazon.nova-lite-v1:0",
+          "arn:aws:bedrock:*:${data.aws_caller_identity.current.account_id}:inference-profile/eu.amazon.nova-micro-v1:0"
         ]
       }
     ]
