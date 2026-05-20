@@ -257,51 +257,48 @@ function App() {
       
       if (code) {
         const codeVerifier = sessionStorage.getItem('code_verifier');
-        if (!codeVerifier) {
-          console.error('Missing code_verifier in sessionStorage');
-          return;
-        }
+        if (codeVerifier) {
+          try {
+            const response = await fetch(`https://${COGNITO_DOMAIN}/oauth2/token`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+              body: new URLSearchParams({
+                grant_type: 'authorization_code',
+                client_id: COGNITO_CLIENT_ID!,
+                code: code,
+                redirect_uri: APP_URL,
+                code_verifier: codeVerifier
+              })
+            });
 
-        try {
-          // Exchange code for tokens
-          const response = await fetch(`https://${COGNITO_DOMAIN}/oauth2/token`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: new URLSearchParams({
-              grant_type: 'authorization_code',
-              client_id: COGNITO_CLIENT_ID!,
-              code: code,
-              redirect_uri: APP_URL,
-              code_verifier: codeVerifier
-            })
-          });
-
-          const data = await response.json();
-          const idToken = data.id_token;
-          const refreshToken = data.refresh_token;
-
-          if (idToken) {
-            setToken(idToken);
-            localStorage.setItem('set_token', idToken);
-            if (refreshToken) {
-              localStorage.setItem('set_refresh_token', refreshToken);
+            if (response.ok) {
+              const data = await response.json();
+              const idToken = data.id_token;
+              const refreshToken = data.refresh_token;
+              
+              if (idToken) {
+                setToken(idToken);
+                localStorage.setItem('set_token', idToken);
+                if (refreshToken) {
+                  localStorage.setItem('set_refresh_token', refreshToken);
+                }
+                
+                const payload = base64UrlDecode(idToken.split('.')[1]);
+                const username = payload?.email || payload?.['cognito:username'] || payload?.sub || 'Authenticated User';
+                setUser(username);
+                localStorage.setItem('set_user', username);
+              }
             }
-            
-            const payload = base64UrlDecode(idToken.split('.')[1]);
-            const username = payload?.email || payload?.['cognito:username'] || payload?.sub || 'Authenticated User';
-            setUser(username);
-            localStorage.setItem('set_user', username);
-
-            // Clean up
+          } catch (e) {
+            console.error('Token exchange failed', e);
+          } finally {
             sessionStorage.removeItem('code_verifier');
             window.history.replaceState(null, '', window.location.pathname);
           }
-        } catch (e) {
-          console.error('Token exchange failed:', e);
         }
       }
 
-      // 2. Legacy check for token in hash (Implicit flow fallback)
+      // 2. Legacy/Fallback: Implicit Flow check (checking for tokens in the hash)
       const hash = window.location.hash;
       if (hash) {
         const hashParams = new URLSearchParams(hash.substring(1));
@@ -504,21 +501,28 @@ function App() {
     setExercises(newExercises);
   };
 
+  const removeSet = (exerciseIndex: number, setIndex: number) => {
+    const newExercises = [...exercises];
+    newExercises[exerciseIndex].sets.splice(setIndex, 1);
+    setExercises(newExercises);
+  };
+
   const updateSet = <K extends keyof Set>(exerciseIndex: number, setIndex: number, field: K, value: Set[K]) => {
     const newExercises = [...exercises];
     const targetSet = newExercises[exerciseIndex].sets[setIndex];
     if (field === 'weight') {
-      targetSet.weight = typeof value === "string" ? parseFloat(value) : value as number;
+      targetSet.weight = typeof value === 'string' ? parseFloat(value) : value as number;
     } else if (field === 'reps') {
-      targetSet.reps = typeof value === "string" ? parseInt(value) : value as number;
+      targetSet.reps = typeof value === 'string' ? parseInt(value) : value as number;
     } else if (field === 'difficulty') {
-      targetSet.difficulty = value as Set["difficulty"];
+      targetSet.difficulty = value as Set['difficulty'];
       targetSet.completed = true;
     } else if (field === 'completed') {
       targetSet.completed = value as boolean;
     }
     setExercises(newExercises);
   };
+
 
   const toggleUnit = (exerciseIndex: number, setIndex: number) => {
     const newExercises = [...exercises];
@@ -646,23 +650,18 @@ function App() {
 
   if (!token) {
     return (
-      <div className="app-container" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh' }}>
-        <div className="card" style={{ width: '100%', maxWidth: '360px' }}>
-          <h1 style={{ textAlign: 'center', marginBottom: '2.5rem' }}>set</h1>
+      <div className="login-container">
+        <div className="card login-card">
+          <h1 className="login-title">set</h1>
           
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
             <button 
               className="btn" 
               onClick={handleGoogleLogin}
               style={{ 
                 background: 'white', 
                 color: '#3c4043', 
-                display: 'flex', 
-                alignItems: 'center', 
-                justifyContent: 'center', 
-                gap: '0.75rem',
                 border: '1px solid #dadce0',
-                padding: '0.6rem'
               }}
             >
               <img src="https://www.gstatic.com/images/branding/product/1x/gsa_512dp.png" alt="Google" style={{ width: '20px', height: '20px' }} />
@@ -678,7 +677,7 @@ function App() {
                 </div>
 
                 <form onSubmit={handleLogin}>
-                  <div className="set-input-group" style={{ marginBottom: '1.5rem' }}>
+                  <div className="set-input-group mb-1">
                     <label htmlFor="username" className="set-input-label">Username</label>
                     <input 
                       id="username"
@@ -689,7 +688,7 @@ function App() {
                       required
                     />
                   </div>
-                  <button className="btn btn-secondary" type="submit" style={{ padding: '0.6rem' }}>
+                  <button className="btn btn-secondary" type="submit">
                     Mock Login
                   </button>
                 </form>
@@ -704,11 +703,9 @@ function App() {
   return (
     <div className="app-container">
       <header>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+        <div className="header-brand">
           <h1>set</h1>
-          <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', borderLeft: '1px solid var(--border-color)', paddingLeft: '1rem' }}>
-            {user}
-          </span>
+          <span className="user-tag">{user}</span>
         </div>
 
         <button className="hamburger" onClick={() => setIsMenuOpen(!isMenuOpen)} aria-label="Toggle menu">
@@ -717,31 +714,27 @@ function App() {
 
         <div className={`nav-menu ${isMenuOpen ? 'open' : ''}`}>
           <button 
-            className={`btn ${view === 'workout' ? '' : 'btn-secondary'}`} 
+            className={`btn btn-small ${view === 'workout' ? '' : 'btn-secondary'}`} 
             onClick={() => { setView('workout'); setIsMenuOpen(false); }}
-            style={{ width: 'auto' }}
           >
             Log
           </button>
           <button 
-            className={`btn ${view === 'history' ? '' : 'btn-secondary'}`} 
+            className={`btn btn-small ${view === 'history' ? '' : 'btn-secondary'}`} 
             onClick={() => { setView('history'); setIsMenuOpen(false); }}
-            style={{ width: 'auto' }}
           >
             History
           </button>
           <button 
-            className={`btn ${view === 'plans' ? '' : 'btn-secondary'}`} 
+            className={`btn btn-small ${view === 'plans' ? '' : 'btn-secondary'}`} 
             onClick={() => { setView('plans'); setIsMenuOpen(false); }}
-            style={{ width: 'auto' }}
           >
             Plans
           </button>
           <button 
-            className="btn btn-secondary" 
+            className="btn btn-secondary btn-small" 
             onClick={() => { handleLogout(); setIsMenuOpen(false); }} 
-            title="Sign Out" 
-            style={{ width: 'auto' }}
+            title="Sign Out"
           >
             Logout
           </button>
@@ -750,17 +743,17 @@ function App() {
 
       {view === 'workout' ? (
         <div className="card">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+          <div className="workout-header">
             <input 
-              style={{ fontSize: '1.2rem', fontWeight: 'bold', border: 'none', background: 'transparent', padding: '0', color: 'white', flex: 1 }}
+              className="workout-name-input"
               value={workoutName} 
               onChange={(e) => setWorkoutName(e.target.value)} 
               placeholder="Workout Name"
             />
             {!editingWorkoutId && !editingPlanId && (
               <button 
-                className="btn btn-secondary" 
-                style={{ width: 'auto', fontSize: '0.8rem' }}
+                className="btn btn-secondary btn-small" 
+                style={{ width: 'auto' }}
                 onClick={() => setIsSelectingPlan(true)}
               >
                 Start from Plan
@@ -770,20 +763,22 @@ function App() {
 
           {isSelectingPlan && (
             <div className="modal-overlay" onClick={() => setIsSelectingPlan(false)}>
-              <div className="card modal-content" onClick={e => e.stopPropagation()}>
-                <h3>Select a Plan</h3>
+              <div className="modal-content" onClick={e => e.stopPropagation()}>
+                <h3 className="modal-title">Select a Plan</h3>
                 {plans.length === 0 ? (
                   <p style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '1rem' }}>No plans found. Create one in the Plans tab!</p>
                 ) : (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginBottom: '1.5rem' }}>
                     {plans.map(p => (
-                      <button key={p.id} className="btn btn-secondary" style={{ textAlign: 'left' }} onClick={() => startFromPlan(p)}>
+                      <button key={p.id} className="btn btn-secondary" style={{ textAlign: 'left', justifyContent: 'flex-start' }} onClick={() => startFromPlan(p)}>
                         {p.name}
                       </button>
                     ))}
                   </div>
                 )}
-                <button className="btn" style={{ marginTop: '1rem' }} onClick={() => setIsSelectingPlan(false)}>Cancel</button>
+                <div className="modal-actions">
+                  <button className="btn btn-secondary" onClick={() => setIsSelectingPlan(false)}>Cancel</button>
+                </div>
               </div>
             </div>
           )}
@@ -792,16 +787,17 @@ function App() {
             {exercises.map((ex, exIdx) => (
               <div key={exIdx} className="exercise-row">
                 <div className="exercise-header">
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <span style={{ fontWeight: 600 }}>{ex.name}</span>
+                  <div className="exercise-title">
+                    <span>{ex.name}</span>
                     <button 
+                      className="btn-danger"
                       onClick={() => removeExercise(exIdx)}
-                      style={{ background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '0.8rem' }}
+                      title="Remove exercise"
                     >
                       ✕
                     </button>
                   </div>
-                  <button className="btn btn-secondary" style={{ padding: '0.2rem 0.6rem', fontSize: '0.8rem', width: 'auto' }} onClick={() => addSet(exIdx)}>
+                  <button className="btn btn-secondary btn-small" onClick={() => addSet(exIdx)}>
                     + Set
                   </button>
                 </div>
@@ -809,45 +805,44 @@ function App() {
                 <div className="set-list">
                   {ex.sets.map((set, sIdx) => (
                     <div key={sIdx} className={`set-item ${set.completed ? 'completed' : ''}`}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                          <span style={{ fontSize: '0.8rem', fontWeight: '800', color: set.completed ? 'var(--success-color)' : 'var(--primary-color)' }}>
-                            SET {sIdx + 1}
-                          </span>
-                          {set.completed && <span style={{ fontSize: '0.8rem' }}>✓</span>}
+                      <div className="set-header">
+                        <div className="flex-center">
+                          <span className="set-label">SET {sIdx + 1}</span>
+                          {set.completed && <span style={{ color: 'var(--success-color)', fontSize: '0.9rem' }}>✓</span>}
                         </div>
-                        <button 
-                          onClick={() => updateSet(exIdx, sIdx, 'completed', !set.completed)}
-                          style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '0.7rem' }}
-                        >
-                          {set.completed ? 'Undo' : 'Done'}
-                        </button>
+                        <div className="flex-center">
+                          <button 
+                            className="btn-secondary btn-small"
+                            onClick={() => updateSet(exIdx, sIdx, 'completed', !set.completed)}
+                            style={{ fontSize: '0.65rem', padding: '0.2rem 0.5rem' }}
+                          >
+                            {set.completed ? 'Undo' : 'Done'}
+                          </button>
+                          <button 
+                            className="btn-danger"
+                            onClick={() => removeSet(exIdx, sIdx)}
+                            style={{ padding: '2px 4px', fontSize: '0.7rem' }}
+                            title="Remove set"
+                          >
+                            ✕
+                          </button>
+                        </div>
                       </div>
                       
                       <div className="set-input-row">
                         <div className="set-input-group">
                           <label className="set-input-label">Weight</label>
-                          <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                          <div className="input-with-badge">
                             <input 
                               type="number" 
                               value={set.weight || ''} 
                               placeholder="0"
                               onChange={(e) => updateSet(exIdx, sIdx, 'weight', parseFloat(e.target.value))} 
-                              style={{ paddingRight: '2.5rem' }}
+                              style={{ paddingRight: '2.8rem' }}
                             />
                             <button 
                               className="unit-badge" 
                               onClick={() => toggleUnit(exIdx, sIdx)}
-                              style={{ 
-                                border: 'none', 
-                                cursor: 'pointer', 
-                                background: 'var(--primary-color)', 
-                                color: 'white',
-                                borderRadius: '4px',
-                                padding: '2px 6px',
-                                textTransform: 'uppercase',
-                                pointerEvents: 'auto'
-                              }}
                             >
                               {set.unit || 'kg'}
                             </button>
@@ -861,12 +856,11 @@ function App() {
                             value={set.reps || ''} 
                             placeholder="0"
                             onChange={(e) => updateSet(exIdx, sIdx, 'reps', parseInt(e.target.value))} 
-                            style={{ textAlign: 'center' }}
                           />
                         </div>
                       </div>
 
-                      <div className="difficulty-row" style={{ display: 'flex', gap: '0.25rem', marginTop: '0.75rem' }}>
+                      <div className="difficulty-row">
                         {([
                           { id: 'pass', icon: '⚪' },
                           { id: 'easy', icon: '🟢' },
@@ -892,16 +886,19 @@ function App() {
           </div>
 
           {!isAdding ? (
-            <button className="btn" style={{ background: '#2d2d2d', border: '1px dashed var(--border-color)', marginTop: '1.5rem' }} onClick={() => setIsAdding(true)}>
+            <button 
+              className="btn btn-secondary" 
+              style={{ border: '1px dashed var(--border-color)', marginTop: '1.5rem', background: 'transparent' }} 
+              onClick={() => setIsAdding(true)}
+            >
               + Add Exercise
             </button>
           ) : (
-            <div className="card" style={{ marginTop: '1.5rem', border: '1px solid var(--primary-color)', padding: '1rem' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+            <div className="card" style={{ marginTop: '1.5rem', border: '1px solid var(--primary-color)', padding: '1.25rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+                <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
                   <button 
-                    className="btn btn-secondary" 
-                    style={{ padding: '0.2rem 0.5rem', width: 'auto', fontSize: '0.8rem' }}
+                    className="btn btn-secondary btn-small" 
                     onClick={() => {
                       if (navPath.length > 0) {
                         setNavPath(navPath.slice(0, -1));
@@ -912,11 +909,12 @@ function App() {
                   >
                     {navPath.length > 0 ? '← Back' : 'Cancel'}
                   </button>
-                  <span style={{ fontSize: '0.9rem', fontWeight: 'bold' }}>
+                  <span style={{ fontSize: '1rem', fontWeight: '700' }}>
                     {navPath.length === 0 ? 'Select Category' : navPath.join(' / ')}
                   </span>
                 </div>
               </div>
+
 
               {loadingExercises ? (
                 <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
@@ -952,7 +950,7 @@ function App() {
                           }
                         }}
                       />
-                      <div className="exercise-suggestions" style={{ position: 'static', marginTop: '0.5rem', border: '1px solid var(--border-color)' }}>
+                      <div className="exercise-suggestions" style={{ position: 'static', marginTop: '0.5rem' }}>
                         {filteredExercises.length > 0 ? filteredExercises.map((ex, i) => (
                           <div 
                             key={ex.id} 
@@ -961,8 +959,8 @@ function App() {
                             onMouseEnter={() => setSearchIndex(i)}
                           >
                             <div style={{ display: 'flex', flexDirection: 'column' }}>
-                              <span>{ex.name}</span>
-                              <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{ex.primaryMuscles?.join(', ')}</span>
+                              <span style={{ fontWeight: '600' }}>{ex.name}</span>
+                              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{ex.primaryMuscles?.join(', ')}</span>
                             </div>
                           </div>
                         )) : (
@@ -975,7 +973,7 @@ function App() {
                   )}
 
                   {newExName.trim() === "" && (
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', maxHeight: '300px', overflowY: 'auto' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', maxHeight: '350px', overflowY: 'auto', padding: '0.25rem' }}>
                       {navPath.length === 0 && (
                         <div style={{ gridColumn: 'span 2', marginBottom: '1rem' }}>
                           <input 
@@ -1004,12 +1002,12 @@ function App() {
 
                       {navPath.length === 2 && (
                         navExercises.length === 0 ? (
-                          <div style={{ gridColumn: 'span 2', textAlign: 'center', padding: '1rem', color: 'var(--text-muted)' }}>
+                          <div style={{ gridColumn: 'span 2', textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
                             No exercises found for this muscle group.
                           </div>
                         ) : (
                           navExercises.map(ex => (
-                            <button key={ex.id} className="btn btn-secondary" onClick={() => { addExercise(ex); setNavPath([]); }} style={{ fontSize: '0.8rem', textAlign: 'left', height: 'auto', padding: '0.5rem' }}>
+                            <button key={ex.id} className="btn btn-secondary" onClick={() => { addExercise(ex); setNavPath([]); }} style={{ fontSize: '0.85rem', textAlign: 'left', height: 'auto', padding: '0.75rem', justifyContent: 'flex-start' }}>
                               {ex.name}
                             </button>
                           ))
@@ -1022,11 +1020,11 @@ function App() {
             </div>
           )}
           
-          <div style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem' }}>
+          <div style={{ display: 'flex', gap: '1rem', marginTop: '2rem' }}>
             {exercises.length > 0 && (
               <button 
                 className="btn" 
-                style={{ flex: 2, background: 'var(--success-color)', padding: '1rem', fontSize: '1rem' }} 
+                style={{ flex: 2, background: 'var(--success-color)' }} 
                 onClick={saveWorkout}
               >
                 {editingWorkoutId ? 'Update Workout' : 'Save Workout'}
@@ -1035,7 +1033,7 @@ function App() {
             {exercises.length > 0 && !editingWorkoutId && (
               <button 
                 className="btn btn-secondary" 
-                style={{ flex: 1, padding: '1rem', fontSize: '1rem' }} 
+                style={{ flex: 1 }} 
                 onClick={savePlan}
               >
                 {editingPlanId ? 'Update Plan' : 'Save as Plan'}
@@ -1046,41 +1044,41 @@ function App() {
       ) : view === 'history' ? (
         <div className="history-list">
           {loading ? (
-            <p style={{ textAlign: 'center' }}>Loading history...</p>
+            <p style={{ textAlign: 'center', padding: '2rem' }}>Loading history...</p>
           ) : history.length === 0 ? (
-            <p style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '2rem' }}>No workouts found.</p>
+            <p style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '4rem' }}>No workouts found.</p>
           ) : (
             history.map((w, idx) => (
-              <div key={idx} className="card" style={{ marginBottom: '1rem' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-                  <div style={{ display: 'flex', flexDirection: 'column' }}>
-                    <strong style={{ fontSize: '1.1rem' }}>{w.name}</strong>
-                    <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                      {new Date(w.sk.split('#')[1]).toLocaleDateString()}
+              <div key={idx} className="card history-item">
+                <div className="item-header">
+                  <div className="item-title">
+                    <span className="item-name">{w.name}</span>
+                    <span className="item-meta">
+                      {new Date(w.sk.split('#')[1]).toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
                     </span>
                   </div>
-                  <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  <div style={{ display: 'flex', gap: '0.25rem' }}>
                     <button 
+                      className="btn-secondary btn-small"
                       onClick={() => startEdit(w)}
-                      style={{ background: 'transparent', border: 'none', color: 'var(--primary-color)', cursor: 'pointer', fontSize: '0.9rem', padding: '0.5rem' }}
                       title="Edit workout"
                     >
                       ✎
                     </button>
                     <button 
+                      className="btn-danger btn-small"
                       onClick={() => deleteWorkout(w.sk)}
-                      style={{ background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '0.9rem', padding: '0.5rem' }}
                       title="Delete workout"
                     >
                       ✕
                     </button>
                   </div>
                 </div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                <div className="tag-list">
                   {w.exercises?.map((ex, eIdx: number) => (
-                    <div key={eIdx} style={{ fontSize: '0.8rem', background: '#2d2d2d', padding: '0.2rem 0.5rem', borderRadius: '4px' }}>
-                      {ex.exercise_name} ({ex.sets?.length} sets)
-                    </div>
+                    <span key={eIdx} className="tag">
+                      {ex.exercise_name} ({ex.sets?.length})
+                    </span>
                   ))}
                 </div>
               </div>
@@ -1090,48 +1088,50 @@ function App() {
       ) : (
         <div className="plans-list">
           {loading ? (
-            <p style={{ textAlign: 'center' }}>Loading plans...</p>
+            <p style={{ textAlign: 'center', padding: '2rem' }}>Loading plans...</p>
           ) : plans.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '2rem' }}>
+            <div className="card" style={{ textAlign: 'center', padding: '4rem' }}>
               <p style={{ color: 'var(--text-muted)', marginBottom: '1.5rem' }}>No plans found. Templates help you start workouts faster!</p>
-              <button className="btn" onClick={() => { setView('workout'); setWorkoutName('New Plan'); setExercises([]); }}>
+              <button className="btn" style={{ width: 'auto' }} onClick={() => { setView('workout'); setWorkoutName('New Plan'); setExercises([]); }}>
                 Create My First Plan
               </button>
             </div>
           ) : (
             plans.map((p) => (
-              <div key={p.id} className="card" style={{ marginBottom: '1rem' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-                  <strong style={{ fontSize: '1.1rem' }}>{p.name}</strong>
-                  <div style={{ display: 'flex', gap: '0.5rem' }}>
+              <div key={p.id} className="card plan-item">
+                <div className="item-header">
+                  <div className="item-title">
+                    <span className="item-name">{p.name}</span>
+                    <span className="item-meta">{p.exercises.length} exercises</span>
+                  </div>
+                  <div style={{ display: 'flex', gap: '0.25rem' }}>
                     <button 
-                      className="btn btn-secondary" 
-                      style={{ width: 'auto', fontSize: '0.8rem', padding: '0.2rem 0.6rem' }}
+                      className="btn btn-small" 
                       onClick={() => startFromPlan(p)}
                     >
                       Use
                     </button>
                     <button 
+                      className="btn-secondary btn-small"
                       onClick={() => startPlanEdit(p)}
-                      style={{ background: 'transparent', border: 'none', color: 'var(--primary-color)', cursor: 'pointer', fontSize: '0.9rem', padding: '0.5rem' }}
                       title="Edit plan"
                     >
                       ✎
                     </button>
                     <button 
+                      className="btn-danger btn-small"
                       onClick={() => deletePlan(p.id)}
-                      style={{ background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '0.9rem', padding: '0.5rem' }}
                       title="Delete plan"
                     >
                       ✕
                     </button>
                   </div>
                 </div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                <div className="tag-list">
                   {p.exercises.map((ex, eIdx) => (
-                    <div key={eIdx} style={{ fontSize: '0.8rem', background: '#2d2d2d', padding: '0.2rem 0.5rem', borderRadius: '4px' }}>
+                    <span key={eIdx} className="tag">
                       {ex.exercise_name}
-                    </div>
+                    </span>
                   ))}
                 </div>
               </div>
