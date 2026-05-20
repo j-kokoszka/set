@@ -33,11 +33,45 @@ resource "grafana_cloud_access_policy_token" "otlp" {
   display_name     = "Token for OTLP Ingestion (${var.project_name})"
 }
 
-# 3. Synthetic Monitoring (Uptime Checks)
-# Note: Synthetic Monitoring installation requires a stack
-# For simplicity in Free Tier (1 stack), we assume the stack exists or is managed elsewhere.
-# If you want to manage the stack itself via Terraform, we can add grafana_cloud_stack.
+# 3. INTERNAL MANAGEMENT: Create a Service Account INSIDE the stack
+resource "grafana_cloud_stack_service_account" "manager" {
+  provider   = grafana.cloud
+  stack_slug = var.grafana_cloud_stack_slug
+  name       = "terraform-stack-manager"
+  role       = "Admin"
+}
 
-# 4. Dashboard Folder
-# To manage resources INSIDE the stack, we would need a second provider instance 
-# pointing to the stack URL. This is best done in a separate phase once the stack is ready.
+resource "grafana_cloud_stack_service_account_token" "manager" {
+  provider           = grafana.cloud
+  stack_slug         = var.grafana_cloud_stack_slug
+  name               = "terraform-manager-token"
+  service_account_id = grafana_cloud_stack_service_account.manager.id
+}
+
+# 4. Provider for managing resources INSIDE the stack
+provider "grafana" {
+  alias = "stack"
+  url   = data.grafana_cloud_stack.main.url
+  auth  = grafana_cloud_stack_service_account_token.manager.key
+}
+
+# 5. Dashboard Folder
+resource "grafana_folder" "set" {
+  provider = grafana.stack
+  title    = "set Application"
+}
+
+# 6. Data Sources (Ensure they are discoverable in dashboards)
+# In Grafana Cloud, these are usually pre-created, but we reference them here.
+resource "grafana_data_source" "prometheus" {
+  provider = grafana.stack
+  type     = "prometheus"
+  name     = "grafanacloud-prom"
+  url      = data.grafana_cloud_stack.main.prometheus_url
+  
+  basic_auth_enabled = true
+  basic_auth_username = data.grafana_cloud_stack.main.prometheus_user
+  secure_json_data_encoded = jsonencode({
+    basicAuthPassword = grafana_cloud_access_policy_token.otlp.token
+  })
+}
