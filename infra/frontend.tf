@@ -1,13 +1,5 @@
-# S3 Bucket for Frontend Assets
 resource "aws_s3_bucket" "frontend" {
   bucket = "${var.project_name}-frontend-${var.environment}"
-}
-
-resource "aws_s3_bucket_ownership_controls" "frontend" {
-  bucket = aws_s3_bucket.frontend.id
-  rule {
-    object_ownership = "BucketOwnerEnforced"
-  }
 }
 
 resource "aws_s3_bucket_versioning" "frontend" {
@@ -17,72 +9,26 @@ resource "aws_s3_bucket_versioning" "frontend" {
   }
 }
 
+resource "aws_s3_bucket_logging" "frontend" {
+  bucket = aws_s3_bucket.frontend.id
+
+  target_bucket = aws_s3_bucket.logs.id
+  target_prefix = "s3/frontend/"
+}
+
 resource "aws_s3_bucket_server_side_encryption_configuration" "frontend" {
   bucket = aws_s3_bucket.frontend.id
 
   rule {
     apply_server_side_encryption_by_default {
-      kms_master_key_id = aws_kms_key.data.arn
+      kms_master_key_id = aws_kms_key.main.arn
       sse_algorithm     = "aws:kms"
     }
   }
-}
-
-resource "aws_s3_bucket_logging" "frontend" {
-  bucket = aws_s3_bucket.frontend.id
-
-  target_bucket = aws_s3_bucket.logs.id
-  target_prefix = "s3-frontend/"
 }
 
 resource "aws_s3_bucket_public_access_block" "frontend" {
   bucket = aws_s3_bucket.frontend.id
-
-  block_public_acls       = true
-  block_public_policy     = true
-  ignore_public_acls      = true
-  restrict_public_buckets = true
-}
-
-# S3 Bucket for Logs
-resource "aws_s3_bucket" "logs" {
-  bucket = "${var.project_name}-logs-${var.environment}"
-}
-
-resource "aws_s3_bucket_ownership_controls" "logs" {
-  bucket = aws_s3_bucket.logs.id
-  rule {
-    object_ownership = "BucketOwnerEnforced"
-  }
-}
-
-resource "aws_s3_bucket_versioning" "logs" {
-  bucket = aws_s3_bucket.logs.id
-  versioning_configuration {
-    status = "Enabled"
-  }
-}
-
-resource "aws_s3_bucket_server_side_encryption_configuration" "logs" {
-  bucket = aws_s3_bucket.logs.id
-
-  rule {
-    apply_server_side_encryption_by_default {
-      kms_master_key_id = aws_kms_key.data.arn
-      sse_algorithm     = "aws:kms"
-    }
-  }
-}
-
-resource "aws_s3_bucket_logging" "logs" {
-  bucket = aws_s3_bucket.logs.id
-
-  target_bucket = aws_s3_bucket.logs.id
-  target_prefix = "s3-logs/"
-}
-
-resource "aws_s3_bucket_public_access_block" "logs" {
-  bucket = aws_s3_bucket.logs.id
 
   block_public_acls       = true
   block_public_policy     = true
@@ -105,7 +51,7 @@ resource "aws_cloudfront_function" "spa_router" {
   runtime = "cloudfront-js-1.0"
   comment = "Handles SPA routing and prevents fallback for assets"
   publish = true
-  code    = <<EOT
+  code    = <<EOF
 function handler(event) {
     var request = event.request;
     var uri = request.uri;
@@ -125,17 +71,17 @@ function handler(event) {
     request.uri = '/index.html';
     return request;
 }
-EOT
+EOF
 }
 
-# CloudFront Distribution
 resource "aws_cloudfront_distribution" "s3_distribution" {
   aliases = [var.custom_domain]
+
   web_acl_id = aws_wafv2_web_acl.cloudfront.arn
 
   logging_config {
-    bucket          = aws_s3_bucket.logs.bucket_domain_name
     include_cookies = false
+    bucket          = aws_s3_bucket.logs.bucket_domain_name
     prefix          = "cloudfront/"
   }
 
@@ -161,6 +107,7 @@ resource "aws_cloudfront_distribution" "s3_distribution" {
   is_ipv6_enabled     = true
   default_root_object = "index.html"
 
+  # Default Behavior: Handles SPA Routing and Static Content
   default_cache_behavior {
     allowed_methods  = ["GET", "HEAD"]
     cached_methods   = ["GET", "HEAD"]
@@ -179,6 +126,7 @@ resource "aws_cloudfront_distribution" "s3_distribution" {
     }
   }
 
+  # Cache behavior for API
   ordered_cache_behavior {
     path_pattern     = "/api/*"
     allowed_methods  = ["DELETE", "GET", "HEAD", "OPTIONS", "PATCH", "POST", "PUT"]
