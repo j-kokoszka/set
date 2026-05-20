@@ -54,15 +54,14 @@ GITHUB_REPO_OWNER = os.getenv("GITHUB_REPO_OWNER", "j-kokoszka")
 GITHUB_REPO_NAME = os.getenv("GITHUB_REPO_NAME", "set")
 
 # Initialize OpenTelemetry
-otlp_endpoint = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
-if otlp_endpoint:
+OTEL_ENABLED = bool(os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT"))
+
+if OTEL_ENABLED:
     resource = Resource(attributes={
         SERVICE_NAME: os.getenv("OTEL_SERVICE_NAME", "set-backend")
     })
     
     provider = TracerProvider(resource=resource)
-    # The OTLPSpanExporter will automatically use OTEL_EXPORTER_OTLP_ENDPOINT 
-    # and OTEL_EXPORTER_OTLP_HEADERS from environment variables.
     processor = BatchSpanProcessor(OTLPSpanExporter())
     provider.add_span_processor(processor)
     trace.set_tracer_provider(provider)
@@ -85,7 +84,7 @@ app = FastAPI(
 )
 
 # Instrument FastAPI
-if os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT"):
+if OTEL_ENABLED:
     FastAPIInstrumentor.instrument_app(app)
 
 # Middleware for request/response logging

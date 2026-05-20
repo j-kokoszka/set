@@ -16,9 +16,18 @@ if (otlpEndpoint) {
     }),
   });
 
+  let parsedHeaders = {};
+  if (otlpHeaders) {
+    try {
+      parsedHeaders = JSON.parse(otlpHeaders);
+    } catch (e) {
+      console.error('Failed to parse OTLP headers', e);
+    }
+  }
+
   const exporter = new OTLPTraceExporter({
     url: `${otlpEndpoint}/v1/traces`,
-    headers: otlpHeaders ? JSON.parse(otlpHeaders) : {},
+    headers: parsedHeaders,
   });
 
   provider.addSpanProcessor(new BatchSpanProcessor(exporter));
