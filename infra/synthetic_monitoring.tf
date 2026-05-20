@@ -20,7 +20,7 @@ resource "grafana_synthetic_monitoring_check" "frontend" {
   job           = "${var.project_name}-frontend-uptime"
   target        = "https://${var.custom_domain}"
   enabled       = true
-  probes        = [for p in data.grafana_synthetic_monitoring_probes.main.probes : p.id if p.region == "eu-central"]
+  probes        = [for p in data.grafana_synthetic_monitoring_probes.main.probes : p.id if p.region == "Europe"]
   
   settings {
     http {
@@ -36,7 +36,7 @@ resource "grafana_synthetic_monitoring_check" "backend" {
   job           = "${var.project_name}-backend-uptime"
   target        = "${aws_apigatewayv2_api.http_api.api_endpoint}/health"
   enabled       = true
-  probes        = [for p in data.grafana_synthetic_monitoring_probes.main.probes : p.id if p.region == "eu-central"]
+  probes        = [for p in data.grafana_synthetic_monitoring_probes.main.probes : p.id if p.region == "Europe"]
   
   settings {
     http {

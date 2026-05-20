@@ -14,6 +14,7 @@ resource "grafana_cloud_access_policy" "otlp" {
 
   scopes = [
     "metrics:write",
+    "metrics:read",
     "logs:write",
     "traces:write"
   ]
@@ -58,7 +59,7 @@ provider "grafana" {
 # 5. Dashboard Folder
 resource "grafana_folder" "set" {
   provider = grafana.stack
-  title    = "set Application"
+  title    = "${var.project_name} Application"
 }
 
 # 6. Data Sources (Ensure they are discoverable in dashboards)
@@ -66,11 +67,11 @@ resource "grafana_folder" "set" {
 resource "grafana_data_source" "prometheus" {
   provider = grafana.stack
   type     = "prometheus"
-  name     = "grafanacloud-prom"
+  name     = "grafanacloud-prom-managed"
   url      = data.grafana_cloud_stack.main.prometheus_url
   
   basic_auth_enabled = true
-  basic_auth_username = data.grafana_cloud_stack.main.prometheus_user
+  basic_auth_username = data.grafana_cloud_stack.main.prometheus_user_id
   secure_json_data_encoded = jsonencode({
     basicAuthPassword = grafana_cloud_access_policy_token.otlp.token
   })
