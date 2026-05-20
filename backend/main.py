@@ -17,7 +17,7 @@ import logging
 import sys
 from opentelemetry import trace
 from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.export import BatchSpanProcessor
+from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 from opentelemetry.instrumentation.botocore import BotocoreInstrumentor
@@ -57,17 +57,23 @@ GITHUB_REPO_NAME = os.getenv("GITHUB_REPO_NAME", "set")
 OTEL_ENABLED = bool(os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT"))
 
 if OTEL_ENABLED:
-    resource = Resource(attributes={
-        SERVICE_NAME: os.getenv("OTEL_SERVICE_NAME", "set-backend")
-    })
-    
-    provider = TracerProvider(resource=resource)
-    processor = BatchSpanProcessor(OTLPSpanExporter())
-    provider.add_span_processor(processor)
-    trace.set_tracer_provider(provider)
-    
-    # Instrument Botocore (DynamoDB, Bedrock, etc.)
-    BotocoreInstrumentor().instrument()
+    try:
+        resource = Resource(attributes={
+            SERVICE_NAME: os.getenv("OTEL_SERVICE_NAME", "set-backend")
+        })
+        
+        provider = TracerProvider(resource=resource)
+        # Use SimpleSpanProcessor for Lambda to ensure traces are sent before the process freezes
+        processor = SimpleSpanProcessor(OTLPSpanExporter())
+        provider.add_span_processor(processor)
+        trace.set_tracer_provider(provider)
+        
+        # Instrument Botocore (DynamoDB, Bedrock, etc.)
+        BotocoreInstrumentor().instrument()
+        logger.info("opentelemetry_initialized")
+    except Exception as e:
+        logger.error("opentelemetry_initialization_failed", error=str(e))
+        OTEL_ENABLED = False
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
