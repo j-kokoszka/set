@@ -144,8 +144,8 @@ resource "aws_iam_policy" "lambda_bedrock" {
         Resource = [
           "arn:aws:bedrock:${var.aws_region}::foundation-model/amazon.nova-lite-v1:0",
           "arn:aws:bedrock:${var.aws_region}::foundation-model/amazon.nova-micro-v1:0",
-          "arn:aws:bedrock:${var.aws_region}:*:inference-profile/eu.amazon.nova-lite-v1:0",
-          "arn:aws:bedrock:${var.aws_region}:*:inference-profile/eu.amazon.nova-micro-v1:0"
+          "arn:aws:bedrock:${var.aws_region}:${data.aws_caller_identity.current.account_id}:inference-profile/eu.amazon.nova-lite-v1:0",
+          "arn:aws:bedrock:${var.aws_region}:${data.aws_caller_identity.current.account_id}:inference-profile/eu.amazon.nova-micro-v1:0"
         ]
       }
     ]
@@ -166,13 +166,6 @@ resource "aws_apigatewayv2_api" "http_api" {
     allow_methods = ["*"]
     allow_origins = ["*"] # Adjust for production later
   }
-}
-
-# tfsec:ignore:aws-api-gateway-enable-access-logging
-resource "aws_apigatewayv2_stage" "prod" {
-  api_id      = aws_apigatewayv2_api.http_api.id
-  name        = "$default"
-  auto_deploy = true
 }
 
 resource "aws_apigatewayv2_integration" "lambda_integration" {

@@ -1,17 +1,28 @@
-# tfsec:ignore:aws-s3-enable-bucket-logging
-# tfsec:ignore:aws-s3-enable-versioning
-# tfsec:ignore:aws-s3-encryption-customer-key
 resource "aws_s3_bucket" "frontend" {
   bucket = "${var.project_name}-frontend-${var.environment}"
 }
 
-# tfsec:ignore:aws-s3-encryption-customer-key
+resource "aws_s3_bucket_versioning" "frontend" {
+  bucket = aws_s3_bucket.frontend.id
+  versioning_configuration {
+    status = "Enabled"
+  }
+}
+
+resource "aws_s3_bucket_logging" "frontend" {
+  bucket = aws_s3_bucket.frontend.id
+
+  target_bucket = aws_s3_bucket.logs.id
+  target_prefix = "s3/frontend/"
+}
+
 resource "aws_s3_bucket_server_side_encryption_configuration" "frontend" {
   bucket = aws_s3_bucket.frontend.id
 
   rule {
     apply_server_side_encryption_by_default {
-      sse_algorithm = "AES256"
+      kms_master_key_id = aws_kms_key.main.arn
+      sse_algorithm     = "aws:kms"
     }
   }
 }
@@ -63,12 +74,16 @@ function handler(event) {
 EOF
 }
 
-# tfsec:ignore:aws-cloudfront-enable-logging
-# tfsec:ignore:aws-cloudfront-enable-waf
 resource "aws_cloudfront_distribution" "s3_distribution" {
-  # tfsec:ignore:aws-cloudfront-enable-logging
-  # tfsec:ignore:aws-cloudfront-enable-waf
   aliases = [var.custom_domain]
+
+  web_acl_id = aws_wafv2_web_acl.cloudfront.arn
+
+  logging_config {
+    include_cookies = false
+    bucket          = aws_s3_bucket.logs.bucket_domain_name
+    prefix          = "cloudfront/"
+  }
 
   origin {
     domain_name              = aws_s3_bucket.frontend.bucket_regional_domain_name
