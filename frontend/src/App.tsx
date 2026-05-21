@@ -41,22 +41,22 @@ interface WorkoutHistoryItem {
   }[];
 }
 
-interface PlanExerciseSet {
+interface RoutineExerciseSet {
   reps?: number;
   weight?: number;
   unit: 'kg' | 'lbs';
 }
 
-interface PlanExercise {
+interface RoutineExercise {
   exercise_id?: string;
   exercise_name: string;
-  sets: PlanExerciseSet[];
+  sets: RoutineExerciseSet[];
 }
 
-interface WorkoutPlan {
+interface WorkoutRoutine {
   id: string;
   name: string;
-  exercises: PlanExercise[];
+  exercises: RoutineExercise[];
 }
 
 const KG_TO_LBS = 2.20462;
@@ -70,21 +70,21 @@ function App() {
   const [user, setUser] = useState<string | null>(localStorage.getItem('set_user'));
   const [loginUsername, setLoginUsername] = useState('');
 
-  const [view, setView] = useState<'workout' | 'history' | 'plans'>('workout');
+  const [view, setView] = useState<'workout' | 'history' | 'routines'>('workout');
   const [workoutName, setWorkoutName] = useState('New Workout');
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [allExercises, setAllExercises] = useState<StandardExercise[]>([]);
   const [history, setHistory] = useState<WorkoutHistoryItem[]>([]);
-  const [plans, setPlans] = useState<WorkoutPlan[]>([]);
+  const [routines, setRoutines] = useState<WorkoutRoutine[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadingExercises, setLoadingExercises] = useState(false);
   const [isAdding, setIsAdding] = useState(false);
-  const [isSelectingPlan, setIsSelectingPlan] = useState(false);
+  const [isSelectingRoutine, setIsSelectingRoutine] = useState(false);
   const [newExName, setNewExName] = useState("");
   const [searchIndex, setSearchIndex] = useState(-1);
   const [editingWorkoutId, setEditingWorkoutId] = useState<string | null>(null);
   const [editingWorkoutDate, setEditingWorkoutDate] = useState<string | null>(null);
-  const [editingPlanId, setEditingPlanId] = useState<string | null>(null);
+  const [editingRoutineId, setEditingRoutineId] = useState<string | null>(null);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   // Navigation state
@@ -226,24 +226,24 @@ function App() {
     }
   };
 
-  const fetchPlans = async () => {
+  const fetchRoutines = async () => {
     const validToken = await getValidToken();
     if (!validToken) return;
     setLoading(true);
     try {
-      const response = await fetch(`${BASE_URL}/plans`, {
+      const response = await fetch(`${BASE_URL}/routines`, {
         headers: {
           'Authorization': `Bearer ${validToken}`
         }
       });
       if (response.ok) {
         const data = await response.json();
-        setPlans(data);
+        setRoutines(data);
       } else {
-        console.error('Failed to fetch plans');
+        console.error('Failed to fetch routines');
       }
     } catch (e) {
-      console.error('Error fetching plans:', e);
+      console.error('Error fetching routines:', e);
     } finally {
       setLoading(false);
     }
@@ -328,8 +328,8 @@ function App() {
       if (view === 'history') {
         // eslint-disable-next-line react-hooks/set-state-in-effect
         void fetchHistory();
-      } else if (view === 'plans') {
-        void fetchPlans();
+      } else if (view === 'routines') {
+        void fetchRoutines();
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -370,26 +370,26 @@ function App() {
     window.location.href = loginUrl;
   };
 
-  const deletePlan = async (id: string) => {
+  const deleteRoutine = async (id: string) => {
     const validToken = await getValidToken();
     if (!validToken) return;
-    if (!window.confirm('Are you sure you want to delete this plan?')) return;
+    if (!window.confirm('Are you sure you want to delete this routine?')) return;
 
     try {
-      const response = await fetch(`${BASE_URL}/plans/${id}`, {
+      const response = await fetch(`${BASE_URL}/routines/${id}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${validToken}` }
       });
-      if (response.ok) fetchPlans();
+      if (response.ok) fetchRoutines();
     } catch (e) {
-      console.error('Error deleting plan:', e);
-      alert('Error deleting plan');
+      console.error('Error deleting routine:', e);
+      alert('Error deleting routine');
     }
   };
 
-  const startFromPlan = (plan: WorkoutPlan) => {
-    setWorkoutName(plan.name);
-    setExercises(plan.exercises.map(ex => ({
+  const startFromRoutine = (routine: WorkoutRoutine) => {
+    setWorkoutName(routine.name);
+    setExercises(routine.exercises.map(ex => ({
       id: ex.exercise_id,
       name: ex.exercise_name,
       sets: ex.sets.map(s => ({
@@ -398,7 +398,7 @@ function App() {
         unit: s.unit
       }))
     })));
-    setIsSelectingPlan(false);
+    setIsSelectingRoutine(false);
   };
 
   const deleteWorkout = async (sk: string) => {
@@ -447,10 +447,10 @@ function App() {
     setView('workout');
   };
 
-  const startPlanEdit = (plan: WorkoutPlan) => {
-    setEditingPlanId(plan.id);
-    setWorkoutName(plan.name);
-    setExercises(plan.exercises.map(ex => ({
+  const startRoutineEdit = (routine: WorkoutRoutine) => {
+    setEditingRoutineId(routine.id);
+    setWorkoutName(routine.name);
+    setExercises(routine.exercises.map(ex => ({
       id: ex.exercise_id,
       name: ex.exercise_name,
       sets: ex.sets.map(s => ({
@@ -604,10 +604,10 @@ function App() {
     }
   };
 
-  const savePlan = async () => {
+  const saveRoutine = async () => {
     const validToken = await getValidToken();
     if (!validToken) return;
-    const plan: Partial<WorkoutPlan> = {
+    const routine: Partial<WorkoutRoutine> = {
       name: workoutName,
       exercises: exercises.map(ex => ({
         exercise_id: ex.id,
@@ -620,31 +620,31 @@ function App() {
       }))
     };
 
-    if (editingPlanId) plan.id = editingPlanId;
+    if (editingRoutineId) routine.id = editingRoutineId;
 
     try {
-      const response = await fetch(`${BASE_URL}/plans${editingPlanId ? `/${editingPlanId}` : ''}`, {
-        method: editingPlanId ? 'PUT' : 'POST',
+      const response = await fetch(`${BASE_URL}/routines${editingRoutineId ? `/${editingRoutineId}` : ''}`, {
+        method: editingRoutineId ? 'PUT' : 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${validToken}`
         },
-        body: JSON.stringify(plan)
+        body: JSON.stringify(routine)
       });
       if (response.ok) {
-        alert(editingPlanId ? 'Plan updated!' : 'Plan saved!');
-        setEditingPlanId(null);
+        alert(editingRoutineId ? 'Routine updated!' : 'Routine saved!');
+        setEditingRoutineId(null);
         setWorkoutName('New Workout');
         setExercises([]);
-        setView('plans');
-        fetchPlans();
+        setView('routines');
+        fetchRoutines();
       } else {
-        const errorMessage = await parseBackendError(response, 'Failed to save plan');
+        const errorMessage = await parseBackendError(response, 'Failed to save routine');
         alert(errorMessage);
       }
     } catch (e) {
-      console.error('Error saving plan:', e);
-      alert('Error saving plan');
+      console.error('Error saving routine:', e);
+      alert('Error saving routine');
     }
   };
 
@@ -726,10 +726,10 @@ function App() {
             History
           </button>
           <button 
-            className={`btn btn-small ${view === 'plans' ? '' : 'btn-secondary'}`} 
-            onClick={() => { setView('plans'); setIsMenuOpen(false); }}
+            className={`btn btn-small ${view === 'routines' ? '' : 'btn-secondary'}`} 
+            onClick={() => { setView('routines'); setIsMenuOpen(false); }}
           >
-            Plans
+            Routines
           </button>
           <button 
             className="btn btn-secondary btn-small" 
@@ -750,34 +750,34 @@ function App() {
               onChange={(e) => setWorkoutName(e.target.value)} 
               placeholder="Workout Name"
             />
-            {!editingWorkoutId && !editingPlanId && (
+            {!editingWorkoutId && !editingRoutineId && (
               <button 
                 className="btn btn-secondary btn-small" 
                 style={{ width: 'auto' }}
-                onClick={() => setIsSelectingPlan(true)}
+                onClick={() => setIsSelectingRoutine(true)}
               >
-                Start from Plan
+                Start from Routine
               </button>
             )}
           </div>
 
-          {isSelectingPlan && (
-            <div className="modal-overlay" onClick={() => setIsSelectingPlan(false)}>
+          {isSelectingRoutine && (
+            <div className="modal-overlay" onClick={() => setIsSelectingRoutine(false)}>
               <div className="modal-content" onClick={e => e.stopPropagation()}>
-                <h3 className="modal-title">Select a Plan</h3>
-                {plans.length === 0 ? (
-                  <p style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '1rem' }}>No plans found. Create one in the Plans tab!</p>
+                <h3 className="modal-title">Select a Routine</h3>
+                {routines.length === 0 ? (
+                  <p style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '1rem' }}>No routines found. Create one in the Routines tab!</p>
                 ) : (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginBottom: '1.5rem' }}>
-                    {plans.map(p => (
-                      <button key={p.id} className="btn btn-secondary" style={{ textAlign: 'left', justifyContent: 'flex-start' }} onClick={() => startFromPlan(p)}>
+                    {routines.map(p => (
+                      <button key={p.id} className="btn btn-secondary" style={{ textAlign: 'left', justifyContent: 'flex-start' }} onClick={() => startFromRoutine(p)}>
                         {p.name}
                       </button>
                     ))}
                   </div>
                 )}
                 <div className="modal-actions">
-                  <button className="btn btn-secondary" onClick={() => setIsSelectingPlan(false)}>Cancel</button>
+                  <button className="btn btn-secondary" onClick={() => setIsSelectingRoutine(false)}>Cancel</button>
                 </div>
               </div>
             </div>
@@ -1034,9 +1034,9 @@ function App() {
               <button 
                 className="btn btn-secondary" 
                 style={{ flex: 1 }} 
-                onClick={savePlan}
+                onClick={saveRoutine}
               >
-                {editingPlanId ? 'Update Plan' : 'Save as Plan'}
+                {editingRoutineId ? 'Update Routine' : 'Save as Routine'}
               </button>
             )}
           </div>
@@ -1086,19 +1086,27 @@ function App() {
           )}
         </div>
       ) : (
-        <div className="plans-list">
+        <div className="routines-list">
           {loading ? (
-            <p style={{ textAlign: 'center', padding: '2rem' }}>Loading plans...</p>
-          ) : plans.length === 0 ? (
+            <p style={{ textAlign: 'center', padding: '2rem' }}>Loading routines...</p>
+          ) : routines.length === 0 ? (
             <div className="card" style={{ textAlign: 'center', padding: '4rem' }}>
-              <p style={{ color: 'var(--text-muted)', marginBottom: '1.5rem' }}>No plans found. Templates help you start workouts faster!</p>
-              <button className="btn" style={{ width: 'auto' }} onClick={() => { setView('workout'); setWorkoutName('New Plan'); setExercises([]); }}>
-                Create My First Plan
+              <p style={{ color: 'var(--text-muted)', marginBottom: '1.5rem' }}>No routines found. Templates help you start workouts faster!</p>
+              <button className="btn" style={{ width: 'auto' }} onClick={() => { setView('workout'); setWorkoutName('New Routine'); setExercises([]); }}>
+                Create My First Routine
               </button>
             </div>
           ) : (
-            plans.map((p) => (
-              <div key={p.id} className="card plan-item">
+            <>
+              <button 
+                className="btn btn-secondary" 
+                style={{ marginBottom: '1.5rem', border: '1px dashed var(--border-color)', background: 'transparent' }}
+                onClick={() => { setView('workout'); setWorkoutName('New Routine'); setExercises([]); }}
+              >
+                + Create New Routine
+              </button>
+              {routines.map((p) => (
+              <div key={p.id} className="card routine-item">
                 <div className="item-header">
                   <div className="item-title">
                     <span className="item-name">{p.name}</span>
@@ -1107,21 +1115,21 @@ function App() {
                   <div style={{ display: 'flex', gap: '0.25rem' }}>
                     <button 
                       className="btn btn-small" 
-                      onClick={() => startFromPlan(p)}
+                      onClick={() => startFromRoutine(p)}
                     >
                       Use
                     </button>
                     <button 
                       className="btn-secondary btn-small"
-                      onClick={() => startPlanEdit(p)}
-                      title="Edit plan"
+                      onClick={() => startRoutineEdit(p)}
+                      title="Edit routine"
                     >
                       ✎
                     </button>
                     <button 
                       className="btn-danger btn-small"
-                      onClick={() => deletePlan(p.id)}
-                      title="Delete plan"
+                      onClick={() => deleteRoutine(p.id)}
+                      title="Delete routine"
                     >
                       ✕
                     </button>
@@ -1135,7 +1143,8 @@ function App() {
                   ))}
                 </div>
               </div>
-            ))
+            ))}
+            </>
           )}
         </div>
       )}

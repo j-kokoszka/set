@@ -1,6 +1,6 @@
 import pytest
 from pydantic import ValidationError
-from models import Workout, ExerciseRecord, ExerciseSet, WorkoutPlan, PlanExercise, PlanExerciseSet
+from models import Workout, ExerciseRecord, ExerciseSet, WorkoutRoutine, RoutineExercise, RoutineExerciseSet
 
 def test_workout_valid():
     workout = Workout(
@@ -38,13 +38,13 @@ def test_exercise_set_defaults():
     assert s.difficulty is None
     assert s.completed is False
 
-def test_workout_plan_defaults():
-    plan = WorkoutPlan(
-        name="Strength Plan",
+def test_workout_routine_defaults():
+    plan = WorkoutRoutine(
+        name="Strength Routine",
         exercises=[
-            PlanExercise(
+            RoutineExercise(
                 exercise_name="Squat",
-                sets=[PlanExerciseSet()]
+                sets=[RoutineExerciseSet()]
             )
         ]
     )

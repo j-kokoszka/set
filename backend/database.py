@@ -4,7 +4,7 @@ import json
 from decimal import Decimal
 from botocore.exceptions import ClientError
 from typing import List, Optional
-from models import Workout, WorkoutPlan
+from models import Workout, WorkoutRoutine
 import structlog
 
 logger = structlog.get_logger()
@@ -171,23 +171,23 @@ class Database:
             logger.error("Error updating in DynamoDB", error=str(e), user_id=workout.user_id, workout_id=workout.id)
             raise e
 
-    def save_plan(self, plan: WorkoutPlan):
+    def save_routine(self, routine: WorkoutRoutine):
         try:
-            plan_data = to_dynamo_item(plan.model_dump())
+            routine_data = to_dynamo_item(routine.model_dump())
             item = {
-                'pk': f"USER#{plan.user_id}",
-                'sk': f"PLAN#{plan.id}",
+                'pk': f"USER#{routine.user_id}",
+                'sk': f"PLAN#{routine.id}",
                 'type': 'PLAN',
-                **plan_data
+                **routine_data
             }
-            logger.info("Saving workout plan", user_id=plan.user_id, plan_id=plan.id)
+            logger.info("Saving workout routine", user_id=routine.user_id, routine_id=routine.id)
             self.table.put_item(Item=item)
-            logger.info("Workout plan saved successfully", plan_id=plan.id)
+            logger.info("Workout routine saved successfully", routine_id=routine.id)
         except Exception as e:
-            logger.error("Error saving plan to DynamoDB", error=str(e), user_id=plan.user_id, plan_id=plan.id)
+            logger.error("Error saving routine to DynamoDB", error=str(e), user_id=routine.user_id, routine_id=routine.id)
             raise e
 
-    def get_plans(self, user_id: str) -> List[dict]:
+    def get_routines(self, user_id: str) -> List[dict]:
         try:
             response = self.table.query(
                 KeyConditionExpression="pk = :pk AND begins_with(sk, :sk)",
@@ -198,25 +198,25 @@ class Database:
             )
             return from_dynamo_item(response.get('Items', []))
         except Exception as e:
-            logger.error("Error querying plans", error=str(e), user_id=user_id)
+            logger.error("Error querying routines", error=str(e), user_id=user_id)
             raise e
 
-    def delete_plan(self, user_id: str, plan_id: str):
+    def delete_routine(self, user_id: str, routine_id: str):
         try:
             pk = f"USER#{user_id}"
-            sk = f"PLAN#{plan_id}"
+            sk = f"PLAN#{routine_id}"
             
-            # Check if plan exists
+            # Check if routine exists
             response = self.table.get_item(Key={'pk': pk, 'sk': sk})
             if 'Item' not in response:
-                logger.warning("Plan not found for deletion", user_id=user_id, plan_id=plan_id)
+                logger.warning("Routine not found for deletion", user_id=user_id, routine_id=routine_id)
                 return False
 
             self.table.delete_item(Key={'pk': pk, 'sk': sk})
-            logger.info("Workout plan deleted successfully", plan_id=plan_id)
+            logger.info("Workout routine deleted successfully", routine_id=routine_id)
             return True
         except Exception as e:
-            logger.error("Error deleting plan from DynamoDB", error=str(e), user_id=user_id, plan_id=plan_id)
+            logger.error("Error deleting routine from DynamoDB", error=str(e), user_id=user_id, routine_id=routine_id)
             raise e
 
 db = Database()

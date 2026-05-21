@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from mangum import Mangum
 from typing import List
-from models import Workout, WorkoutPlan, Feedback
+from models import Workout, WorkoutRoutine, Feedback
 from database import db
 from auth import get_current_user
 import uuid
@@ -216,55 +216,55 @@ def update_workout(workout_id: str, workout: Workout, old_date: str, user_id: st
         logger.error("Failed to update workout", error=str(e), user_id=user_id, workout_id=workout_id)
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/plans", response_model=WorkoutPlan)
-def create_plan(plan: WorkoutPlan, user_id: str = Depends(get_current_user)):
+@app.post("/routines", response_model=WorkoutRoutine)
+def create_routine(plan: WorkoutRoutine, user_id: str = Depends(get_current_user)):
     plan.user_id = user_id
     if not plan.id:
         plan.id = str(uuid.uuid4())
     
-    logger.info("Creating workout plan", user_id=user_id, plan_id=plan.id)
+    logger.info("Creating workout routine", user_id=user_id, routine_id=plan.id)
     try:
-        db.save_plan(plan)
+        db.save_routine(plan)
         return plan
     except Exception as e:
-        logger.error("Failed to create workout plan", error=str(e), user_id=user_id)
+        logger.error("Failed to create workout routine", error=str(e), user_id=user_id)
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.get("/plans")
-def list_plans(user_id: str = Depends(get_current_user)):
-    logger.info("Listing workout plans", user_id=user_id)
+@app.get("/routines")
+def list_routines(user_id: str = Depends(get_current_user)):
+    logger.info("Listing workout routines", user_id=user_id)
     try:
-        return db.get_plans(user_id)
+        return db.get_routines(user_id)
     except Exception as e:
-        logger.error("Failed to list workout plans", error=str(e), user_id=user_id)
+        logger.error("Failed to list workout routines", error=str(e), user_id=user_id)
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.delete("/plans/{plan_id}")
-def delete_plan(plan_id: str, user_id: str = Depends(get_current_user)):
-    logger.info("Deleting workout plan", user_id=user_id, plan_id=plan_id)
+@app.delete("/routines/{routine_id}")
+def delete_routine(routine_id: str, user_id: str = Depends(get_current_user)):
+    logger.info("Deleting workout routine", user_id=user_id, routine_id=routine_id)
     try:
-        success = db.delete_plan(user_id, plan_id)
+        success = db.delete_routine(user_id, routine_id)
         if not success:
-            raise HTTPException(status_code=404, detail="Plan not found")
-        return {"message": "Workout plan deleted successfully"}
+            raise HTTPException(status_code=404, detail="Routine not found")
+        return {"message": "Workout routine deleted successfully"}
     except HTTPException:
         raise
     except Exception as e:
-        logger.error("Failed to delete workout plan", error=str(e), user_id=user_id, plan_id=plan_id)
+        logger.error("Failed to delete workout routine", error=str(e), user_id=user_id, routine_id=routine_id)
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.put("/plans/{plan_id}", response_model=WorkoutPlan)
-def update_plan(plan_id: str, plan: WorkoutPlan, user_id: str = Depends(get_current_user)):
+@app.put("/routines/{routine_id}", response_model=WorkoutRoutine)
+def update_routine(routine_id: str, plan: WorkoutRoutine, user_id: str = Depends(get_current_user)):
     plan.user_id = user_id
-    if plan.id != plan_id:
-        raise HTTPException(status_code=400, detail="Plan ID mismatch")
+    if plan.id != routine_id:
+        raise HTTPException(status_code=400, detail="Routine ID mismatch")
     
-    logger.info("Updating workout plan", user_id=user_id, plan_id=plan_id)
+    logger.info("Updating workout routine", user_id=user_id, routine_id=routine_id)
     try:
-        db.save_plan(plan)
+        db.save_routine(plan)
         return plan
     except Exception as e:
-        logger.error("Failed to update workout plan", error=str(e), user_id=user_id, plan_id=plan_id)
+        logger.error("Failed to update workout routine", error=str(e), user_id=user_id, routine_id=routine_id)
         raise HTTPException(status_code=500, detail=str(e))
 
 def get_github_pat():
