@@ -22,20 +22,20 @@ class Workout(BaseModel):
     exercises: List[ExerciseRecord]
     user_id: Optional[str] = None
 
-class PlanExerciseSet(BaseModel):
+class RoutineExerciseSet(BaseModel):
     reps: Optional[int] = None
     weight: Optional[float] = None
     unit: str = "kg"
 
-class PlanExercise(BaseModel):
+class RoutineExercise(BaseModel):
     exercise_id: Optional[str] = None
     exercise_name: str
-    sets: List[PlanExerciseSet]
+    sets: List[RoutineExerciseSet]
 
-class WorkoutPlan(BaseModel):
+class WorkoutRoutine(BaseModel):
     id: Optional[str] = None
     name: str
-    exercises: List[PlanExercise]
+    exercises: List[RoutineExercise]
     user_id: Optional[str] = None
 
 class Feedback(BaseModel):
