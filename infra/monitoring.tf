@@ -15,6 +15,7 @@ resource "grafana_cloud_access_policy" "otlp" {
   scopes = [
     "metrics:write",
     "metrics:read",
+    "logs:read",
     "logs:write",
     "traces:write"
   ]
@@ -73,6 +74,19 @@ resource "grafana_data_source" "prometheus" {
   
   basic_auth_enabled = true
   basic_auth_username = data.grafana_cloud_stack.main.prometheus_user_id
+  secure_json_data_encoded = jsonencode({
+    basicAuthPassword = grafana_cloud_access_policy_token.otlp.token
+  })
+}
+
+resource "grafana_data_source" "loki" {
+  provider = grafana.stack
+  type     = "loki"
+  name     = "grafanacloud-loki-managed"
+  url      = data.grafana_cloud_stack.main.logs_url
+  
+  basic_auth_enabled = true
+  basic_auth_username = data.grafana_cloud_stack.main.logs_user_id
   secure_json_data_encoded = jsonencode({
     basicAuthPassword = grafana_cloud_access_policy_token.otlp.token
   })

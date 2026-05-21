@@ -41,9 +41,20 @@ resource "grafana_dashboard" "service_overview" {
         ]
       },
       {
-        "title": "Live Trace Search",
+        "title": "Backend Logs",
         "type": "logs",
         "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+        "targets": [
+          {
+            "datasource": "grafanacloud-loki-managed",
+            "expr": "{service_name=\"set-backend\"}"
+          }
+        ]
+      },
+      {
+        "title": "Live Trace Search",
+        "type": "logs",
+        "gridPos": { "h": 8, "w": 24, "x": 0, "y": 16 },
         "targets": [
           {
             "datasource": "grafanacloud-tempo",
