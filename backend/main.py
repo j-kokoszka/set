@@ -217,15 +217,15 @@ def update_workout(workout_id: str, workout: Workout, old_date: str, user_id: st
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/routines", response_model=WorkoutRoutine)
-def create_routine(plan: WorkoutRoutine, user_id: str = Depends(get_current_user)):
-    plan.user_id = user_id
-    if not plan.id:
-        plan.id = str(uuid.uuid4())
+def create_routine(routine: WorkoutRoutine, user_id: str = Depends(get_current_user)):
+    routine.user_id = user_id
+    if not routine.id:
+        routine.id = str(uuid.uuid4())
     
-    logger.info("Creating workout routine", user_id=user_id, routine_id=plan.id)
+    logger.info("Creating workout routine", user_id=user_id, routine_id=routine.id)
     try:
-        db.save_routine(plan)
-        return plan
+        db.save_routine(routine)
+        return routine
     except Exception as e:
         logger.error("Failed to create workout routine", error=str(e), user_id=user_id)
         raise HTTPException(status_code=500, detail=str(e))
@@ -254,15 +254,15 @@ def delete_routine(routine_id: str, user_id: str = Depends(get_current_user)):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.put("/routines/{routine_id}", response_model=WorkoutRoutine)
-def update_routine(routine_id: str, plan: WorkoutRoutine, user_id: str = Depends(get_current_user)):
-    plan.user_id = user_id
-    if plan.id != routine_id:
+def update_routine(routine_id: str, routine: WorkoutRoutine, user_id: str = Depends(get_current_user)):
+    routine.user_id = user_id
+    if routine.id != routine_id:
         raise HTTPException(status_code=400, detail="Routine ID mismatch")
     
     logger.info("Updating workout routine", user_id=user_id, routine_id=routine_id)
     try:
-        db.save_routine(plan)
-        return plan
+        db.save_routine(routine)
+        return routine
     except Exception as e:
         logger.error("Failed to update workout routine", error=str(e), user_id=user_id, routine_id=routine_id)
         raise HTTPException(status_code=500, detail=str(e))

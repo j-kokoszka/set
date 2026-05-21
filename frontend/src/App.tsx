@@ -1092,7 +1092,7 @@ function App() {
           ) : routines.length === 0 ? (
             <div className="card" style={{ textAlign: 'center', padding: '4rem' }}>
               <p style={{ color: 'var(--text-muted)', marginBottom: '1.5rem' }}>No routines found. Templates help you start workouts faster!</p>
-              <button className="btn" style={{ width: 'auto' }} onClick={() => { setView('workout'); setWorkoutName('New Routine'); setExercises([]); }}>
+              <button className="btn" style={{ width: 'auto' }} onClick={() => { setView('workout'); setWorkoutName('New Routine'); setExercises([]); setEditingWorkoutId(null); setEditingWorkoutDate(null); setEditingRoutineId(null); }}>
                 Create My First Routine
               </button>
             </div>
@@ -1101,7 +1101,7 @@ function App() {
               <button 
                 className="btn btn-secondary" 
                 style={{ marginBottom: '1.5rem', border: '1px dashed var(--border-color)', background: 'transparent' }}
-                onClick={() => { setView('workout'); setWorkoutName('New Routine'); setExercises([]); }}
+                onClick={() => { setView('workout'); setWorkoutName('New Routine'); setExercises([]); setEditingWorkoutId(null); setEditingWorkoutDate(null); setEditingRoutineId(null); }}
               >
                 + Create New Routine
               </button>
