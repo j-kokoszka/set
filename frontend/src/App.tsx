@@ -491,9 +491,17 @@ function App() {
 
   const searchExternal = async () => {
     if (!newExName.trim()) return;
+    const validToken = await getValidToken();
+    if (!validToken) {
+      alert('Please log in to search the online database.');
+      return;
+    }
+
     setIsLoadingExternal(true);
     try {
-      const response = await fetch(`${BASE_URL}/exercises/search?q=${encodeURIComponent(newExName)}`);
+      const response = await fetch(`${BASE_URL}/exercises/search?q=${encodeURIComponent(newExName)}`, {
+        headers: { 'Authorization': `Bearer ${validToken}` }
+      });
       if (response.ok) {
         const externalData = await response.json();
         // Merge with existing avoiding duplicates

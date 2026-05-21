@@ -40,10 +40,12 @@ def test_custom_exercise_lifecycle():
     assert not any(ex["id"] == ex_id for ex in exercises)
 
 def test_external_search_mock():
-    # Use a simpler approach by patching httpx.AsyncClient
-    # Since we use TestClient (sync), we can just mock the response directly
-    # and use a side_effect that returns a completed future or just mock the async method.
-    with patch("httpx.AsyncClient.get") as mock_get:
+    user_id = "test_user"
+    headers = {"Authorization": f"Bearer mock_{user_id}"}
+    
+    # Mocking httpx.Response explicitly
+    with patch("backend.main.http_client.get") as mock_get:
+        # Create a real-looking mock response
         mock_resp = MagicMock()
         mock_resp.status_code = 200
         mock_resp.json.return_value = {
@@ -59,22 +61,20 @@ def test_external_search_mock():
             ]
         }
         
-        # Mock the __aenter__ and __aexit__ for context manager
-        # But actually httpx.AsyncClient usage in main.py is:
-        # async with httpx.AsyncClient(timeout=5.0) as client:
-        #     response = await client.get(url)
+        async def mock_async_get(*args, **kwargs):
+            return mock_resp
+            
+        mock_get.side_effect = mock_async_get
         
-        # A simpler way to test async code with TestClient is to mock the internal logic
-        # OR just make the test function async and use anyio/asyncio.
-        
-        # Let's try to make it non-async in the test since TestClient is sync.
-        from unittest.mock import AsyncMock
-        mock_get.return_value = mock_resp
-        
-        resp = client.get("/exercises/search?q=row")
+        resp = client.get("/exercises/search?q=row", headers=headers)
         assert resp.status_code == 200
         data = resp.json()
+        assert data is not None
         assert len(data) == 1
         assert data[0]["name"] == "External Row"
         assert data[0]["is_external"] is True
         assert data[0]["id"] == "wger-12345"
+
+def test_external_search_unauthorized():
+    resp = client.get("/exercises/search?q=row")
+    assert resp.status_code == 401 
