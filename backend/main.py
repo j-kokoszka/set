@@ -15,13 +15,6 @@ from contextlib import asynccontextmanager
 import structlog
 import logging
 import sys
-from opentelemetry import trace
-from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.export import SimpleSpanProcessor
-from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
-from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
-from opentelemetry.instrumentation.botocore import BotocoreInstrumentor
-from opentelemetry.sdk.resources import SERVICE_NAME, Resource
 
 # Configure structured logging
 log_level = os.getenv("LOG_LEVEL", "INFO").upper()
@@ -58,6 +51,13 @@ OTEL_ENABLED = bool(os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT"))
 
 if OTEL_ENABLED:
     try:
+        from opentelemetry import trace
+        from opentelemetry.sdk.trace import TracerProvider
+        from opentelemetry.sdk.trace.export import SimpleSpanProcessor
+        from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+        from opentelemetry.instrumentation.botocore import BotocoreInstrumentor
+        from opentelemetry.sdk.resources import SERVICE_NAME, Resource
+
         resource = Resource(attributes={
             SERVICE_NAME: os.getenv("OTEL_SERVICE_NAME", "set-backend")
         })
@@ -91,7 +91,11 @@ app = FastAPI(
 
 # Instrument FastAPI
 if OTEL_ENABLED:
-    FastAPIInstrumentor.instrument_app(app)
+    try:
+        from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+        FastAPIInstrumentor.instrument_app(app)
+    except Exception as e:
+        logger.error("fastapi_instrumentation_failed", error=str(e))
 
 # Middleware for request/response logging
 @app.middleware("http")
