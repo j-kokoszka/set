@@ -8,12 +8,12 @@ resource "grafana_dashboard" "service_overview" {
     "uid": "set-service-overview",
     "panels": [
       {
-        "title": "API Request Rate",
+        "title": "API Request Rate (Prometheus)",
         "type": "timeseries",
         "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
         "targets": [
           {
-            "expr": "sum(rate(http_requests_total{service_name=\"set-backend\"}[5m]))",
+            "expr": "sum(rate(http_requests_total{service_name=\"set-backend\"}[5m])) OR sum(rate(calls_total{service_name=\"set-backend\"}[5m]))",
             "legendFormat": "Requests/sec"
           }
         ]
@@ -24,7 +24,7 @@ resource "grafana_dashboard" "service_overview" {
         "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
         "targets": [
           {
-            "expr": "histogram_quantile(0.9, sum by (le) (rate(http_request_duration_seconds_bucket{service_name=\"set-backend\"}[5m])))",
+            "expr": "histogram_quantile(0.9, sum by (le) (rate(http_request_duration_seconds_bucket{service_name=\"set-backend\"}[5m])) OR sum by (le) (rate(duration_bucket{service_name=\"set-backend\"}[5m])))",
             "legendFormat": "P90 Latency"
           }
         ]
@@ -41,13 +41,14 @@ resource "grafana_dashboard" "service_overview" {
         ]
       },
       {
-        "title": "Error Rate",
-        "type": "timeseries",
+        "title": "Live Trace Search",
+        "type": "logs",
         "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
         "targets": [
           {
-            "expr": "sum(rate(http_requests_total{service_name=\"set-backend\", status=~\"5..\"}[5m])) / sum(rate(http_requests_total{service_name=\"set-backend\"}[5m]))",
-            "legendFormat": "Error %"
+            "datasource": "grafanacloud-tempo",
+            "queryType": "traceQL",
+            "expr": "{service.name=\"set-backend\"}"
           }
         ]
       }

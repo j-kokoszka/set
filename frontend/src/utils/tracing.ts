@@ -1,6 +1,8 @@
 import { WebTracerProvider } from '@opentelemetry/sdk-trace-web';
 import { BatchSpanProcessor } from '@opentelemetry/sdk-trace-base';
 import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
+import { MeterProvider, PeriodicExportingMetricReader } from '@opentelemetry/sdk-metrics';
+import { OTLPMetricExporter } from '@opentelemetry/exporter-metrics-otlp-http';
 import { registerInstrumentations } from '@opentelemetry/instrumentation';
 import { getWebAutoInstrumentations } from '@opentelemetry/auto-instrumentations-web';
 import { Resource } from '@opentelemetry/resources';
@@ -10,10 +12,8 @@ const otlpEndpoint = import.meta.env.VITE_OTEL_EXPORTER_OTLP_ENDPOINT;
 const otlpHeaders = import.meta.env.VITE_OTEL_EXPORTER_OTLP_HEADERS;
 
 if (otlpEndpoint) {
-  const provider = new WebTracerProvider({
-    resource: new Resource({
-      'service.name': 'set-frontend',
-    }),
+  const resource = new Resource({
+    'service.name': 'set-frontend',
   });
 
   let parsedHeaders = {};
@@ -25,21 +25,32 @@ if (otlpEndpoint) {
     }
   }
 
-  const exporter = new OTLPTraceExporter({
+  // 1. Tracing Setup
+  const tracerProvider = new WebTracerProvider({ resource });
+  const traceExporter = new OTLPTraceExporter({
     url: `${otlpEndpoint}/v1/traces`,
     headers: parsedHeaders,
   });
-
-  provider.addSpanProcessor(new BatchSpanProcessor(exporter));
-
-  provider.register({
+  tracerProvider.addSpanProcessor(new BatchSpanProcessor(traceExporter));
+  tracerProvider.register({
     contextManager: new ZoneContextManager(),
   });
 
+  // 2. Metrics Setup
+  const meterProvider = new MeterProvider({ resource });
+  const metricExporter = new OTLPMetricExporter({
+    url: `${otlpEndpoint}/v1/metrics`,
+    headers: parsedHeaders,
+  });
+  meterProvider.addMetricReader(new PeriodicExportingMetricReader({
+    exporter: metricExporter,
+    exportIntervalMillis: 30000,
+  }));
+
+  // 3. Auto-instrumentation
   registerInstrumentations({
     instrumentations: [
       getWebAutoInstrumentations({
-        // load custom configuration for instrumentations if needed
         '@opentelemetry/instrumentation-fetch': {
           propagateTraceHeaderCorsUrls: [
             /.*\.kokoszka\.cloud.*/,
@@ -50,5 +61,5 @@ if (otlpEndpoint) {
     ],
   });
 
-  console.log('OpenTelemetry initialized');
+  console.log('OpenTelemetry (Traces & Metrics) initialized');
 }

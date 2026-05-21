@@ -51,10 +51,13 @@ OTEL_ENABLED = bool(os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT"))
 
 if OTEL_ENABLED:
     try:
-        from opentelemetry import trace
+        from opentelemetry import trace, metrics
         from opentelemetry.sdk.trace import TracerProvider
         from opentelemetry.sdk.trace.export import SimpleSpanProcessor
         from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+        from opentelemetry.sdk.metrics import MeterProvider
+        from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader
+        from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
         from opentelemetry.instrumentation.botocore import BotocoreInstrumentor
         from opentelemetry.sdk.resources import SERVICE_NAME, Resource
 
@@ -62,13 +65,21 @@ if OTEL_ENABLED:
             SERVICE_NAME: os.getenv("OTEL_SERVICE_NAME", "set-backend")
         })
         
-        provider = TracerProvider(resource=resource)
-        # Use SimpleSpanProcessor for Lambda to ensure traces are sent before the process freezes
-        processor = SimpleSpanProcessor(OTLPSpanExporter())
-        provider.add_span_processor(processor)
-        trace.set_tracer_provider(provider)
+        # 1. Tracing Setup
+        tracer_provider = TracerProvider(resource=resource)
+        tracer_processor = SimpleSpanProcessor(OTLPSpanExporter())
+        tracer_provider.add_span_processor(tracer_processor)
+        trace.set_tracer_provider(tracer_provider)
         
-        # Instrument Botocore (DynamoDB, Bedrock, etc.)
+        # 2. Metrics Setup
+        metric_reader = PeriodicExportingMetricReader(
+            OTLPMetricExporter(),
+            export_interval_millis=1000 # Short interval for Lambda responsiveness
+        )
+        meter_provider = MeterProvider(resource=resource, metric_readers=[metric_reader])
+        metrics.set_meter_provider(meter_provider)
+        
+        # 3. Instrument Botocore (DynamoDB, Bedrock, etc.)
         BotocoreInstrumentor().instrument()
         logger.info("opentelemetry_initialized")
     except Exception as e:
