@@ -40,3 +40,10 @@ class WorkoutRoutine(BaseModel):
 
 class Feedback(BaseModel):
     text: str = Field(..., max_length=1000)
+
+class CustomExercise(BaseModel):
+    id: Optional[str] = None
+    name: str
+    category: str = "strength"
+    primaryMuscles: List[str] = []
+    user_id: Optional[str] = None

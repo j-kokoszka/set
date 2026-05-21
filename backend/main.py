@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from mangum import Mangum
 from typing import List
-from models import Workout, WorkoutRoutine, Feedback
+from models import Workout, WorkoutRoutine, Feedback, CustomExercise
 from database import db
 from auth import get_current_user
 import uuid
@@ -142,6 +142,73 @@ else:
 @app.get("/exercises")
 def list_exercises():
     return exercises_cache
+
+@app.get("/exercises/search")
+async def search_exercises(q: str):
+    """
+    Search external database (wger.de) as a fallback.
+    """
+    logger.info("searching_external_exercises", query=q)
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            # language=2 is English
+            url = f"https://wger.de/api/v2/exercise/search/?term={q}"
+            response = await client.get(url)
+            
+            if response.status_code != 200:
+                logger.error("wger_api_error", status=response.status_code)
+                return []
+                
+            data = response.json()
+            suggestions = data.get("suggestions", [])
+            
+            # Map wger format to our StandardExercise format
+            results = []
+            for item in suggestions:
+                suggestion_data = item.get("data", {})
+                results.append({
+                    "id": f"wger-{suggestion_data.get('id')}",
+                    "name": suggestion_data.get("name"),
+                    "category": suggestion_data.get("category", "strength").lower(),
+                    "primaryMuscles": [], # wger search doesn't return muscles directly here
+                    "is_external": True
+                })
+            return results
+    except Exception as e:
+        logger.error("external_search_failed", error=str(e))
+        return []
+
+@app.get("/exercises/custom")
+def list_custom_exercises(user_id: str = Depends(get_current_user)):
+    try:
+        return db.get_custom_exercises(user_id)
+    except Exception as e:
+        logger.error("failed_to_list_custom_exercises", error=str(e), user_id=user_id)
+        raise HTTPException(status_code=500, detail="Failed to fetch custom exercises")
+
+@app.post("/exercises/custom", response_model=CustomExercise)
+def create_custom_exercise(exercise: CustomExercise, user_id: str = Depends(get_current_user)):
+    exercise.user_id = user_id
+    if not exercise.id:
+        exercise.id = f"custom-{str(uuid.uuid4())[:8]}"
+    
+    logger.info("creating_custom_exercise", user_id=user_id, name=exercise.name)
+    try:
+        db.save_custom_exercise(exercise)
+        return exercise
+    except Exception as e:
+        logger.error("failed_to_create_custom_exercise", error=str(e), user_id=user_id)
+        raise HTTPException(status_code=500, detail="Failed to save custom exercise")
+
+@app.delete("/exercises/custom/{ex_id}")
+def delete_custom_exercise(ex_id: str, user_id: str = Depends(get_current_user)):
+    logger.info("deleting_custom_exercise", user_id=user_id, ex_id=ex_id)
+    try:
+        db.delete_custom_exercise(user_id, ex_id)
+        return {"status": "success"}
+    except Exception as e:
+        logger.error("failed_to_delete_custom_exercise", error=str(e), user_id=user_id, ex_id=ex_id)
+        raise HTTPException(status_code=500, detail="Failed to delete custom exercise")
 
 app.add_middleware(
     CORSMiddleware,
