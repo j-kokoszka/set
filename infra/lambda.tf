@@ -156,7 +156,11 @@ resource "aws_iam_policy" "lambda_bedrock" {
           "arn:aws:bedrock:eu-west-3:${data.aws_caller_identity.current.account_id}:inference-profile/eu.amazon.nova-lite-v1:0",
           "arn:aws:bedrock:eu-central-1:${data.aws_caller_identity.current.account_id}:inference-profile/eu.amazon.nova-micro-v1:0",
           "arn:aws:bedrock:eu-west-1:${data.aws_caller_identity.current.account_id}:inference-profile/eu.amazon.nova-micro-v1:0",
-          "arn:aws:bedrock:eu-west-3:${data.aws_caller_identity.current.account_id}:inference-profile/eu.amazon.nova-micro-v1:0"
+          "arn:aws:bedrock:eu-west-3:${data.aws_caller_identity.current.account_id}:inference-profile/eu.amazon.nova-micro-v1:0" ,
+          "arn:aws:bedrock:eu-north-1::foundation-model/amazon.nova-lite-v1:0",
+          "arn:aws:bedrock:eu-north-1::foundation-model/amazon.nova-micro-v1:0",
+          "arn:aws:bedrock:eu-north-1:${data.aws_caller_identity.current.account_id}:inference-profile/eu.amazon.nova-lite-v1:0",
+          "arn:aws:bedrock:eu-north-1:${data.aws_caller_identity.current.account_id}:inference-profile/eu.amazon.nova-micro-v1:0"
         ]
       }
     ]
