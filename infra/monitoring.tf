@@ -51,9 +51,10 @@ resource "grafana_cloud_stack_service_account_token" "manager" {
 
 # 4. Provider for managing resources INSIDE the stack
 provider "grafana" {
-  alias = "stack"
-  url   = data.grafana_cloud_stack.main.url
-  auth  = grafana_cloud_stack_service_account_token.manager.key
+  alias                     = "stack"
+  url                       = data.grafana_cloud_stack.main.url
+  auth                      = grafana_cloud_stack_service_account_token.manager.key
+  cloud_access_policy_token = var.grafana_cloud_api_key
 }
 
 # 5. Dashboard Folder
