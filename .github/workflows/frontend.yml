@@ -25,7 +25,7 @@ jobs:
       - name: Security Audit (npm audit)
         run: cd frontend && npm audit --audit-level=high
       - name: Static Security Analysis (njsscan)
-        uses: ajinabraham/njsscan-action@v0.0.3
+        uses: ajinabraham/njsscan-action@master
         with:
           args: 'frontend/src'
       - name: Lint
