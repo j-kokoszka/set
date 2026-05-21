@@ -503,56 +503,74 @@ function App() {
   };
 
   const addSet = (exerciseIndex: number) => {
-    const newExercises = [...exercises];
-    const lastSet = newExercises[exerciseIndex].sets.length > 0 
-      ? newExercises[exerciseIndex].sets[newExercises[exerciseIndex].sets.length - 1]
-      : { reps: 10, weight: 0, unit: 'kg' as const };
-    
-    newExercises[exerciseIndex].sets.push({ ...lastSet });
-    setExercises(newExercises);
+    setExercises(prev => prev.map((ex, exIdx) => {
+      if (exIdx !== exerciseIndex) return ex;
+      const lastSet = ex.sets.length > 0 
+        ? ex.sets[ex.sets.length - 1]
+        : { reps: 10, weight: 0, unit: 'kg' as const };
+      return {
+        ...ex,
+        sets: [...ex.sets, { ...lastSet, completed: false, difficulty: undefined }]
+      };
+    }));
   };
 
   const removeSet = (exerciseIndex: number, setIndex: number) => {
-    const newExercises = [...exercises];
-    newExercises[exerciseIndex].sets.splice(setIndex, 1);
-    setExercises(newExercises);
+    setExercises(prev => prev.map((ex, exIdx) => {
+      if (exIdx !== exerciseIndex) return ex;
+      return {
+        ...ex,
+        sets: ex.sets.filter((_, sIdx) => sIdx !== setIndex)
+      };
+    }));
   };
 
   const updateSet = <K extends keyof Set>(exerciseIndex: number, setIndex: number, field: K, value: Set[K]) => {
-    const newExercises = [...exercises];
-    const targetSet = newExercises[exerciseIndex].sets[setIndex];
-    if (field === 'weight') {
-      targetSet.weight = typeof value === 'string' ? parseFloat(value) : value as number;
-    } else if (field === 'reps') {
-      targetSet.reps = typeof value === 'string' ? parseInt(value) : value as number;
-    } else if (field === 'difficulty') {
-      targetSet.difficulty = value as Set['difficulty'];
-      targetSet.completed = true;
-    } else if (field === 'completed') {
-      targetSet.completed = value as boolean;
-    }
-    setExercises(newExercises);
+    setExercises(prev => prev.map((ex, exIdx) => {
+      if (exIdx !== exerciseIndex) return ex;
+      return {
+        ...ex,
+        sets: ex.sets.map((s, sIdx) => {
+          if (sIdx !== setIndex) return s;
+          const updatedSet = { ...s, [field]: value };
+          if (field === 'weight') {
+            updatedSet.weight = typeof value === 'string' ? parseFloat(value) : value as number;
+          } else if (field === 'reps') {
+            updatedSet.reps = typeof value === 'string' ? parseInt(value) : value as number;
+          } else if (field === 'difficulty') {
+            updatedSet.difficulty = value as Set['difficulty'];
+            updatedSet.completed = true;
+          } else if (field === 'completed') {
+            updatedSet.completed = value as boolean;
+          }
+          return updatedSet;
+        })
+      };
+    }));
   };
 
 
   const toggleUnit = (exerciseIndex: number, setIndex: number) => {
-    const newExercises = [...exercises];
-    const setItem = newExercises[exerciseIndex].sets[setIndex];
-    const currentUnit = setItem.unit || 'kg';
-    const newUnit = currentUnit === 'kg' ? 'lbs' : 'kg';
-    
-    let newWeight = setItem.weight;
-    if (newWeight > 0) {
-      if (newUnit === 'lbs') {
-        newWeight = Math.round(newWeight * KG_TO_LBS * 10) / 10;
-      } else {
-        newWeight = Math.round((newWeight / KG_TO_LBS) * 10) / 10;
-      }
-    }
-    
-    setItem.unit = newUnit;
-    setItem.weight = newWeight;
-    setExercises(newExercises);
+    setExercises(prev => prev.map((ex, exIdx) => {
+      if (exIdx !== exerciseIndex) return ex;
+      return {
+        ...ex,
+        sets: ex.sets.map((s, sIdx) => {
+          if (sIdx !== setIndex) return s;
+          const currentUnit = s.unit || 'kg';
+          const newUnit = currentUnit === 'kg' ? 'lbs' : 'kg';
+          let newWeight = s.weight;
+          if (newWeight > 0) {
+            if (newUnit === 'lbs') {
+              newWeight = Math.round(newWeight * KG_TO_LBS * 10) / 10;
+            } else {
+              newWeight = Math.round((newWeight / KG_TO_LBS) * 10) / 10;
+            }
+          }
+          return { ...s, unit: newUnit, weight: newWeight };
+        })
+      };
+    }));
   };
 
   const saveWorkout = async () => {
