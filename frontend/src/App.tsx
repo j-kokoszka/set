@@ -462,6 +462,17 @@ function App() {
     setView('workout');
   };
 
+  const clearWorkout = () => {
+    if (exercises.length === 0) return;
+    if (window.confirm('Are you sure you want to clear all exercises from the current log?')) {
+      setExercises([]);
+      setWorkoutName('New Workout');
+      setEditingWorkoutId(null);
+      setEditingWorkoutDate(null);
+      setEditingRoutineId(null);
+    }
+  };
+
   const addExercise = (nameOrEx?: string | StandardExercise) => {
     let name: string;
     let id: string | undefined;
@@ -1022,13 +1033,22 @@ function App() {
           
           <div style={{ display: 'flex', gap: '1rem', marginTop: '2rem' }}>
             {exercises.length > 0 && (
-              <button 
-                className="btn" 
-                style={{ flex: 2, background: 'var(--success-color)' }} 
-                onClick={saveWorkout}
-              >
-                {editingWorkoutId ? 'Update Workout' : 'Save Workout'}
-              </button>
+              <>
+                <button 
+                  className="btn" 
+                  style={{ flex: 2, background: 'var(--success-color)' }} 
+                  onClick={saveWorkout}
+                >
+                  {editingWorkoutId ? 'Update Workout' : 'Save Workout'}
+                </button>
+                <button 
+                  className="btn btn-secondary" 
+                  style={{ flex: 1, color: 'var(--danger-color)', borderColor: 'var(--danger-color)' }} 
+                  onClick={clearWorkout}
+                >
+                  Clear
+                </button>
+              </>
             )}
             {exercises.length > 0 && !editingWorkoutId && (
               <button 
