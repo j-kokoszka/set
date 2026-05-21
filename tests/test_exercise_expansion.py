@@ -39,9 +39,10 @@ def test_custom_exercise_lifecycle():
     exercises = resp.json()
     assert not any(ex["id"] == ex_id for ex in exercises)
 
-@pytest.mark.asyncio
-async def test_external_search_mock():
+def test_external_search_mock():
     # Use a simpler approach by patching httpx.AsyncClient
+    # Since we use TestClient (sync), we can just mock the response directly
+    # and use a side_effect that returns a completed future or just mock the async method.
     with patch("httpx.AsyncClient.get") as mock_get:
         mock_resp = MagicMock()
         mock_resp.status_code = 200
@@ -58,11 +59,17 @@ async def test_external_search_mock():
             ]
         }
         
-        # This is a trick to mock async call
-        async def mock_async_get(*args, **kwargs):
-            return mock_resp
-            
-        mock_get.side_effect = mock_async_get
+        # Mock the __aenter__ and __aexit__ for context manager
+        # But actually httpx.AsyncClient usage in main.py is:
+        # async with httpx.AsyncClient(timeout=5.0) as client:
+        #     response = await client.get(url)
+        
+        # A simpler way to test async code with TestClient is to mock the internal logic
+        # OR just make the test function async and use anyio/asyncio.
+        
+        # Let's try to make it non-async in the test since TestClient is sync.
+        from unittest.mock import AsyncMock
+        mock_get.return_value = mock_resp
         
         resp = client.get("/exercises/search?q=row")
         assert resp.status_code == 200
