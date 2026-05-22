@@ -22613,29 +22613,5 @@
       "Zottman_Preacher_Curl/1.jpg"
     ],
     "id": "Zottman_Preacher_Curl"
-  },
-  {
-    "name": "Low Row (Machine)",
-    "force": "pull",
-    "level": "beginner",
-    "mechanic": "compound",
-    "equipment": "machine",
-    "primaryMuscles": ["middle back", "lats"],
-    "secondaryMuscles": ["biceps", "traps"],
-    "instructions": ["Sit on the machine with your feet on the platforms.", "Grasp the handles and pull them towards your lower abdomen.", "Squeeze your shoulder blades together at the peak of the movement.", "Slowly return to the starting position."],
-    "category": "strength",
-    "id": "Low_Row_Machine"
-  },
-  {
-    "name": "Seated Cable Row",
-    "force": "pull",
-    "level": "beginner",
-    "mechanic": "compound",
-    "equipment": "cable",
-    "primaryMuscles": ["middle back", "lats"],
-    "secondaryMuscles": ["biceps", "traps"],
-    "instructions": ["Sit at a low pulley cable station with your feet on the platforms.", "Grasp the handle with a neutral grip.", "Pull the handle towards your waist while keeping your back straight.", "Squeeze your back muscles and slowly release."],
-    "category": "strength",
-    "id": "Seated_Cable_Row"
   }
 ]

@@ -37,7 +37,7 @@ test.describe('Exercise Library Expansion & Customization', () => {
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify([
-          { id: 'wger-1', name: 'External Low Row', category: 'strength', primaryMuscles: [], is_external: true }
+          { id: 'ext-1', name: 'External Low Row', category: 'strength', primaryMuscles: [], is_external: true }
         ])
       });
     });
