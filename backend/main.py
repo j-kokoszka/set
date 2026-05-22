@@ -51,13 +51,17 @@ OTEL_ENABLED = bool(os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT"))
 
 if OTEL_ENABLED:
     try:
-        from opentelemetry import trace, metrics
+        from opentelemetry import trace, metrics, _logs as logs
         from opentelemetry.sdk.trace import TracerProvider
         from opentelemetry.sdk.trace.export import SimpleSpanProcessor
         from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
         from opentelemetry.sdk.metrics import MeterProvider
         from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader
         from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
+        from opentelemetry.sdk._logs import LoggerProvider, LoggingHandler
+        from opentelemetry.sdk._logs.export import SimpleLogRecordProcessor
+        from opentelemetry.exporter.otlp.proto.http._log_exporter import OTLPLogExporter
+        from opentelemetry.instrumentation.logging import LoggingInstrumentor
         from opentelemetry.instrumentation.botocore import BotocoreInstrumentor
         from opentelemetry.sdk.resources import SERVICE_NAME, Resource
 
@@ -78,9 +82,23 @@ if OTEL_ENABLED:
         )
         meter_provider = MeterProvider(resource=resource, metric_readers=[metric_reader])
         metrics.set_meter_provider(meter_provider)
+
+        # 3. Logging Setup
+        logger_provider = LoggerProvider(resource=resource)
+        # Using SimpleLogRecordProcessor for Lambda to ensure logs are sent immediately
+        log_exporter = OTLPLogExporter()
+        logger_provider.add_log_record_processor(SimpleLogRecordProcessor(log_exporter))
+        logs.set_logger_provider(logger_provider)
+
+        # Connect standard logging to OTel with dynamic level
+        current_level = getattr(logging, log_level, logging.INFO)
+        otel_handler = LoggingHandler(level=current_level, logger_provider=logger_provider)
+        logging.getLogger().addHandler(otel_handler)
         
-        # 3. Instrument Botocore (DynamoDB, Bedrock, etc.)
+        # 4. Instrumentations
         BotocoreInstrumentor().instrument()
+        LoggingInstrumentor().instrument(set_logging_format=True)
+        
         logger.info("opentelemetry_initialized")
     except Exception as e:
         logger.error("opentelemetry_initialization_failed", error=str(e))
