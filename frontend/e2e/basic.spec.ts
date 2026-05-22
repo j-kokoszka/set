@@ -2,6 +2,26 @@ import { test, expect } from '@playwright/test';
 
 test.describe('set app', () => {
   test.beforeEach(async ({ page }) => {
+    // Mock the backend exercises endpoint
+    await page.route('**/exercises', async route => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify([
+          { id: 'Bench_Press', name: 'Bench Press', category: 'strength', primaryMuscles: ['chest'] }
+        ])
+      });
+    });
+
+    // Mock history
+    await page.route('**/workouts', async route => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify([])
+      });
+    });
+
     await page.goto('/');
     // Login
     await page.getByLabel('Username').fill('testuser');
