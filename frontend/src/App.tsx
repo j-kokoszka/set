@@ -78,6 +78,23 @@ function App() {
   const [view, setView] = useState<'workout' | 'history' | 'routines'>('workout');
   const [workoutName, setWorkoutName] = useState(t('workout.new_workout', 'New Workout'));
   const [exercises, setExercises] = useState<Exercise[]>([]);
+
+  // Sync default workout name on language change
+  useEffect(() => {
+    const enDefaults = ["New Workout", "New Routine"];
+    const plDefaults = ["Nowy Trening", "Nowa Rutyna"];
+    
+    if (enDefaults.includes(workoutName) || plDefaults.includes(workoutName)) {
+      // If it matches a routine default, use routine key, otherwise workout key
+      if (workoutName.includes("Routine") || workoutName.includes("Rutyna")) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setWorkoutName(t('routines.new_routine', 'New Routine'));
+      } else {
+        setWorkoutName(t('workout.new_workout', 'New Workout'));
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [i18n.language]);
   const [allExercises, setAllExercises] = useState<StandardExercise[]>([]);
   const [history, setHistory] = useState<WorkoutHistoryItem[]>([]);
   const [routines, setRoutines] = useState<WorkoutRoutine[]>([]);
@@ -208,7 +225,7 @@ function App() {
     } finally {
       setLoadingExercises(false);
     }
-  }, [getValidToken]);
+  }, [getValidToken, t]);
 
   const filteredExercises = useMemo(() => {
     if (!newExName.trim()) return allExercises.slice(0, 15); // Show first 15 as default suggestions
@@ -875,7 +892,7 @@ function App() {
               className="workout-name-input"
               value={workoutName} 
               onChange={(e) => setWorkoutName(e.target.value)} 
-              placeholder={t("workout.new_workout", "Workout Name")}
+              placeholder={t("workout.workout_name_placeholder", "Workout Name")}
             />
             {!editingWorkoutId && !editingRoutineId && (
               <button 
@@ -971,7 +988,7 @@ function App() {
                               className="unit-badge" 
                               onClick={() => toggleUnit(exIdx, sIdx)}
                             >
-                              {set.unit || 'kg'}
+                              {t(`workout.unit.${set.unit || 'kg'}`, set.unit || 'kg')}
                             </button>
                           </div>
                         </div>

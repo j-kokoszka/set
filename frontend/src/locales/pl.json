@@ -27,6 +27,7 @@
     "remove_set": "Usuń serię",
     "remove_exercise": "Usuń ćwiczenie",
     "completed": "Ukończono",
+    "unit": { "kg": "kg", "lbs": "funt" },
     "error_save": "Nie udało się zapisać treningu",
     "saved_success": "Trening zapisany!",
     "updated_success": "Trening zaktualizowany!"

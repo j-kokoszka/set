@@ -14,7 +14,8 @@
   },
   "workout": {
     "title": "Log",
-    "new_workout": "Workout Name",
+    "new_workout": "New Workout",
+    "workout_name_placeholder": "Workout Name",
     "add_exercise": "+ Add Exercise",
     "save_workout": "Save Workout",
     "update_workout": "Update Workout",
@@ -27,6 +28,7 @@
     "remove_set": "Remove set",
     "remove_exercise": "Remove exercise",
     "completed": "Completed",
+    "unit": { "kg": "kg", "lbs": "lbs" },
     "error_save": "Failed to save workout",
     "saved_success": "Workout saved!",
     "updated_success": "Workout updated!"
