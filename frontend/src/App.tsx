@@ -1094,6 +1094,7 @@ function App() {
                   {newExName.trim() !== "" && (
                     <div style={{ marginBottom: '1rem' }}>
                       <input 
+                  id="custom-ex-name"
                         autoFocus
                         placeholder="Search exercise..."
                         value={newExName}
@@ -1162,6 +1163,7 @@ function App() {
                       {navPath.length === 0 && (
                         <div style={{ gridColumn: 'span 2', marginBottom: '1rem' }}>
                           <input 
+                  id="custom-ex-name"
                             autoFocus
                             placeholder="Search exercise..."
                             value={newExName}
@@ -1364,8 +1366,9 @@ function App() {
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', marginBottom: '2rem' }}>
               <div className="set-input-group">
-                <label className="set-input-label">Exercise Name</label>
+                <label className="set-input-label" htmlFor="custom-ex-name">Exercise Name</label>
                 <input 
+                  id="custom-ex-name"
                   autoFocus
                   value={customExName} 
                   onChange={e => setCustomExName(e.target.value)} 
@@ -1375,8 +1378,8 @@ function App() {
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                 <div className="set-input-group">
-                  <label className="set-input-label">Category</label>
-                  <select value={customExCategory} onChange={e => setCustomExCategory(e.target.value)}>
+                  <label className="set-input-label" htmlFor="custom-ex-category">Category</label>
+                  <select id="custom-ex-category" value={customExCategory} onChange={e => setCustomExCategory(e.target.value)}>
                     <option value="strength">Strength</option>
                     <option value="cardio">Cardio</option>
                     <option value="stretching">Stretching</option>
@@ -1384,8 +1387,8 @@ function App() {
                   </select>
                 </div>
                 <div className="set-input-group">
-                  <label className="set-input-label">Level</label>
-                  <select value={customExLevel} onChange={e => setCustomExLevel(e.target.value)}>
+                  <label className="set-input-label" htmlFor="custom-ex-level">Level</label>
+                  <select id="custom-ex-level" value={customExLevel} onChange={e => setCustomExLevel(e.target.value)}>
                     <option value="beginner">Beginner</option>
                     <option value="intermediate">Intermediate</option>
                     <option value="expert">Expert</option>
@@ -1395,8 +1398,8 @@ function App() {
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                 <div className="set-input-group">
-                  <label className="set-input-label">Force</label>
-                  <select value={customExForce} onChange={e => setCustomExForce(e.target.value)}>
+                  <label className="set-input-label" htmlFor="custom-ex-force">Force</label>
+                  <select id="custom-ex-force" value={customExForce} onChange={e => setCustomExForce(e.target.value)}>
                     <option value="">Select...</option>
                     <option value="push">Push</option>
                     <option value="pull">Pull</option>
@@ -1404,8 +1407,8 @@ function App() {
                   </select>
                 </div>
                 <div className="set-input-group">
-                  <label className="set-input-label">Mechanic</label>
-                  <select value={customExMechanic} onChange={e => setCustomExMechanic(e.target.value)}>
+                  <label className="set-input-label" htmlFor="custom-ex-mechanic">Mechanic</label>
+                  <select id="custom-ex-mechanic" value={customExMechanic} onChange={e => setCustomExMechanic(e.target.value)}>
                     <option value="">Select...</option>
                     <option value="compound">Compound</option>
                     <option value="isolation">Isolation</option>
@@ -1414,8 +1417,9 @@ function App() {
               </div>
 
               <div className="set-input-group">
-                <label className="set-input-label">Equipment</label>
+                <label className="set-input-label" htmlFor="custom-ex-equipment">Equipment</label>
                 <input 
+                  id="custom-ex-equipment"
                   value={customExEquipment} 
                   onChange={e => setCustomExEquipment(e.target.value)} 
                   placeholder="e.g. barbell, dumbbell, machine"
@@ -1423,8 +1427,9 @@ function App() {
               </div>
 
               <div className="set-input-group">
-                <label className="set-input-label">Primary Muscles</label>
+                <label className="set-input-label" htmlFor="custom-ex-primary">Primary Muscles</label>
                 <input 
+                  id="custom-ex-primary"
                   value={customExMuscle} 
                   onChange={e => setCustomExMuscle(e.target.value)} 
                   placeholder="e.g. chest, shoulders (comma separated)"
@@ -1432,8 +1437,9 @@ function App() {
               </div>
 
               <div className="set-input-group">
-                <label className="set-input-label">Secondary Muscles</label>
+                <label className="set-input-label" htmlFor="custom-ex-secondary">Secondary Muscles</label>
                 <input 
+                  id="custom-ex-secondary"
                   value={customExSecondaryMuscles} 
                   onChange={e => setCustomExSecondaryMuscles(e.target.value)} 
                   placeholder="e.g. triceps (comma separated)"
@@ -1441,8 +1447,8 @@ function App() {
               </div>
 
               <div className="set-input-group">
-                <label className="set-input-label">Instructions</label>
-                <textarea 
+                <label className="set-input-label" htmlFor="custom-ex-instructions">Instructions</label>
+                <textarea id="custom-ex-instructions" 
                   value={customExInstructions} 
                   onChange={e => setCustomExInstructions(e.target.value)} 
                   placeholder="Enter each step on a new line"

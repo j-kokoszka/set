@@ -62,7 +62,7 @@ test.describe('Exercise Library Expansion & Customization', () => {
     });
 
     await page.goto('/');
-    // Login using Mock Login as seen in basic.spec.ts
+    // Login using Mock Login
     await page.getByLabel('Username').fill('testuser');
     await page.getByRole('button', { name: 'Mock Login' }).click();
     await expect(page.locator('header')).toContainText('testuser');
@@ -85,10 +85,10 @@ test.describe('Exercise Library Expansion & Customization', () => {
     // Trigger AI suggestion
     await page.click('text=✨ Auto-fill with AI');
     
-    // Verify fields were populated
-    await expect(page.locator('select:near(label:has-text("Level"))')).toHaveValue('expert');
-    await expect(page.locator('input[placeholder="e.g. barbell, dumbbell, machine"]')).toHaveValue('barbell');
-    await expect(page.locator('textarea[placeholder="Enter each step on a new line"]')).toContainText('Squat down');
+    // Verify fields were populated using stable labels
+    await expect(page.getByLabel('Level')).toHaveValue('expert');
+    await expect(page.getByLabel('Equipment')).toHaveValue('barbell');
+    await expect(page.getByLabel('Instructions')).toContainText('Squat down');
     
     await page.click('button:has-text("Save & Add")');
     
