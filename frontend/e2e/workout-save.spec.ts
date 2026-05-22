@@ -2,8 +2,26 @@ import { test, expect } from '@playwright/test';
 
 test.describe('set app - workout saving', () => {
   test.beforeEach(async ({ page }) => {
+    // Mock exercises
+    await page.route('**/exercises', async route => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify([])
+      });
+    });
+
+    // Mock custom exercises
+    await page.route('**/exercises/custom', async route => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify([])
+      });
+    });
+
     // Mock the backend API responses
-    await page.route('**/api/workouts', async route => {
+    await page.route('**/workouts', async route => {
       if (route.request().method() === 'POST') {
         await route.fulfill({
           status: 200,

@@ -66,14 +66,35 @@ const COGNITO_DOMAIN = import.meta.env.VITE_COGNITO_DOMAIN;
 const COGNITO_CLIENT_ID = import.meta.env.VITE_COGNITO_CLIENT_ID;
 const APP_URL = window.location.origin;
 
+import { useTranslation } from 'react-i18next';
+import i18n from './i18n';
+
 function App() {
+  const { t } = useTranslation();
   const [token, setToken] = useState<string | null>(localStorage.getItem('set_token'));
   const [user, setUser] = useState<string | null>(localStorage.getItem('set_user'));
   const [loginUsername, setLoginUsername] = useState('');
 
   const [view, setView] = useState<'workout' | 'history' | 'routines'>('workout');
-  const [workoutName, setWorkoutName] = useState('New Workout');
+  const [workoutName, setWorkoutName] = useState(t('workout.new_workout', 'New Workout'));
   const [exercises, setExercises] = useState<Exercise[]>([]);
+
+  // Sync default workout name on language change
+  useEffect(() => {
+    const enDefaults = ["New Workout", "New Routine"];
+    const plDefaults = ["Nowy Trening", "Nowa Rutyna"];
+    
+    if (enDefaults.includes(workoutName) || plDefaults.includes(workoutName)) {
+      // If it matches a routine default, use routine key, otherwise workout key
+      if (workoutName.includes("Routine") || workoutName.includes("Rutyna")) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setWorkoutName(t('routines.new_routine', 'New Routine'));
+      } else {
+        setWorkoutName(t('workout.new_workout', 'New Workout'));
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [i18n.language]);
   const [allExercises, setAllExercises] = useState<StandardExercise[]>([]);
   const [history, setHistory] = useState<WorkoutHistoryItem[]>([]);
   const [routines, setRoutines] = useState<WorkoutRoutine[]>([]);
@@ -200,11 +221,11 @@ function App() {
       setAllExercises([...builtInData, ...customData]);
     } catch (error) {
       console.error('Error fetching exercises:', error);
-      alert('Could not load exercise database. Some features may be limited.');
+      alert(t('exercises.database_load_error', 'Could not load exercise database. Some features may be limited.'));
     } finally {
       setLoadingExercises(false);
     }
-  }, [getValidToken]);
+  }, [getValidToken, t]);
 
   const filteredExercises = useMemo(() => {
     if (!newExName.trim()) return allExercises.slice(0, 15); // Show first 15 as default suggestions
@@ -364,7 +385,7 @@ function App() {
 
   const handleGoogleLogin = async () => {
     if (!COGNITO_DOMAIN || !COGNITO_CLIENT_ID) {
-      alert('Google SSO is not configured for this environment.');
+      alert(t('app.sso_not_configured', 'Google SSO is not configured for this environment.'));
       return;
     }
 
@@ -389,7 +410,7 @@ function App() {
   const deleteRoutine = async (id: string) => {
     const validToken = await getValidToken();
     if (!validToken) return;
-    if (!window.confirm('Are you sure you want to delete this routine?')) return;
+    if (!window.confirm(t('routines.confirm_delete', 'Are you sure you want to delete this routine?'))) return;
 
     try {
       const response = await fetch(`${BASE_URL}/routines/${id}`, {
@@ -399,7 +420,7 @@ function App() {
       if (response.ok) fetchRoutines();
     } catch (e) {
       console.error('Error deleting routine:', e);
-      alert('Error deleting routine');
+      alert(t('routines.error_delete', 'Error deleting routine'));
     }
   };
 
@@ -424,7 +445,7 @@ function App() {
     const date = parts[1];
     const workoutId = parts[2];
 
-    if (!window.confirm('Are you sure you want to delete this workout?')) {
+    if (!window.confirm(t('history.confirm_delete', 'Are you sure you want to delete this workout?'))) {
       return;
     }
 
@@ -480,9 +501,9 @@ function App() {
 
   const clearWorkout = () => {
     if (exercises.length === 0) return;
-    if (window.confirm('Are you sure you want to clear all exercises from the current log?')) {
+    if (window.confirm(t('workout.confirm_clear', 'Are you sure you want to clear all exercises from the current log?'))) {
       setExercises([]);
-      setWorkoutName('New Workout');
+      setWorkoutName(t('workout.new_workout', 'New Workout'));
       setEditingWorkoutId(null);
       setEditingWorkoutDate(null);
       setEditingRoutineId(null);
@@ -493,7 +514,7 @@ function App() {
     if (!newExName.trim()) return;
     const validToken = await getValidToken();
     if (!validToken) {
-      alert('Please log in to search the online database.');
+      alert(t('exercises.login_required', 'Please log in to search the online database.'));
       return;
     }
 
@@ -546,8 +567,8 @@ function App() {
         setCustomExMuscle("");
       }
     } catch (e) {
-      console.error('Failed to save custom exercise', e);
-      alert('Failed to save custom exercise');
+      console.error(t('custom_exercise.save_error', 'Failed to save custom exercise'), e);
+      alert(t('custom_exercise.save_error', 'Failed to save custom exercise'));
     }
   };
 
@@ -694,15 +715,15 @@ function App() {
       });
       
       if (response.ok) {
-        alert(editingWorkoutId ? 'Workout updated!' : 'Workout saved!');
+        alert(editingWorkoutId ? t('workout.updated_success', 'Workout updated!') : t('workout.saved_success', 'Workout saved!'));
         setExercises([]);
-        setWorkoutName('New Workout');
+        setWorkoutName(t('workout.new_workout', 'New Workout'));
         setEditingWorkoutId(null);
         setEditingWorkoutDate(null);
         setView('history');
         fetchHistory();
       } else {
-        const errorMessage = await parseBackendError(response, 'Failed to save workout');
+        const errorMessage = await parseBackendError(response, t('workout.error_save', 'Failed to save workout'));
         alert(errorMessage);
       }
     } catch (e) {
@@ -739,19 +760,19 @@ function App() {
         body: JSON.stringify(routine)
       });
       if (response.ok) {
-        alert(editingRoutineId ? 'Routine updated!' : 'Routine saved!');
+        alert(editingRoutineId ? t('routines.updated_success', 'Routine updated!') : t('routines.saved_success', 'Routine saved!'));
         setEditingRoutineId(null);
-        setWorkoutName('New Workout');
+        setWorkoutName(t('workout.new_workout', 'New Workout'));
         setExercises([]);
         setView('routines');
         fetchRoutines();
       } else {
-        const errorMessage = await parseBackendError(response, 'Failed to save routine');
+        const errorMessage = await parseBackendError(response, t('routines.error_save', 'Failed to save routine'));
         alert(errorMessage);
       }
     } catch (e) {
       console.error('Error saving routine:', e);
-      alert('Error saving routine');
+      alert(t('routines.error_save', 'Error saving routine'));
     }
   };
 
@@ -759,7 +780,7 @@ function App() {
     return (
       <div className="login-container">
         <div className="card login-card">
-          <h1 className="login-title">set</h1>
+          <h1 className="login-title">{t("app.title", "set")}</h1>
           
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
             <button 
@@ -772,26 +793,26 @@ function App() {
               }}
             >
               <img src="https://www.gstatic.com/images/branding/product/1x/gsa_512dp.png" alt="Google" style={{ width: '20px', height: '20px' }} />
-              Sign in with Google
+              {t("app.login_google", "Sign in with Google")}
             </button>
 
             {(import.meta.env.DEV || import.meta.env.VITE_ENABLE_MOCK_LOGIN === 'true') && (
               <>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', margin: '0.5rem 0' }}>
                   <div style={{ flex: 1, height: '1px', background: 'var(--border-color)' }}></div>
-                  <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>or mock login</span>
+                  <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{t("app.or_mock_login", "or mock login")}</span>
                   <div style={{ flex: 1, height: '1px', background: 'var(--border-color)' }}></div>
                 </div>
 
                 <form onSubmit={handleLogin}>
                   <div className="set-input-group mb-1">
-                    <label htmlFor="username" className="set-input-label">Username</label>
+                    <label htmlFor="username" className="set-input-label">{t("app.username", "Username")}</label>
                     <input 
                       id="username"
                       type="text" 
                       value={loginUsername}
                       onChange={(e) => setLoginUsername(e.target.value)}
-                      placeholder="Enter your username"
+                      placeholder={t("app.username_placeholder", "Enter your username")}
                       required
                     />
                   </div>
@@ -811,7 +832,23 @@ function App() {
     <div className="app-container">
       <header>
         <div className="header-brand">
-          <h1>set</h1>
+          <h1>{t("app.title", "set")}</h1>
+          <div className="lang-switcher" style={{ display: 'flex', gap: '0.25rem', marginLeft: '0.5rem' }}>
+            <button 
+              className={`btn btn-small ${i18n.language === 'en' ? '' : 'btn-secondary'}`}
+              onClick={() => i18n.changeLanguage('en')}
+              style={{ padding: '0.1rem 0.4rem', fontSize: '0.6rem', height: 'auto' }}
+            >
+              EN
+            </button>
+            <button 
+              className={`btn btn-small ${i18n.language.startsWith('pl') ? '' : 'btn-secondary'}`}
+              onClick={() => i18n.changeLanguage('pl')}
+              style={{ padding: '0.1rem 0.4rem', fontSize: '0.6rem', height: 'auto' }}
+            >
+              PL
+            </button>
+          </div>
           <span className="user-tag">{user}</span>
         </div>
 
@@ -824,26 +861,26 @@ function App() {
             className={`btn btn-small ${view === 'workout' ? '' : 'btn-secondary'}`} 
             onClick={() => { setView('workout'); setIsMenuOpen(false); }}
           >
-            Log
+            {t("workout.title", "Log")}
           </button>
           <button 
             className={`btn btn-small ${view === 'history' ? '' : 'btn-secondary'}`} 
             onClick={() => { setView('history'); setIsMenuOpen(false); }}
           >
-            History
+            {t("history.title", "History")}
           </button>
           <button 
             className={`btn btn-small ${view === 'routines' ? '' : 'btn-secondary'}`} 
             onClick={() => { setView('routines'); setIsMenuOpen(false); }}
           >
-            Routines
+            {t("routines.title", "Routines")}
           </button>
           <button 
             className="btn btn-secondary btn-small" 
             onClick={() => { handleLogout(); setIsMenuOpen(false); }} 
-            title="Sign Out"
+            title={t("app.sign_out", "Sign Out")}
           >
-            Logout
+            {t("app.logout", "Logout")}
           </button>
         </div>
       </header>
@@ -855,7 +892,7 @@ function App() {
               className="workout-name-input"
               value={workoutName} 
               onChange={(e) => setWorkoutName(e.target.value)} 
-              placeholder="Workout Name"
+              placeholder={t("workout.workout_name_placeholder", "Workout Name")}
             />
             {!editingWorkoutId && !editingRoutineId && (
               <button 
@@ -863,7 +900,7 @@ function App() {
                 style={{ width: 'auto' }}
                 onClick={() => setIsSelectingRoutine(true)}
               >
-                Start from Routine
+                {t("routines.start_from_routine", "Start from Routine")}
               </button>
             )}
           </div>
@@ -871,9 +908,9 @@ function App() {
           {isSelectingRoutine && (
             <div className="modal-overlay" onClick={() => setIsSelectingRoutine(false)}>
               <div className="modal-content" onClick={e => e.stopPropagation()}>
-                <h3 className="modal-title">Select a Routine</h3>
+                <h3 className="modal-title">{t("routines.select_routine", "Select a Routine")}</h3>
                 {routines.length === 0 ? (
-                  <p style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '1rem' }}>No routines found. Create one in the Routines tab!</p>
+                  <p style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '1rem' }}>{t("routines.no_routines_found", "No routines found. Create one in the Routines tab!")}</p>
                 ) : (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginBottom: '1.5rem' }}>
                     {routines.map(p => (
@@ -884,7 +921,7 @@ function App() {
                   </div>
                 )}
                 <div className="modal-actions">
-                  <button className="btn btn-secondary" onClick={() => setIsSelectingRoutine(false)}>Cancel</button>
+                  <button className="btn btn-secondary" onClick={() => setIsSelectingRoutine(false)}>{t("common.cancel", "Cancel")}</button>
                 </div>
               </div>
             </div>
@@ -899,13 +936,13 @@ function App() {
                     <button 
                       className="btn-danger"
                       onClick={() => removeExercise(exIdx)}
-                      title="Remove exercise"
+                      title={t("workout.remove_exercise", "Remove exercise")}
                     >
                       ✕
                     </button>
                   </div>
                   <button className="btn btn-secondary btn-small" onClick={() => addSet(exIdx)}>
-                    + Set
+                    {t("workout.add_set", "+ Set")}
                   </button>
                 </div>
                 
@@ -914,7 +951,7 @@ function App() {
                     <div key={sIdx} className={`set-item ${set.completed ? 'completed' : ''}`}>
                       <div className="set-header">
                         <div className="flex-center">
-                          <span className="set-label">SET {sIdx + 1}</span>
+                          <span className="set-label">{t("workout.set", "SET")} {sIdx + 1}</span>
                           {set.completed && <span style={{ color: 'var(--success-color)', fontSize: '0.9rem' }}>✓</span>}
                         </div>
                         <div className="flex-center">
@@ -923,13 +960,13 @@ function App() {
                             onClick={() => updateSet(exIdx, sIdx, 'completed', !set.completed)}
                             style={{ fontSize: '0.65rem', padding: '0.2rem 0.5rem' }}
                           >
-                            {set.completed ? 'Undo' : 'Done'}
+                            {set.completed ? t('common.undo', 'Undo') : t('common.done', 'Done')}
                           </button>
                           <button 
                             className="btn-danger"
                             onClick={() => removeSet(exIdx, sIdx)}
                             style={{ padding: '2px 4px', fontSize: '0.7rem' }}
-                            title="Remove set"
+                            title={t("workout.remove_set", "Remove set")}
                           >
                             ✕
                           </button>
@@ -938,7 +975,7 @@ function App() {
                       
                       <div className="set-input-row">
                         <div className="set-input-group">
-                          <label className="set-input-label">Weight</label>
+                          <label className="set-input-label">{t("workout.weight", "Weight")}</label>
                           <div className="input-with-badge">
                             <input 
                               type="number" 
@@ -951,13 +988,13 @@ function App() {
                               className="unit-badge" 
                               onClick={() => toggleUnit(exIdx, sIdx)}
                             >
-                              {set.unit || 'kg'}
+                              {t(`workout.unit.${set.unit || 'kg'}`, set.unit || 'kg')}
                             </button>
                           </div>
                         </div>
                         
                         <div className="set-input-group">
-                          <label className="set-input-label">Reps</label>
+                          <label className="set-input-label">{t("workout.reps", "Reps")}</label>
                           <input 
                             type="number" 
                             value={set.reps || ''} 
@@ -981,7 +1018,7 @@ function App() {
                             onClick={() => updateSet(exIdx, sIdx, 'difficulty', diff.id)}
                           >
                             <span className="difficulty-icon">{diff.icon}</span>
-                            <span>{diff.id}</span>
+                            <span>{t('difficulty.' + diff.id, diff.id)}</span>
                           </button>
                         ))}
                       </div>
@@ -998,7 +1035,7 @@ function App() {
               style={{ border: '1px dashed var(--border-color)', marginTop: '1.5rem', background: 'transparent' }} 
               onClick={() => setIsAdding(true)}
             >
-              + Add Exercise
+              {t("workout.add_exercise", "+ Add Exercise")}
             </button>
           ) : (
             <div className="card" style={{ marginTop: '1.5rem', border: '1px solid var(--primary-color)', padding: '1.25rem' }}>
@@ -1014,10 +1051,10 @@ function App() {
                       }
                     }}
                   >
-                    {navPath.length > 0 ? '← Back' : 'Cancel'}
+                    {navPath.length > 0 ? t('common.back', '← Back') : t('common.cancel', 'Cancel')}
                   </button>
                   <span style={{ fontSize: '1rem', fontWeight: '700' }}>
-                    {navPath.length === 0 ? 'Select Category' : navPath.join(' / ')}
+                    {navPath.length === 0 ? t('exercises.select_category', 'Select Category') : navPath.map(p => t('muscles.' + p, p)).join(' / ')}
                   </span>
                 </div>
               </div>
@@ -1033,7 +1070,7 @@ function App() {
                     <div style={{ marginBottom: '1rem' }}>
                       <input 
                         autoFocus
-                        placeholder="Search exercise..."
+                        placeholder={t("exercises.search", "Search exercise...")}
                         value={newExName}
                         onChange={(e) => {
                           setNewExName(e.target.value);
@@ -1068,26 +1105,26 @@ function App() {
                                 onMouseEnter={() => setSearchIndex(i)}
                               >
                                 <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                  <span style={{ fontWeight: '600' }}>{ex.name} {ex.is_external && <small style={{ color: 'var(--primary-color)', marginLeft: '0.5rem' }}>[Online]</small>}</span>
-                                  <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{ex.primaryMuscles?.join(', ')}</span>
+                                  <span style={{ fontWeight: '600' }}>{ex.name} {ex.is_external && <small style={{ color: 'var(--primary-color)', marginLeft: '0.5rem' }}>{t("exercises.online_label", "[Online]")}</small>}</span>
+                                  <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{ex.primaryMuscles?.map(m => t('muscles.' + m, m)).join(', ')}</span>
                                 </div>
                               </div>
                             ))}
                             <div className="suggestion-item" onClick={searchExternal} style={{ borderTop: '1px solid var(--border-color)', color: 'var(--primary-color)' }}>
-                              {isLoadingExternal ? 'Searching...' : '🔍 Search in Online Database'}
+                              {isLoadingExternal ? t("exercises.searching", "Searching...") : t("exercises.search_online", "🔍 Search in Online Database")}
                             </div>
                           </>
                         ) : (
                           <>
                             <div className="suggestion-item" onClick={searchExternal}>
-                              {isLoadingExternal ? 'Searching...' : `🔍 Search "${newExName}" online`}
+                              {isLoadingExternal ? t("exercises.searching", "Searching...") : t("exercises.search_online_query", '🔍 Search "{{query}}" online', { query: newExName })}
                             </div>
                             <div 
                               className="suggestion-item" 
                               onClick={() => { setCustomExName(newExName); setIsCreatingCustom(true); }}
                               style={{ color: 'var(--success-color)' }}
                             >
-                              ➕ Create Custom: "{newExName}"
+                              {t("exercises.create_custom", '➕ Create Custom: "{{query}}"', { query: newExName })}
                             </div>
                           </>
                         )}
@@ -1101,7 +1138,7 @@ function App() {
                         <div style={{ gridColumn: 'span 2', marginBottom: '1rem' }}>
                           <input 
                             autoFocus
-                            placeholder="Search exercise..."
+                            placeholder={t("exercises.search", "Search exercise...")}
                             value={newExName}
                             onChange={(e) => {
                               setNewExName(e.target.value);
@@ -1113,20 +1150,20 @@ function App() {
 
                       {navPath.length === 0 && Object.keys(MUSCLE_GROUPS).map(group => (
                         <button key={group} className="btn btn-secondary" onClick={() => setNavPath([group])}>
-                          {group}
+                          {t('muscles.' + group, group)}
                         </button>
                       ))}
                       
                       {navPath.length === 1 && MUSCLE_GROUPS[navPath[0]].map(muscle => (
                         <button key={muscle} className="btn btn-secondary" onClick={() => setNavPath([...navPath, muscle])} style={{ textTransform: 'capitalize' }}>
-                          {muscle}
+                          {t('muscles.' + muscle, muscle)}
                         </button>
                       ))}
 
                       {navPath.length === 2 && (
                         navExercises.length === 0 ? (
                           <div style={{ gridColumn: 'span 2', textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
-                            No exercises found for this muscle group.
+                            {t("exercises.no_exercises_found", "No exercises found for this muscle group.")}
                           </div>
                         ) : (
                           navExercises.map(ex => (
@@ -1151,7 +1188,7 @@ function App() {
                   style={{ flex: 2, background: 'var(--success-color)' }} 
                   onClick={saveWorkout}
                 >
-                  {editingWorkoutId ? 'Update Workout' : 'Save Workout'}
+                  {editingWorkoutId ? t('workout.update_workout', 'Update Workout') : t('workout.save_workout', 'Save Workout')}
                 </button>
                 <button 
                   className="btn btn-secondary" 
@@ -1168,7 +1205,7 @@ function App() {
                 style={{ flex: 1 }} 
                 onClick={saveRoutine}
               >
-                {editingRoutineId ? 'Update Routine' : 'Save as Routine'}
+                {editingRoutineId ? t('routines.update_routine', 'Update Routine') : t('routines.save_as_routine', 'Save as Routine')}
               </button>
             )}
           </div>
@@ -1176,9 +1213,9 @@ function App() {
       ) : view === 'history' ? (
         <div className="history-list">
           {loading ? (
-            <p style={{ textAlign: 'center', padding: '2rem' }}>Loading history...</p>
+            <p style={{ textAlign: 'center', padding: '2rem' }}>{t("history.loading", "Loading history...")}</p>
           ) : history.length === 0 ? (
-            <p style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '4rem' }}>No workouts found.</p>
+            <p style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '4rem' }}>{t("history.no_workouts", "No workouts found.")}</p>
           ) : (
             history.map((w, idx) => (
               <div key={idx} className="card history-item">
@@ -1186,21 +1223,21 @@ function App() {
                   <div className="item-title">
                     <span className="item-name">{w.name}</span>
                     <span className="item-meta">
-                      {new Date(w.sk.split('#')[1]).toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                      {new Date(w.sk.split('#')[1]).toLocaleDateString(i18n.language, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
                     </span>
                   </div>
                   <div style={{ display: 'flex', gap: '0.25rem' }}>
                     <button 
                       className="btn-secondary btn-small"
                       onClick={() => startEdit(w)}
-                      title="Edit workout"
+                      title={t("history.edit_workout", "Edit workout")}
                     >
                       ✎
                     </button>
                     <button 
                       className="btn-danger btn-small"
                       onClick={() => deleteWorkout(w.sk)}
-                      title="Delete workout"
+                      title={t("history.delete_workout", "Delete workout")}
                     >
                       ✕
                     </button>
@@ -1220,11 +1257,11 @@ function App() {
       ) : (
         <div className="routines-list">
           {loading ? (
-            <p style={{ textAlign: 'center', padding: '2rem' }}>Loading routines...</p>
+            <p style={{ textAlign: 'center', padding: '2rem' }}>{t("routines.loading", "Loading routines...")}</p>
           ) : routines.length === 0 ? (
             <div className="card" style={{ textAlign: 'center', padding: '4rem' }}>
-              <p style={{ color: 'var(--text-muted)', marginBottom: '1.5rem' }}>No routines found. Templates help you start workouts faster!</p>
-              <button className="btn" style={{ width: 'auto' }} onClick={() => { setView('workout'); setWorkoutName('New Routine'); setExercises([]); setEditingWorkoutId(null); setEditingWorkoutDate(null); setEditingRoutineId(null); }}>
+              <p style={{ color: 'var(--text-muted)', marginBottom: '1.5rem' }}>{t("routines.no_routines", "No routines found. Templates help you start workouts faster!")}</p>
+              <button className="btn" style={{ width: 'auto' }} onClick={() => { setView('workout'); setWorkoutName(t('routines.new_routine', 'New Routine')); setExercises([]); setEditingWorkoutId(null); setEditingWorkoutDate(null); setEditingRoutineId(null); }}>
                 Create My First Routine
               </button>
             </div>
@@ -1233,7 +1270,7 @@ function App() {
               <button 
                 className="btn btn-secondary" 
                 style={{ marginBottom: '1.5rem', border: '1px dashed var(--border-color)', background: 'transparent' }}
-                onClick={() => { setView('workout'); setWorkoutName('New Routine'); setExercises([]); setEditingWorkoutId(null); setEditingWorkoutDate(null); setEditingRoutineId(null); }}
+                onClick={() => { setView('workout'); setWorkoutName(t('routines.new_routine', 'New Routine')); setExercises([]); setEditingWorkoutId(null); setEditingWorkoutDate(null); setEditingRoutineId(null); }}
               >
                 + Create New Routine
               </button>
@@ -1242,7 +1279,7 @@ function App() {
                 <div className="item-header">
                   <div className="item-title">
                     <span className="item-name">{p.name}</span>
-                    <span className="item-meta">{p.exercises.length} exercises</span>
+                    <span className="item-meta">{p.exercises.length}{t("routines.exercises_count", " exercises")}</span>
                   </div>
                   <div style={{ display: 'flex', gap: '0.25rem' }}>
                     <button 
@@ -1254,14 +1291,14 @@ function App() {
                     <button 
                       className="btn-secondary btn-small"
                       onClick={() => startRoutineEdit(p)}
-                      title="Edit routine"
+                      title={t("routines.edit_routine", "Edit routine")}
                     >
                       ✎
                     </button>
                     <button 
                       className="btn-danger btn-small"
                       onClick={() => deleteRoutine(p.id)}
-                      title="Delete routine"
+                      title={t("routines.delete_routine", "Delete routine")}
                     >
                       ✕
                     </button>
@@ -1284,29 +1321,29 @@ function App() {
       {isCreatingCustom && (
         <div className="modal-overlay" onClick={() => setIsCreatingCustom(false)}>
           <div className="modal-content" onClick={e => e.stopPropagation()}>
-            <h3 className="modal-title">Create Custom Exercise</h3>
+            <h3 className="modal-title">{t("custom_exercise.title", "Create Custom Exercise")}</h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginBottom: '1.5rem' }}>
               <div className="set-input-group">
-                <label className="set-input-label">Exercise Name</label>
+                <label className="set-input-label">{t("custom_exercise.name", "Exercise Name")}</label>
                 <input 
                   autoFocus
                   value={customExName} 
                   onChange={e => setCustomExName(e.target.value)} 
-                  placeholder="e.g. Weighted Pullups"
+                  placeholder={t("custom_exercise.placeholder_name", "e.g. Weighted Pullups")}
                 />
               </div>
               <div className="set-input-group">
-                <label className="set-input-label">Primary Muscle</label>
+                <label className="set-input-label">{t("custom_exercise.primary_muscles", "Primary Muscle")}</label>
                 <input 
                   value={customExMuscle} 
                   onChange={e => setCustomExMuscle(e.target.value)} 
-                  placeholder="e.g. lats"
+                  placeholder={t("custom_exercise.placeholder_muscles", "e.g. lats")}
                 />
               </div>
             </div>
             <div className="modal-actions">
-              <button className="btn btn-secondary" onClick={() => setIsCreatingCustom(false)}>Cancel</button>
-              <button className="btn" onClick={saveCustomExercise}>Save & Add</button>
+              <button className="btn btn-secondary" onClick={() => setIsCreatingCustom(false)}>{t("common.cancel", "Cancel")}</button>
+              <button className="btn" onClick={saveCustomExercise}>{t("custom_exercise.save_and_add", "Save & Add")}</button>
             </div>
           </div>
         </div>
