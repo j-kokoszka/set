@@ -84,14 +84,12 @@ function App() {
     const enDefaults = ["New Workout", "New Routine"];
     const plDefaults = ["Nowy Trening", "Nowa Rutyna"];
     
-     if (enDefaults.includes(workoutName) || plDefaults.includes(workoutName)) {
+    if (enDefaults.includes(workoutName) || plDefaults.includes(workoutName)) {
       // If it matches a routine default, use routine key, otherwise workout key
       if (workoutName.includes("Routine") || workoutName.includes("Rutyna")) {
-        
-        
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setWorkoutName(t('routines.new_routine', 'New Routine'));
       } else {
-        
         setWorkoutName(t('workout.new_workout', 'New Workout'));
       }
     }
@@ -237,62 +235,142 @@ function App() {
   }, [newExName, allExercises]);
 
   const navExercises = useMemo(() => {
-    if (navPath.length < 2) return [];
-    const muscle = navPath[1];
-    return allExercises.filter(ex => ex.primaryMuscles.includes(muscle));
+    if (navPath.length !== 2) return [];
+    const targetMuscle = navPath[1].toLowerCase().trim();
+    return allExercises.filter(ex => 
+      ex.primaryMuscles?.some(m => m.toLowerCase().trim() === targetMuscle)
+    );
   }, [navPath, allExercises]);
 
-  
-  
-  useEffect(() => {
-     fetchExercises();
-  }, [fetchExercises]);
-
-  const fetchHistory = useCallback(async () => {
+  const fetchHistory = async () => {
     const validToken = await getValidToken();
     if (!validToken) return;
-    
     setLoading(true);
     try {
       const response = await fetch(`${BASE_URL}/workouts`, {
-        headers: { 'Authorization': `Bearer ${validToken}` }
+        headers: {
+          'Authorization': `Bearer ${validToken}`
+        }
       });
-      if (response.ok) {
-        const data = await response.json();
-        setHistory(data);
-      }
+      const data = await response.json();
+      setHistory(data.sort((a: WorkoutHistoryItem, b: WorkoutHistoryItem) => 
+        new Date(b.sk.split('#')[1]).getTime() - new Date(a.sk.split('#')[1]).getTime()
+      ));
     } catch (error) {
       console.error('Error fetching history:', error);
     } finally {
       setLoading(false);
     }
-  }, [getValidToken]);
+  };
 
-  const fetchRoutines = useCallback(async () => {
+  const fetchRoutines = async () => {
     const validToken = await getValidToken();
     if (!validToken) return;
     setLoading(true);
     try {
       const response = await fetch(`${BASE_URL}/routines`, {
-        headers: { 'Authorization': `Bearer ${validToken}` }
+        headers: {
+          'Authorization': `Bearer ${validToken}`
+        }
       });
       if (response.ok) {
         const data = await response.json();
         setRoutines(data);
+      } else {
+        console.error('Failed to fetch routines');
       }
-    } catch (error) {
-      console.error('Error fetching routines:', error);
+    } catch (e) {
+      console.error('Error fetching routines:', e);
     } finally {
       setLoading(false);
     }
-  }, [getValidToken]);
+  };
+
+  useEffect(() => {
+    const handleAuth = async () => {
+      // 1. Check for 'code' in URL query (returning from Cognito with Auth Code Flow)
+      const params = new URLSearchParams(window.location.search);
+      const code = params.get('code');
+      
+      if (code) {
+        const codeVerifier = sessionStorage.getItem('code_verifier');
+        if (codeVerifier) {
+          try {
+            const response = await fetch(`https://${COGNITO_DOMAIN}/oauth2/token`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+              body: new URLSearchParams({
+                grant_type: 'authorization_code',
+                client_id: COGNITO_CLIENT_ID!,
+                code: code,
+                redirect_uri: APP_URL,
+                code_verifier: codeVerifier
+              })
+            });
+
+            if (response.ok) {
+              const data = await response.json();
+              const idToken = data.id_token;
+              const refreshToken = data.refresh_token;
+              
+              if (idToken) {
+                setToken(idToken);
+                localStorage.setItem('set_token', idToken);
+                if (refreshToken) {
+                  localStorage.setItem('set_refresh_token', refreshToken);
+                }
+                
+                const payload = base64UrlDecode(idToken.split('.')[1]);
+                const username = payload?.email || payload?.['cognito:username'] || payload?.sub || 'Authenticated User';
+                setUser(username);
+                localStorage.setItem('set_user', username);
+              }
+            }
+          } catch (e) {
+            console.error('Token exchange failed', e);
+          } finally {
+            sessionStorage.removeItem('code_verifier');
+            window.history.replaceState(null, '', window.location.pathname);
+          }
+        }
+      }
+
+      // 2. Legacy/Fallback: Implicit Flow check (checking for tokens in the hash)
+      const hash = window.location.hash;
+      if (hash) {
+        const hashParams = new URLSearchParams(hash.substring(1));
+        const idToken = hashParams.get('id_token') || hashParams.get('access_token');
+
+        if (idToken) {
+          setToken(idToken);
+          localStorage.setItem('set_token', idToken);
+          
+          const payload = base64UrlDecode(idToken.split('.')[1]);
+          const username = payload?.email || payload?.['cognito:username'] || payload?.sub || 'Authenticated User';
+          setUser(username);
+          localStorage.setItem('set_user', username);
+
+          window.history.replaceState(null, '', window.location.pathname);
+        }
+      }
+    };
+
+    void handleAuth();
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void fetchExercises();
+  }, [fetchExercises]);
 
   useEffect(() => {
     if (token) {
-       fetchHistory();
-      fetchRoutines();
+      if (view === 'history') {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        void fetchHistory();
+      } else if (view === 'routines') {
+        void fetchRoutines();
+      }
     }
-  }, [token, fetchHistory, fetchRoutines]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token, view]);
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -313,189 +391,33 @@ function App() {
 
     // Secure Authorization Code Flow with PKCE
     const codeVerifier = generateCodeVerifier();
-    localStorage.setItem('set_code_verifier', codeVerifier);
+    sessionStorage.setItem('code_verifier', codeVerifier);
     const codeChallenge = await generateCodeChallenge(codeVerifier);
 
-    const params = new URLSearchParams({
-      response_type: 'code',
+    const loginUrl = `https://${COGNITO_DOMAIN}/oauth2/authorize?` + new URLSearchParams({
       client_id: COGNITO_CLIENT_ID,
+      response_type: 'code',
+      scope: 'email openid profile',
       redirect_uri: APP_URL,
-      scope: 'openid profile email',
       code_challenge_method: 'S256',
       code_challenge: codeChallenge,
-      identity_provider: 'Google'
-    });
+      identity_provider: 'Google' // Direct to Google login
+    }).toString();
 
-    window.location.href = `https://${COGNITO_DOMAIN}/oauth2/authorize?${params.toString()}`;
+    window.location.href = loginUrl;
   };
 
-  useEffect(() => {
-    const handleAuth = async () => {
-      // 1. Check for 'code' in URL query (returning from Cognito with Auth Code Flow)
-      const params = new URLSearchParams(window.location.search);
-      const code = params.get('code');
-      
-      if (code) {
-        const codeVerifier = localStorage.getItem('set_code_verifier');
-        if (!codeVerifier) {
-          console.error('No code verifier found');
-          return;
-        }
-
-        try {
-          const response = await fetch(`https://${COGNITO_DOMAIN}/oauth2/token`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: new URLSearchParams({
-              grant_type: 'authorization_code',
-              client_id: COGNITO_CLIENT_ID!,
-              code: code,
-              redirect_uri: APP_URL,
-              code_verifier: codeVerifier
-            })
-          });
-
-          if (response.ok) {
-            const data = await response.json();
-            const idToken = data.id_token;
-            const refreshToken = data.refresh_token;
-            
-            // Extract user from ID Token (simple decode)
-            const payload = base64UrlDecode(idToken.split('.')[1]);
-            const username = (payload as any)?.["cognito:username"] || (payload as any)?.email;
-
-            setToken(idToken);
-            setUser(username || "Unknown");
-            localStorage.setItem('set_token', idToken);
-            if (refreshToken) {
-              localStorage.setItem('set_refresh_token', refreshToken);
-            }
-            localStorage.setItem('set_user', username || "Unknown");
-            
-            // Clean URL
-            window.history.replaceState({}, document.title, window.location.pathname);
-          }
-        } catch (e) {
-          console.error('Auth failed', e);
-        }
-      }
-    };
-
-    if (COGNITO_DOMAIN) {
-      handleAuth();
-    }
-  }, []);
-
-  const addExercise = (standardEx?: StandardExercise) => {
-    const newEx: Exercise = {
-      id: standardEx?.id,
-      name: standardEx ? standardEx.name : newExName,
-      sets: [{ reps: 0, weight: 0, unit: 'kg' }]
-    };
-    setExercises([...exercises, newEx]);
-    setNewExName("");
-    setIsAdding(false);
-    setNavPath([]);
-  };
-
-  const removeExercise = (index: number) => {
-    setExercises(exercises.filter((_, i) => i !== index));
-  };
-
-  const addSet = (exerciseIndex: number) => {
-    setExercises(prev => prev.map((ex, exIdx) => {
-      if (exIdx !== exerciseIndex) return ex;
-      const lastSet = ex.sets[ex.sets.length - 1];
-      return {
-        ...ex,
-        sets: [...ex.sets, { 
-          reps: lastSet?.reps || 0, 
-          weight: lastSet?.weight || 0, 
-          unit: lastSet?.unit || 'kg' 
-        }]
-      };
-    }));
-  };
-
-  const removeSet = (exerciseIndex: number, setIndex: number) => {
-    setExercises(prev => prev.map((ex, exIdx) => {
-      if (exIdx !== exerciseIndex) return ex;
-      return {
-        ...ex,
-        sets: ex.sets.filter((_, sIdx) => sIdx !== setIndex)
-      };
-    }));
-  };
-
-  const updateSet = (exerciseIndex: number, setIndex: number, field: keyof Set, value: string | number | boolean) => {
-    setExercises(prev => prev.map((ex, exIdx) => {
-      if (exIdx !== exerciseIndex) return ex;
-      return {
-        ...ex,
-        sets: ex.sets.map((s, sIdx) => 
-          sIdx === setIndex ? { ...s, [field]: value } : s
-        )
-      };
-    }));
-  };
-
-  const startEdit = (workout: WorkoutHistoryItem) => {
-    setWorkoutName(workout.name);
-    setExercises(workout.exercises.map(ex => ({
-      id: ex.exercise_id,
-      name: ex.exercise_name,
-      sets: ex.sets
-    })));
-    setEditingWorkoutId(workout.sk.split('#')[2]);
-    setEditingWorkoutDate(workout.sk.split('#')[1]);
-    setView('workout');
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
-  const deleteWorkout = async (sk: string) => {
-    const parts = sk.split('#');
-    const date = parts[1];
-    const workoutId = parts[2];
-
-    if (!window.confirm(t('history.confirm_delete', 'Are you sure you want to delete this workout?'))) {
-      return;
-    }
-
-    try {
-      const validToken = await getValidToken();
-      if (!validToken) return;
-
-      const response = await fetch(`${BASE_URL}/workouts/${workoutId}?date=${encodeURIComponent(date)}`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${validToken}` }
-      });
-      if (response.ok) {
-         fetchHistory();
-      } else {
-        const errorData = await response.json();
-        alert(t('workout.error_delete', 'Failed to delete workout: {{error}}', { error: errorData.detail || 'Unknown error' }));
-      }
-    } catch (error) {
-      console.error('Error deleting workout:', error);
-      alert(`Error connecting to backend: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    }
-  };
-
-  const deleteRoutine = async (routineId: string) => {
-    if (!window.confirm(t('routines.confirm_delete', 'Are you sure you want to delete this routine?'))) return;
+  const deleteRoutine = async (id: string) => {
     const validToken = await getValidToken();
     if (!validToken) return;
+    if (!window.confirm(t('routines.confirm_delete', 'Are you sure you want to delete this routine?'))) return;
 
     try {
-      const response = await fetch(`${BASE_URL}/routines/${routineId}`, {
+      const response = await fetch(`${BASE_URL}/routines/${id}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${validToken}` }
       });
-      if (response.ok) {
-        fetchRoutines();
-      } else {
-        alert(t('routines.error_delete', 'Error deleting routine'));
-      }
+      if (response.ok) fetchRoutines();
     } catch (e) {
       console.error('Error deleting routine:', e);
       alert(t('routines.error_delete', 'Error deleting routine'));
@@ -508,28 +430,73 @@ function App() {
       id: ex.exercise_id,
       name: ex.exercise_name,
       sets: ex.sets.map(s => ({
-        reps: s.reps || 0,
+        reps: s.reps || 10,
         weight: s.weight || 0,
-        unit: s.unit || 'kg'
+        unit: s.unit
       }))
     })));
     setIsSelectingRoutine(false);
   };
 
+  const deleteWorkout = async (sk: string) => {
+    const validToken = await getValidToken();
+    if (!validToken) return;
+    const parts = sk.split('#');
+    const date = parts[1];
+    const workoutId = parts[2];
+
+    if (!window.confirm(t('history.confirm_delete', 'Are you sure you want to delete this workout?'))) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`${BASE_URL}/workouts/${workoutId}?date=${encodeURIComponent(date)}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${validToken}`
+        }
+      });
+
+      if (response.ok) {
+        fetchHistory();
+      } else {
+        const errorMessage = await parseBackendError(response, 'Failed to delete workout');
+        alert(errorMessage);
+      }
+    } catch (error) {
+      alert(`Error connecting to backend: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  };
+
+  const startEdit = (workout: WorkoutHistoryItem) => {
+    const parts = workout.sk.split('#');
+    const date = parts[1];
+    const workoutId = parts[2];
+
+    setEditingWorkoutId(workoutId);
+    setEditingWorkoutDate(date);
+    setWorkoutName(workout.name);
+    setExercises(workout.exercises.map(ex => ({
+      id: ex.exercise_id,
+      name: ex.exercise_name,
+      sets: ex.sets
+    })));
+    setView('workout');
+  };
+
   const startRoutineEdit = (routine: WorkoutRoutine) => {
+    setEditingRoutineId(routine.id);
     setWorkoutName(routine.name);
     setExercises(routine.exercises.map(ex => ({
       id: ex.exercise_id,
       name: ex.exercise_name,
       sets: ex.sets.map(s => ({
-        reps: s.reps || 0,
+        reps: s.reps || 10,
         weight: s.weight || 0,
-        unit: s.unit || 'kg'
+        unit: s.unit
       }))
     })));
-    setEditingRoutineId(routine.id);
     setView('workout');
-    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const clearWorkout = () => {
@@ -557,16 +524,12 @@ function App() {
         headers: { 'Authorization': `Bearer ${validToken}` }
       });
       if (response.ok) {
-        const data = await response.json();
-        // Merge with existing but prefer external
+        const externalData = await response.json();
+        // Merge with existing avoiding duplicates
         setAllExercises(prev => {
-          const combined = [...data, ...prev];
-          const seen = new Set();
-          return combined.filter(ex => {
-            const duplicate = seen.has(ex.id);
-            seen.add(ex.id);
-            return !duplicate;
-          });
+          const existingIds = new Set(prev.map(ex => ex.id));
+          const newItems = externalData.filter((ex: StandardExercise) => !existingIds.has(ex.id));
+          return [...prev, ...newItems];
         });
       }
     } catch (e) {
@@ -608,6 +571,83 @@ function App() {
       alert(t('custom_exercise.save_error', 'Failed to save custom exercise'));
     }
   };
+
+  const addExercise = (nameOrEx?: string | StandardExercise) => {
+    let name: string;
+    let id: string | undefined;
+
+    if (typeof nameOrEx === 'object' && nameOrEx !== null) {
+      name = nameOrEx.name;
+      id = nameOrEx.id;
+    } else if (typeof nameOrEx === 'string') {
+      name = nameOrEx;
+      id = undefined;
+    } else {
+      name = newExName.trim();
+      id = undefined;
+    }
+
+    if (name) {
+      setExercises([...exercises, { id, name, sets: [] }]);
+      setNewExName("");
+      setSearchIndex(-1);
+      setIsAdding(false);
+    }
+  };
+
+  const removeExercise = (index: number) => {
+    const newExercises = [...exercises];
+    newExercises.splice(index, 1);
+    setExercises(newExercises);
+  };
+
+  const addSet = (exerciseIndex: number) => {
+    setExercises(prev => prev.map((ex, exIdx) => {
+      if (exIdx !== exerciseIndex) return ex;
+      const lastSet = ex.sets.length > 0 
+        ? ex.sets[ex.sets.length - 1]
+        : { reps: 10, weight: 0, unit: 'kg' as const };
+      return {
+        ...ex,
+        sets: [...ex.sets, { ...lastSet, completed: false, difficulty: undefined }]
+      };
+    }));
+  };
+
+  const removeSet = (exerciseIndex: number, setIndex: number) => {
+    setExercises(prev => prev.map((ex, exIdx) => {
+      if (exIdx !== exerciseIndex) return ex;
+      return {
+        ...ex,
+        sets: ex.sets.filter((_, sIdx) => sIdx !== setIndex)
+      };
+    }));
+  };
+
+  const updateSet = <K extends keyof Set>(exerciseIndex: number, setIndex: number, field: K, value: Set[K]) => {
+    setExercises(prev => prev.map((ex, exIdx) => {
+      if (exIdx !== exerciseIndex) return ex;
+      return {
+        ...ex,
+        sets: ex.sets.map((s, sIdx) => {
+          if (sIdx !== setIndex) return s;
+          const updatedSet = { ...s, [field]: value };
+          if (field === 'weight') {
+            updatedSet.weight = typeof value === 'string' ? parseFloat(value) : value as number;
+          } else if (field === 'reps') {
+            updatedSet.reps = typeof value === 'string' ? parseInt(value) : value as number;
+          } else if (field === 'difficulty') {
+            updatedSet.difficulty = value as Set['difficulty'];
+            updatedSet.completed = true;
+          } else if (field === 'completed') {
+            updatedSet.completed = value as boolean;
+          }
+          return updatedSet;
+        })
+      };
+    }));
+  };
+
 
   const toggleUnit = (exerciseIndex: number, setIndex: number) => {
     setExercises(prev => prev.map((ex, exIdx) => {
@@ -681,7 +721,7 @@ function App() {
         setEditingWorkoutId(null);
         setEditingWorkoutDate(null);
         setView('history');
-         fetchHistory();
+        fetchHistory();
       } else {
         const errorMessage = await parseBackendError(response, t('workout.error_save', 'Failed to save workout'));
         alert(errorMessage);
@@ -1155,7 +1195,7 @@ function App() {
                   style={{ flex: 1, color: 'var(--danger-color)', borderColor: 'var(--danger-color)' }} 
                   onClick={clearWorkout}
                 >
-                  {t("workout.clear", "Clear")}
+                  Clear
                 </button>
               </>
             )}
@@ -1183,7 +1223,7 @@ function App() {
                   <div className="item-title">
                     <span className="item-name">{w.name}</span>
                     <span className="item-meta">
-                      {new Date(w.sk.split('#')[1]).toLocaleDateString(i18n.resolvedLanguage, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                      {new Date(w.sk.split('#')[1]).toLocaleDateString(i18n.language, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
                     </span>
                   </div>
                   <div style={{ display: 'flex', gap: '0.25rem' }}>
@@ -1222,7 +1262,7 @@ function App() {
             <div className="card" style={{ textAlign: 'center', padding: '4rem' }}>
               <p style={{ color: 'var(--text-muted)', marginBottom: '1.5rem' }}>{t("routines.no_routines", "No routines found. Templates help you start workouts faster!")}</p>
               <button className="btn" style={{ width: 'auto' }} onClick={() => { setView('workout'); setWorkoutName(t('routines.new_routine', 'New Routine')); setExercises([]); setEditingWorkoutId(null); setEditingWorkoutDate(null); setEditingRoutineId(null); }}>
-                {t("routines.create_first", "Create My First Routine")}
+                Create My First Routine
               </button>
             </div>
           ) : (
@@ -1232,7 +1272,7 @@ function App() {
                 style={{ marginBottom: '1.5rem', border: '1px dashed var(--border-color)', background: 'transparent' }}
                 onClick={() => { setView('workout'); setWorkoutName(t('routines.new_routine', 'New Routine')); setExercises([]); setEditingWorkoutId(null); setEditingWorkoutDate(null); setEditingRoutineId(null); }}
               >
-                {t("routines.create_new", "+ Create New Routine")}
+                + Create New Routine
               </button>
               {routines.map((p) => (
               <div key={p.id} className="card routine-item">
@@ -1246,7 +1286,7 @@ function App() {
                       className="btn btn-small" 
                       onClick={() => startFromRoutine(p)}
                     >
-                      {t("routines.use", "Use")}
+                      Use
                     </button>
                     <button 
                       className="btn-secondary btn-small"
