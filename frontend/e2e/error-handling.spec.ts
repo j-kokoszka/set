@@ -2,6 +2,24 @@ import { test, expect } from '@playwright/test';
 
 test.describe('set app - error handling', () => {
   test.beforeEach(async ({ page }) => {
+    // Mock the backend exercises endpoint
+    await page.route('**/exercises', async route => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify([])
+      });
+    });
+
+    // Mock custom exercises
+    await page.route('**/exercises/custom', async route => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify([])
+      });
+    });
+
     await page.goto('/');
     // Login
     await page.getByLabel('Username').fill('testuser');
