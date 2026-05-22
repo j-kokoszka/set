@@ -11,6 +11,15 @@ test.describe('set app - error handling', () => {
       });
     });
 
+    // Mock custom exercises
+    await page.route('**/exercises/custom', async route => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify([])
+      });
+    });
+
     await page.goto('/');
     // Login
     await page.getByLabel('Username').fill('testuser');
