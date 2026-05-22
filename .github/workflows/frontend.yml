@@ -26,12 +26,12 @@ jobs:
         with:
           args: 'frontend/src'
       - name: Lint
-        run: cd frontend && npm run lint
+        run: make lint-frontend
       - name: Build (Validate)
-        run: cd frontend && npm run build
+        run: make build-frontend
       - name: Install Playwright Browsers
         run: cd frontend && npx playwright install --with-deps chromium
       - name: Run E2E Tests
         env:
           VITE_ENABLE_MOCK_LOGIN: 'true'
-        run: cd frontend && npx playwright test --project=chromium
+        run: make test-frontend PLAYWRIGHT_ARGS="--project=chromium"
