@@ -84,13 +84,14 @@ function App() {
     const enDefaults = ["New Workout", "New Routine"];
     const plDefaults = ["Nowy Trening", "Nowa Rutyna"];
     
-    if (enDefaults.includes(workoutName) || plDefaults.includes(workoutName)) {
+     if (enDefaults.includes(workoutName) || plDefaults.includes(workoutName)) {
       // If it matches a routine default, use routine key, otherwise workout key
       if (workoutName.includes("Routine") || workoutName.includes("Rutyna")) {
-        // eslint-disable-next-line react-hooks/set-state-in-effect
+        
+        
         setWorkoutName(t('routines.new_routine', 'New Routine'));
       } else {
-        // eslint-disable-next-line react-hooks/set-state-in-effect
+        
         setWorkoutName(t('workout.new_workout', 'New Workout'));
       }
     }
@@ -241,13 +242,16 @@ function App() {
     return allExercises.filter(ex => ex.primaryMuscles.includes(muscle));
   }, [navPath, allExercises]);
 
+  
+  
   useEffect(() => {
-    fetchExercises();
+     fetchExercises();
   }, [fetchExercises]);
 
   const fetchHistory = useCallback(async () => {
     const validToken = await getValidToken();
     if (!validToken) return;
+    
     setLoading(true);
     try {
       const response = await fetch(`${BASE_URL}/workouts`, {
@@ -285,7 +289,7 @@ function App() {
 
   useEffect(() => {
     if (token) {
-      fetchHistory();
+       fetchHistory();
       fetchRoutines();
     }
   }, [token, fetchHistory, fetchRoutines]);
@@ -358,15 +362,15 @@ function App() {
             
             // Extract user from ID Token (simple decode)
             const payload = base64UrlDecode(idToken.split('.')[1]);
-            const username = payload['cognito:username'] || payload['email'];
+            const username = (payload as any)?.["cognito:username"] || (payload as any)?.email;
 
             setToken(idToken);
-            setUser(username);
+            setUser(username || "Unknown");
             localStorage.setItem('set_token', idToken);
             if (refreshToken) {
               localStorage.setItem('set_refresh_token', refreshToken);
             }
-            localStorage.setItem('set_user', username);
+            localStorage.setItem('set_user', username || "Unknown");
             
             // Clean URL
             window.history.replaceState({}, document.title, window.location.pathname);
@@ -423,7 +427,7 @@ function App() {
     }));
   };
 
-  const updateSet = (exerciseIndex: number, setIndex: number, field: keyof Set, value: any) => {
+  const updateSet = (exerciseIndex: number, setIndex: number, field: keyof Set, value: string | number | boolean) => {
     setExercises(prev => prev.map((ex, exIdx) => {
       if (exIdx !== exerciseIndex) return ex;
       return {
@@ -466,7 +470,7 @@ function App() {
         headers: { 'Authorization': `Bearer ${validToken}` }
       });
       if (response.ok) {
-        fetchHistory();
+         fetchHistory();
       } else {
         const errorData = await response.json();
         alert(t('workout.error_delete', 'Failed to delete workout: {{error}}', { error: errorData.detail || 'Unknown error' }));
@@ -677,7 +681,7 @@ function App() {
         setEditingWorkoutId(null);
         setEditingWorkoutDate(null);
         setView('history');
-        fetchHistory();
+         fetchHistory();
       } else {
         const errorMessage = await parseBackendError(response, t('workout.error_save', 'Failed to save workout'));
         alert(errorMessage);
