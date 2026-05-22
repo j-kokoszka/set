@@ -1,7 +1,6 @@
 from fastapi.testclient import TestClient
-from backend.main import app
+from backend.main import app, external_exercises_cache
 import uuid
-from unittest.mock import patch, MagicMock
 
 client = TestClient(app)
 
@@ -38,59 +37,30 @@ def test_custom_exercise_lifecycle():
     exercises = resp.json()
     assert not any(ex["id"] == ex_id for ex in exercises)
 
-def test_external_search_mock():
+def test_external_search_local_cache():
     user_id = "test_user"
     headers = {"Authorization": f"Bearer mock_{user_id}"}
     
-    # Mocking httpx.Response explicitly
-    with patch("backend.main.http_client.get") as mock_get:
-        # Create a real-looking mock response
-        mock_resp = MagicMock()
-        mock_resp.status_code = 200
-        mock_resp.json.return_value = {
-            "suggestions": [
-                {
-                    "value": "External Row",
-                    "data": {
-                        "id": 12345,
-                        "name": "External Row",
-                        "category": "Back"
-                    }
-                }
-            ]
-        }
-        
-        async def mock_async_get(*args, **kwargs):
-            return mock_resp
-            
-        mock_get.side_effect = mock_async_get
-        
-        resp = client.get("/exercises/search?q=row", headers=headers)
+    # Inject a mock exercise into the cache
+    test_ex = {
+        "id": "test-123",
+        "name": "Cached Row Machine",
+        "category": "strength",
+        "primaryMuscles": ["back"]
+    }
+    external_exercises_cache.append(test_ex)
+    
+    try:
+        resp = client.get("/exercises/search?q=Cached%20Row", headers=headers)
         assert resp.status_code == 200
         data = resp.json()
-        assert data is not None
-        assert len(data) == 1
-        assert data[0]["name"] == "External Row"
+        assert len(data) >= 1
+        assert any(ex["name"] == "Cached Row Machine" for ex in data)
         assert data[0]["is_external"] is True
-        assert data[0]["id"] == "wger-12345"
+    finally:
+        # Clean up
+        external_exercises_cache.remove(test_ex)
 
 def test_external_search_unauthorized():
     resp = client.get("/exercises/search?q=row")
     assert resp.status_code == 401 
-
-def test_external_search_error_502():
-    user_id = "test_user"
-    headers = {"Authorization": f"Bearer mock_{user_id}"}
-    
-    with patch("backend.main.http_client.get") as mock_get:
-        mock_resp = MagicMock()
-        mock_resp.status_code = 500
-        
-        async def mock_async_get(*args, **kwargs):
-            return mock_resp
-            
-        mock_get.side_effect = mock_async_get
-        
-        resp = client.get("/exercises/search?q=row", headers=headers)
-        assert resp.status_code == 502
-        assert "External exercise database unavailable" in resp.json()["detail"]

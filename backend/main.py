@@ -121,23 +121,29 @@ async def log_requests(request: Request, call_next):
 
 # Load exercises data
 EXERCISES_FILE = os.path.join(os.path.dirname(__file__), "data", "exercises.json")
-exercises_cache = []
-if os.path.exists(EXERCISES_FILE):
+EXTERNAL_EXERCISES_FILE = os.path.join(os.path.dirname(__file__), "data", "external_exercises.json")
+
+def load_exercises(file_path):
+    if not os.path.exists(file_path):
+        logger.warning("exercises_file_missing", path=file_path)
+        return []
     try:
-        with open(EXERCISES_FILE, "r") as f:
+        with open(file_path, "r") as f:
             raw_exercises = json.load(f)
-            # Ensure each exercise has primaryMuscles as an array to prevent frontend crashes
-            exercises_cache = []
+            processed = []
             for ex in raw_exercises:
                 if not isinstance(ex, dict): continue
                 ex["primaryMuscles"] = ex.get("primaryMuscles") or []
                 if not isinstance(ex["primaryMuscles"], list):
                     ex["primaryMuscles"] = [str(ex["primaryMuscles"])]
-                exercises_cache.append(ex)
+                processed.append(ex)
+            return processed
     except Exception as e:
-        logger.error("failed_to_load_exercises", error=str(e))
-else:
-    logger.warning("exercises_file_missing", path=EXERCISES_FILE)
+        logger.error("failed_to_load_exercises", file=file_path, error=str(e))
+        return []
+
+exercises_cache = load_exercises(EXERCISES_FILE)
+external_exercises_cache = load_exercises(EXTERNAL_EXERCISES_FILE)
 
 # Persistent HTTP client for external searches
 http_client = httpx.AsyncClient(timeout=10.0)
@@ -149,39 +155,27 @@ def list_exercises():
 @app.get("/exercises/search")
 async def search_exercises(q: str, _user_id: str = Depends(get_current_user)):
     """
-    Search external database (wger.de) as a fallback.
+    Search the extended/external database for additional exercises.
     """
     logger.info("searching_external_exercises", query=q)
     try:
-        # language=2 is English
-        url = "https://wger.de/api/v2/exercise/search/"
-        params = {"term": q}
-        response = await http_client.get(url, params=params)
-        
-        if response.status_code != 200:
-            logger.error("wger_api_error", status=response.status_code)
-            raise HTTPException(status_code=502, detail="External exercise database unavailable")
-                
-        data = response.json()
-        suggestions = data.get("suggestions", [])
-        
-        # Map wger format to our StandardExercise format
+        query = q.lower().strip()
         results = []
-        for item in suggestions:
-            suggestion_data = item.get("data", {})
-            results.append({
-                "id": f"wger-{suggestion_data.get('id')}",
-                "name": suggestion_data.get("name"),
-                "category": (suggestion_data.get("category") or "strength").lower(),
-                "primaryMuscles": [], # wger search doesn't return muscles directly here
-                "is_external": True
-            })
+        for ex in external_exercises_cache:
+            if query in ex.get("name", "").lower():
+                results.append({
+                    "id": f"ext-{ex.get('id') or ex.get('name')}",
+                    "name": ex.get("name"),
+                    "category": (ex.get("category") or "strength").lower(),
+                    "primaryMuscles": ex.get("primaryMuscles", []),
+                    "is_external": True
+                })
+                if len(results) >= 20: # Limit results for performance
+                    break
         return results
-    except HTTPException:
-        raise
     except Exception as e:
         logger.error("external_search_failed", error=str(e))
-        raise HTTPException(status_code=502, detail="Error communicating with external database")
+        return []
 
 @app.get("/exercises/custom")
 def list_custom_exercises(user_id: str = Depends(get_current_user)):
