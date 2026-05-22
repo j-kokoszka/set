@@ -176,7 +176,7 @@ async def search_exercises(q: str, _user_id: str = Depends(get_current_user)):
         return results
     except Exception as e:
         logger.error("external_search_failed", error=str(e))
-        return []
+        raise HTTPException(status_code=502, detail="Error communicating with external database")
 
 @app.get("/exercises/custom")
 def list_custom_exercises(user_id: str = Depends(get_current_user)):

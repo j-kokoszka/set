@@ -67,14 +67,23 @@ def test_external_search_unauthorized():
     resp = client.get("/exercises/search?q=row")
     assert resp.status_code == 401 
 
+def test_external_search_error_502():
+    user_id = "test_user"
+    headers = {"Authorization": f"Bearer mock_{user_id}"}
+    
+    # Force an exception by patching the loop or cache access
+    # Since main.py already loaded the cache, we patch it there
+    with patch("backend.main.external_exercises_cache", [None]):
+        resp = client.get("/exercises/search?q=row", headers=headers)
+        assert resp.status_code == 502
+        assert "Error communicating with external database" in resp.json()["detail"]
+
 def test_suggest_custom_exercise_mock():
     user_id = "test_user"
     headers = {"Authorization": f"Bearer mock_{user_id}"}
     
-    with patch("backend.main.boto3.client") as mock_boto:
-        mock_bedrock = MagicMock()
-        mock_boto.return_value = mock_bedrock
-        
+    # Patch the global bedrock_client
+    with patch("backend.main.bedrock_client") as mock_bedrock:
         mock_response = MagicMock()
         mock_response.get.return_value.read.return_value = json.dumps({
             "output": {
