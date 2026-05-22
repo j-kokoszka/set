@@ -145,8 +145,9 @@ def load_exercises(file_path):
 exercises_cache = load_exercises(EXERCISES_FILE)
 external_exercises_cache = load_exercises(EXTERNAL_EXERCISES_FILE)
 
-# Persistent HTTP client for external searches
+# Persistent AWS clients
 http_client = httpx.AsyncClient(timeout=10.0)
+bedrock_client = boto3.client("bedrock-runtime", region_name=AWS_REGION)
 
 @app.get("/exercises")
 def list_exercises():
@@ -216,7 +217,6 @@ async def suggest_custom_exercise(exercise: CustomExercise, user_id: str = Depen
     """
     logger.info("suggesting_custom_exercise", user_id=user_id, name=exercise.name)
     try:
-        bedrock = boto3.client("bedrock-runtime", region_name=AWS_REGION)
         
         prompt = f"""
         Provide technical details for the following physical exercise: "{exercise.name}"
@@ -234,17 +234,23 @@ async def suggest_custom_exercise(exercise: CustomExercise, user_id: str = Depen
         JSON Output:
         """
         
-        inference_profile_id = "eu.amazon.nova-micro-v1:0"
+        import anyio
+        # Region-agnostic cross-region inference profile
+        inference_profile_id = f"eu.{AWS_REGION}.amazon.nova-micro-v1:0" if "central" in AWS_REGION else "eu.amazon.nova-micro-v1:0"
         
-        response = bedrock.invoke_model(
-            modelId=inference_profile_id,
-            body=json.dumps({
-                "inferenceConfig": { "max_new_tokens": 1000 },
-                "messages": [
-                    { "role": "user", "content": [{ "text": prompt }] }
-                ]
-            })
-        )
+        # Run synchronous boto3 call in a thread to avoid blocking the event loop
+        def invoke_bedrock():
+            return bedrock_client.invoke_model(
+                modelId=inference_profile_id,
+                body=json.dumps({
+                    "inferenceConfig": { "max_new_tokens": 1000 },
+                    "messages": [
+                        { "role": "user", "content": [{ "text": prompt }] }
+                    ]
+                })
+            )
+            
+        response = await anyio.to_thread.run_sync(invoke_bedrock)
         
         response_body = json.loads(response.get("body").read())
         llm_text = response_body["output"]["message"]["content"][0]["text"]
@@ -427,7 +433,7 @@ async def submit_feedback(feedback: Feedback, user_id: str = Depends(get_current
     
     # 1. Call Bedrock to parse feedback
     try:
-        bedrock = boto3.client("bedrock-runtime", region_name=AWS_REGION)
+        import anyio
         
         prompt = f"""
         Analyze the following user feedback for a workout tracking app and return a JSON object.
@@ -442,30 +448,24 @@ async def submit_feedback(feedback: Feedback, user_id: str = Depends(get_current
         JSON Output:
         """
         
-        # Use cross-region inference profile for better availability and to avoid on-demand limitations
-        inference_profile_id = "eu.amazon.nova-micro-v1:0"
+        # Region-agnostic cross-region inference profile
+        inference_profile_id = f"eu.{AWS_REGION}.amazon.nova-micro-v1:0" if "central" in AWS_REGION else "eu.amazon.nova-micro-v1:0"
         
-        response = bedrock.invoke_model(
-            modelId=inference_profile_id,
-            body=json.dumps({
-                "inferenceConfig": {
-                    "max_new_tokens": 500,
-                },
-                "messages": [
-                    {
-                        "role": "user",
-                        "content": [
-                            {"text": prompt}
-                        ]
-                    }
-                ]
-            })
-        )
-        
+        def invoke_bedrock():
+            return bedrock_client.invoke_model(
+                modelId=inference_profile_id,
+                body=json.dumps({
+                    "inferenceConfig": { "max_new_tokens": 500 },
+                    "messages": [
+                        { "role": "user", "content": [{ "text": prompt }] }
+                    ]
+                })
+            )
+            
+        response = await anyio.to_thread.run_sync(invoke_bedrock)
         response_body = json.loads(response.get("body").read())
         llm_text = response_body["output"]["message"]["content"][0]["text"]
         
-        # Extract JSON from llm_text
         if "```json" in llm_text:
             llm_text = llm_text.split("```json")[1].split("```")[0].strip()
         elif "```" in llm_text:
@@ -505,7 +505,7 @@ async def submit_feedback(feedback: Feedback, user_id: str = Depends(get_current
         
         if gh_response.status_code != 201:
             logger.error("Failed to create GitHub issue", status=gh_response.status_code, response=gh_response.text)
-            raise HTTPException(status_code=500, detail="Failed to submit feedback to GitHub")
+            raise HTTPException(status_code=502, detail="Failed to submit feedback to GitHub")
         
         return {"message": "Feedback submitted successfully", "issue_url": gh_response.json().get("html_url")}
 

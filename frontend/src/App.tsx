@@ -585,8 +585,8 @@ function App() {
           force: customExForce || undefined,
           mechanic: customExMechanic || undefined,
           equipment: customExEquipment || undefined,
-          primaryMuscles: customExMuscle ? customExMuscle.split(',').map(m => m.trim()) : [],
-          secondaryMuscles: customExSecondaryMuscles ? customExSecondaryMuscles.split(',').map(m => m.trim()) : [],
+          primaryMuscles: customExMuscle ? customExMuscle.split(',').map(m => m.trim()).filter(m => m) : [],
+          secondaryMuscles: customExSecondaryMuscles ? customExSecondaryMuscles.split(',').map(m => m.trim()).filter(m => m) : [],
           instructions: customExInstructions ? customExInstructions.split('\n').map(i => i.trim()).filter(i => i) : []
         })
       });
