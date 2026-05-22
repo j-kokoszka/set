@@ -2,7 +2,11 @@ import { test, expect } from '@playwright/test';
 
 test.describe('set app - error handling', () => {
   test.beforeEach(async ({ page }) => {
+<<<<<<< HEAD
     // Mock the backend exercises endpoint
+=======
+    // Mock exercises
+>>>>>>> origin/main
     await page.route('**/exercises', async route => {
       await route.fulfill({
         status: 200,
@@ -28,7 +32,7 @@ test.describe('set app - error handling', () => {
 
   test('should show descriptive error when saving a workout fails', async ({ page }) => {
     // Mock the backend API to return a 400 error
-    await page.route('**/api/workouts', async route => {
+    await page.route('**/workouts', async route => {
       if (route.request().method() === 'POST') {
         await route.fulfill({
           status: 400,
@@ -65,7 +69,7 @@ test.describe('set app - error handling', () => {
 
   test('should show descriptive error when deleting a workout fails', async ({ page }) => {
     // Mock the backend API to return a list of workouts and then fail on delete
-    await page.route('**/api/workouts', async route => {
+    await page.route('**/workouts', async route => {
       if (route.request().method() === 'GET') {
         await route.fulfill({
           status: 200,
@@ -83,7 +87,7 @@ test.describe('set app - error handling', () => {
       }
     });
 
-    await page.route('**/api/workouts/mock-id*', async route => {
+    await page.route('**/workouts/mock-id*', async route => {
       if (route.request().method() === 'DELETE') {
         await route.fulfill({
           status: 403,

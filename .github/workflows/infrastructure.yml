@@ -1,9 +1,6 @@
 name: Infrastructure CI
 
 on:
-  push:
-    branches: [ main ]
-    paths: [ 'infra/**' ]
   pull_request:
     branches: [ main ]
     paths: [ 'infra/**' ]

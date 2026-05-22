@@ -21,7 +21,7 @@ test.describe('set app - workout saving', () => {
     });
 
     // Mock the backend API responses
-    await page.route('**/api/workouts', async route => {
+    await page.route('**/workouts', async route => {
       if (route.request().method() === 'POST') {
         await route.fulfill({
           status: 200,
