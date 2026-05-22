@@ -42,6 +42,25 @@ test.describe('Exercise Library Expansion & Customization', () => {
       });
     });
 
+    // Mock AI suggestion
+    await page.route('**/exercises/custom/suggest', async route => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          name: 'Super Ultra Squat',
+          force: 'push',
+          level: 'expert',
+          mechanic: 'compound',
+          equipment: 'barbell',
+          primaryMuscles: ['quads'],
+          secondaryMuscles: ['glutes'],
+          instructions: ['Stand up', 'Squat down', 'Stand up again'],
+          category: 'strength'
+        })
+      });
+    });
+
     await page.goto('/');
     // Login using Mock Login as seen in basic.spec.ts
     await page.getByLabel('Username').fill('testuser');
@@ -49,7 +68,7 @@ test.describe('Exercise Library Expansion & Customization', () => {
     await expect(page.locator('header')).toContainText('testuser');
   });
 
-  test('should be able to create and use a custom exercise', async ({ page }) => {
+  test('should be able to create and use an AI-enhanced custom exercise', async ({ page }) => {
     // 1. Open Add Exercise modal
     await page.getByRole('button', { name: '+ Add Exercise' }).click();
     
@@ -60,9 +79,17 @@ test.describe('Exercise Library Expansion & Customization', () => {
     // 3. Click "Create Custom"
     await page.click('text=➕ Create Custom: "Super Ultra Squat"');
     
-    // 4. Fill custom exercise form
+    // 4. Fill custom exercise form with AI
     await expect(page.locator('text=Create Custom Exercise')).toBeVisible();
-    await page.fill('input[placeholder="e.g. lats"]', 'quads');
+    
+    // Trigger AI suggestion
+    await page.click('text=✨ Auto-fill with AI');
+    
+    // Verify fields were populated
+    await expect(page.locator('select:near(label:has-text("Level"))')).toHaveValue('expert');
+    await expect(page.locator('input[placeholder="e.g. barbell, dumbbell, machine"]')).toHaveValue('barbell');
+    await expect(page.locator('textarea[placeholder="Enter each step on a new line"]')).toContainText('Squat down');
+    
     await page.click('button:has-text("Save & Add")');
     
     // 5. Verify it was added to the workout

@@ -209,6 +209,70 @@ def delete_custom_exercise(ex_id: str, user_id: str = Depends(get_current_user))
         logger.error("failed_to_delete_custom_exercise", error=str(e), user_id=user_id, ex_id=ex_id)
         raise HTTPException(status_code=500, detail="Failed to delete custom exercise")
 
+@app.post("/exercises/custom/suggest", response_model=CustomExercise)
+async def suggest_custom_exercise(exercise: CustomExercise, user_id: str = Depends(get_current_user)):
+    """
+    Use Bedrock to suggest details for a custom exercise based on its name.
+    """
+    logger.info("suggesting_custom_exercise", user_id=user_id, name=exercise.name)
+    try:
+        bedrock = boto3.client("bedrock-runtime", region_name=AWS_REGION)
+        
+        prompt = f"""
+        Provide technical details for the following physical exercise: "{exercise.name}"
+        Return ONLY a JSON object with these keys:
+        - "force": "pull", "push", or "static"
+        - "level": "beginner", "intermediate", or "expert"
+        - "mechanic": "compound" or "isolation"
+        - "equipment": e.g., "barbell", "dumbbell", "machine", "body only"
+        - "primaryMuscles": array of strings (e.g. ["chest"])
+        - "secondaryMuscles": array of strings
+        - "instructions": array of short strings (numbered steps)
+        - "category": "strength", "stretching", or "cardio"
+
+        Exercise Name: {exercise.name}
+        JSON Output:
+        """
+        
+        inference_profile_id = "eu.amazon.nova-micro-v1:0"
+        
+        response = bedrock.invoke_model(
+            modelId=inference_profile_id,
+            body=json.dumps({
+                "inferenceConfig": { "max_new_tokens": 1000 },
+                "messages": [
+                    { "role": "user", "content": [{ "text": prompt }] }
+                ]
+            })
+        )
+        
+        response_body = json.loads(response.get("body").read())
+        llm_text = response_body["output"]["message"]["content"][0]["text"]
+        
+        if "```json" in llm_text:
+            llm_text = llm_text.split("```json")[1].split("```")[0].strip()
+        elif "```" in llm_text:
+            llm_text = llm_text.split("```")[1].split("```")[0].strip()
+            
+        suggested_data = json.loads(llm_text)
+        
+        # Merge AI data with current exercise (keeping name)
+        exercise.force = suggested_data.get("force")
+        exercise.level = suggested_data.get("level", "beginner")
+        exercise.mechanic = suggested_data.get("mechanic")
+        exercise.equipment = suggested_data.get("equipment")
+        exercise.primaryMuscles = suggested_data.get("primaryMuscles") or []
+        exercise.secondaryMuscles = suggested_data.get("secondaryMuscles") or []
+        exercise.instructions = suggested_data.get("instructions") or []
+        exercise.category = suggested_data.get("category", "strength")
+        
+        return exercise
+        
+    except Exception as e:
+        logger.error("suggestion_failed", error=str(e), name=exercise.name)
+        # Return what we have if AI fails
+        return exercise
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],

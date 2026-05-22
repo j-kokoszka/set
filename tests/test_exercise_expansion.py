@@ -1,6 +1,8 @@
 from fastapi.testclient import TestClient
 from backend.main import app, external_exercises_cache
 import uuid
+import json
+from unittest.mock import patch, MagicMock
 
 client = TestClient(app)
 
@@ -64,3 +66,44 @@ def test_external_search_local_cache():
 def test_external_search_unauthorized():
     resp = client.get("/exercises/search?q=row")
     assert resp.status_code == 401 
+
+def test_suggest_custom_exercise_mock():
+    user_id = "test_user"
+    headers = {"Authorization": f"Bearer mock_{user_id}"}
+    
+    with patch("backend.main.boto3.client") as mock_boto:
+        mock_bedrock = MagicMock()
+        mock_boto.return_value = mock_bedrock
+        
+        mock_response = MagicMock()
+        mock_response.get.return_value.read.return_value = json.dumps({
+            "output": {
+                "message": {
+                    "content": [
+                        {
+                            "text": json.dumps({
+                                "force": "pull",
+                                "level": "intermediate",
+                                "mechanic": "compound",
+                                "equipment": "cable",
+                                "primaryMuscles": ["lats"],
+                                "secondaryMuscles": ["biceps"],
+                                "instructions": ["Step 1", "Step 2"],
+                                "category": "strength"
+                            })
+                        }
+                    ]
+                }
+            }
+        }).encode("utf-8")
+        
+        mock_bedrock.invoke_model.return_value = mock_response
+        
+        payload = {"name": "Lat Pulldown"}
+        resp = client.post("/exercises/custom/suggest", json=payload, headers=headers)
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["force"] == "pull"
+        assert data["level"] == "intermediate"
+        assert "lats" in data["primaryMuscles"]
+        assert len(data["instructions"]) == 2

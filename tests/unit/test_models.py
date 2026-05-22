@@ -60,3 +60,29 @@ def test_workout_date_generation():
     # Should be ISO format
     from datetime import datetime
     datetime.fromisoformat(workout.date)
+
+from models import CustomExercise
+
+def test_custom_exercise_full_schema():
+    ex = CustomExercise(
+        name="Plank",
+        force="static",
+        level="intermediate",
+        mechanic="isolation",
+        equipment="body only",
+        primaryMuscles=["abdominals"],
+        secondaryMuscles=["shoulders"],
+        instructions=["Hold position for 60 seconds"],
+        category="strength"
+    )
+    assert ex.name == "Plank"
+    assert ex.force == "static"
+    assert len(ex.primaryMuscles) == 1
+    assert ex.level == "intermediate"
+
+def test_custom_exercise_defaults():
+    ex = CustomExercise(name="Default Ex")
+    assert ex.level == "beginner"
+    assert ex.category == "strength"
+    assert ex.primaryMuscles == []
+    assert ex.instructions == []

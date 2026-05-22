@@ -22,7 +22,13 @@ interface StandardExercise {
   id: string;
   name: string;
   primaryMuscles: string[];
+  secondaryMuscles?: string[];
+  instructions?: string[];
   category: string;
+  level?: string;
+  force?: string;
+  mechanic?: string;
+  equipment?: string;
   is_external?: boolean;
 }
 
@@ -86,6 +92,14 @@ function App() {
   const [newExName, setNewExName] = useState("");
   const [customExName, setCustomExName] = useState("");
   const [customExMuscle, setCustomExMuscle] = useState("");
+  const [customExCategory, setCustomExCategory] = useState("strength");
+  const [customExLevel, setCustomExLevel] = useState("beginner");
+  const [customExForce, setCustomExForce] = useState("");
+  const [customExMechanic, setCustomExMechanic] = useState("");
+  const [customExEquipment, setCustomExEquipment] = useState("");
+  const [customExSecondaryMuscles, setCustomExSecondaryMuscles] = useState("");
+  const [customExInstructions, setCustomExInstructions] = useState("");
+  const [isLoadingSuggest, setIsLoadingSuggest] = useState(false);
   const [searchIndex, setSearchIndex] = useState(-1);
   const [editingWorkoutId, setEditingWorkoutId] = useState<string | null>(null);
   const [editingWorkoutDate, setEditingWorkoutDate] = useState<string | null>(null);
@@ -518,6 +532,40 @@ function App() {
     }
   };
 
+  const suggestCustomExercise = async () => {
+    if (!customExName.trim()) return;
+    const validToken = await getValidToken();
+    if (!validToken) return;
+
+    setIsLoadingSuggest(true);
+    try {
+      const response = await fetch(`${BASE_URL}/exercises/custom/suggest`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${validToken}`
+        },
+        body: JSON.stringify({ name: customExName })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setCustomExMuscle(data.primaryMuscles?.join(', ') || "");
+        setCustomExSecondaryMuscles(data.secondaryMuscles?.join(', ') || "");
+        setCustomExCategory(data.category || "strength");
+        setCustomExLevel(data.level || "beginner");
+        setCustomExForce(data.force || "");
+        setCustomExMechanic(data.mechanic || "");
+        setCustomExEquipment(data.equipment || "");
+        setCustomExInstructions(data.instructions?.join('\n') || "");
+      }
+    } catch (e) {
+      console.error('Failed to get AI suggestions', e);
+    } finally {
+      setIsLoadingSuggest(false);
+    }
+  };
+
   const saveCustomExercise = async () => {
     if (!customExName.trim()) return;
     const validToken = await getValidToken();
@@ -532,8 +580,14 @@ function App() {
         },
         body: JSON.stringify({
           name: customExName,
-          category: 'strength',
-          primaryMuscles: customExMuscle ? [customExMuscle] : []
+          category: customExCategory,
+          level: customExLevel,
+          force: customExForce || undefined,
+          mechanic: customExMechanic || undefined,
+          equipment: customExEquipment || undefined,
+          primaryMuscles: customExMuscle ? customExMuscle.split(',').map(m => m.trim()) : [],
+          secondaryMuscles: customExSecondaryMuscles ? customExSecondaryMuscles.split(',').map(m => m.trim()) : [],
+          instructions: customExInstructions ? customExInstructions.split('\n').map(i => i.trim()).filter(i => i) : []
         })
       });
 
@@ -542,8 +596,16 @@ function App() {
         setAllExercises(prev => [...prev, newEx]);
         addExercise(newEx);
         setIsCreatingCustom(false);
+        // Reset states
         setCustomExName("");
         setCustomExMuscle("");
+        setCustomExSecondaryMuscles("");
+        setCustomExCategory("strength");
+        setCustomExLevel("beginner");
+        setCustomExForce("");
+        setCustomExMechanic("");
+        setCustomExEquipment("");
+        setCustomExInstructions("");
       }
     } catch (e) {
       console.error('Failed to save custom exercise', e);
@@ -1283,9 +1345,24 @@ function App() {
 
       {isCreatingCustom && (
         <div className="modal-overlay" onClick={() => setIsCreatingCustom(false)}>
-          <div className="modal-content" onClick={e => e.stopPropagation()}>
-            <h3 className="modal-title">Create Custom Exercise</h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginBottom: '1.5rem' }}>
+          <div className="modal-content" style={{ maxWidth: '600px', maxHeight: '90vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+              <h3 className="modal-title" style={{ margin: 0 }}>Create Custom Exercise</h3>
+              <button 
+                className="btn btn-secondary btn-small"
+                onClick={suggestCustomExercise}
+                disabled={!customExName || isLoadingSuggest}
+                style={{ background: 'var(--primary-color)', color: 'white', border: 'none' }}
+              >
+                {isLoadingSuggest ? 'Generating...' : '✨ Auto-fill with AI'}
+              </button>
+            </div>
+
+            <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '1.5rem' }}>
+              Fill in the details below or use AI to generate them based on the name.
+            </p>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', marginBottom: '2rem' }}>
               <div className="set-input-group">
                 <label className="set-input-label">Exercise Name</label>
                 <input 
@@ -1295,15 +1372,86 @@ function App() {
                   placeholder="e.g. Weighted Pullups"
                 />
               </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                <div className="set-input-group">
+                  <label className="set-input-label">Category</label>
+                  <select value={customExCategory} onChange={e => setCustomExCategory(e.target.value)}>
+                    <option value="strength">Strength</option>
+                    <option value="cardio">Cardio</option>
+                    <option value="stretching">Stretching</option>
+                    <option value="plyometrics">Plyometrics</option>
+                  </select>
+                </div>
+                <div className="set-input-group">
+                  <label className="set-input-label">Level</label>
+                  <select value={customExLevel} onChange={e => setCustomExLevel(e.target.value)}>
+                    <option value="beginner">Beginner</option>
+                    <option value="intermediate">Intermediate</option>
+                    <option value="expert">Expert</option>
+                  </select>
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                <div className="set-input-group">
+                  <label className="set-input-label">Force</label>
+                  <select value={customExForce} onChange={e => setCustomExForce(e.target.value)}>
+                    <option value="">Select...</option>
+                    <option value="push">Push</option>
+                    <option value="pull">Pull</option>
+                    <option value="static">Static</option>
+                  </select>
+                </div>
+                <div className="set-input-group">
+                  <label className="set-input-label">Mechanic</label>
+                  <select value={customExMechanic} onChange={e => setCustomExMechanic(e.target.value)}>
+                    <option value="">Select...</option>
+                    <option value="compound">Compound</option>
+                    <option value="isolation">Isolation</option>
+                  </select>
+                </div>
+              </div>
+
               <div className="set-input-group">
-                <label className="set-input-label">Primary Muscle</label>
+                <label className="set-input-label">Equipment</label>
+                <input 
+                  value={customExEquipment} 
+                  onChange={e => setCustomExEquipment(e.target.value)} 
+                  placeholder="e.g. barbell, dumbbell, machine"
+                />
+              </div>
+
+              <div className="set-input-group">
+                <label className="set-input-label">Primary Muscles</label>
                 <input 
                   value={customExMuscle} 
                   onChange={e => setCustomExMuscle(e.target.value)} 
-                  placeholder="e.g. lats"
+                  placeholder="e.g. chest, shoulders (comma separated)"
+                />
+              </div>
+
+              <div className="set-input-group">
+                <label className="set-input-label">Secondary Muscles</label>
+                <input 
+                  value={customExSecondaryMuscles} 
+                  onChange={e => setCustomExSecondaryMuscles(e.target.value)} 
+                  placeholder="e.g. triceps (comma separated)"
+                />
+              </div>
+
+              <div className="set-input-group">
+                <label className="set-input-label">Instructions</label>
+                <textarea 
+                  value={customExInstructions} 
+                  onChange={e => setCustomExInstructions(e.target.value)} 
+                  placeholder="Enter each step on a new line"
+                  rows={4}
+                  style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', resize: 'vertical' }}
                 />
               </div>
             </div>
+
             <div className="modal-actions">
               <button className="btn btn-secondary" onClick={() => setIsCreatingCustom(false)}>Cancel</button>
               <button className="btn" onClick={saveCustomExercise}>Save & Add</button>
