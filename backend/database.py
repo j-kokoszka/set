@@ -4,7 +4,7 @@ import json
 from decimal import Decimal
 from botocore.exceptions import ClientError
 from typing import List, Optional
-from models import Workout, WorkoutRoutine
+from models import Workout, WorkoutRoutine, CustomExercise
 import structlog
 
 logger = structlog.get_logger()
@@ -217,6 +217,47 @@ class Database:
             return True
         except Exception as e:
             logger.error("Error deleting routine from DynamoDB", error=str(e), user_id=user_id, routine_id=routine_id)
+            raise e
+
+    def save_custom_exercise(self, exercise: CustomExercise):
+        try:
+            ex_data = to_dynamo_item(exercise.model_dump())
+            item = {
+                'pk': f"USER#{exercise.user_id}",
+                'sk': f"CUSTOMEX#{exercise.id}",
+                'type': 'CUSTOM_EXERCISE',
+                **ex_data
+            }
+            logger.info("Saving custom exercise", user_id=exercise.user_id, ex_id=exercise.id)
+            self.table.put_item(Item=item)
+            return True
+        except Exception as e:
+            logger.error("Error saving custom exercise", error=str(e), user_id=exercise.user_id)
+            raise e
+
+    def get_custom_exercises(self, user_id: str) -> List[dict]:
+        try:
+            response = self.table.query(
+                KeyConditionExpression="pk = :pk AND begins_with(sk, :sk)",
+                ExpressionAttributeValues={
+                    ':pk': f"USER#{user_id}",
+                    ':sk': "CUSTOMEX#"
+                }
+            )
+            return from_dynamo_item(response.get('Items', []))
+        except Exception as e:
+            logger.error("Error querying custom exercises", error=str(e), user_id=user_id)
+            raise e
+
+    def delete_custom_exercise(self, user_id: str, ex_id: str):
+        try:
+            self.table.delete_item(Key={
+                'pk': f"USER#{user_id}",
+                'sk': f"CUSTOMEX#{ex_id}"
+            })
+            return True
+        except Exception as e:
+            logger.error("Error deleting custom exercise", error=str(e), user_id=user_id, ex_id=ex_id)
             raise e
 
 db = Database()

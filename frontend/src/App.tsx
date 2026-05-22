@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from 'react'
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import './index.css'
 import { parseBackendError } from './utils/error'
 import { generateCodeVerifier, generateCodeChallenge, base64UrlDecode } from './utils/auth'
@@ -23,6 +23,7 @@ interface StandardExercise {
   name: string;
   primaryMuscles: string[];
   category: string;
+  is_external?: boolean;
 }
 
 const MUSCLE_GROUPS: Record<string, string[]> = {
@@ -78,9 +79,13 @@ function App() {
   const [routines, setRoutines] = useState<WorkoutRoutine[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadingExercises, setLoadingExercises] = useState(false);
+  const [isLoadingExternal, setIsLoadingExternal] = useState(false);
   const [isAdding, setIsAdding] = useState(false);
+  const [isCreatingCustom, setIsCreatingCustom] = useState(false);
   const [isSelectingRoutine, setIsSelectingRoutine] = useState(false);
   const [newExName, setNewExName] = useState("");
+  const [customExName, setCustomExName] = useState("");
+  const [customExMuscle, setCustomExMuscle] = useState("");
   const [searchIndex, setSearchIndex] = useState(-1);
   const [editingWorkoutId, setEditingWorkoutId] = useState<string | null>(null);
   const [editingWorkoutDate, setEditingWorkoutDate] = useState<string | null>(null);
@@ -101,7 +106,7 @@ function App() {
 
   const refreshPromise = useRef<Promise<string | null> | null>(null);
 
-  const refreshIdToken = async () => {
+  const refreshIdToken = useCallback(async () => {
     if (refreshPromise.current) {
       return refreshPromise.current;
     }
@@ -148,9 +153,9 @@ function App() {
     })();
 
     return refreshPromise.current;
-  };
+  }, []);
 
-  const getValidToken = async () => {
+  const getValidToken = useCallback(async () => {
     if (!token) return null;
     if (token.startsWith('mock_')) return token;
 
@@ -173,22 +178,33 @@ function App() {
       return newToken;
     }
     return token;
-  };
+  }, [token, refreshIdToken]);
 
-  const fetchExercises = async () => {
+  const fetchExercises = useCallback(async () => {
     setLoadingExercises(true);
     try {
-      const response = await fetch(`${BASE_URL}/exercises`);
-      if (!response.ok) throw new Error('Failed to fetch exercises');
-      const data = await response.json();
-      setAllExercises(data);
+      // 1. Fetch built-in exercises
+      const builtInResp = await fetch(`${BASE_URL}/exercises`);
+      const builtInData = builtInResp.ok ? await builtInResp.json() : [];
+      
+      // 2. Fetch custom exercises if logged in
+      let customData = [];
+      const validToken = await getValidToken();
+      if (validToken) {
+        const customResp = await fetch(`${BASE_URL}/exercises/custom`, {
+          headers: { 'Authorization': `Bearer ${validToken}` }
+        });
+        customData = customResp.ok ? await customResp.json() : [];
+      }
+      
+      setAllExercises([...builtInData, ...customData]);
     } catch (error) {
       console.error('Error fetching exercises:', error);
       alert('Could not load exercise database. Some features may be limited.');
     } finally {
       setLoadingExercises(false);
     }
-  };
+  }, [getValidToken]);
 
   const filteredExercises = useMemo(() => {
     if (!newExName.trim()) return allExercises.slice(0, 15); // Show first 15 as default suggestions
@@ -321,7 +337,7 @@ function App() {
     void handleAuth();
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void fetchExercises();
-  }, []);
+  }, [fetchExercises]);
 
   useEffect(() => {
     if (token) {
@@ -470,6 +486,68 @@ function App() {
       setEditingWorkoutId(null);
       setEditingWorkoutDate(null);
       setEditingRoutineId(null);
+    }
+  };
+
+  const searchExternal = async () => {
+    if (!newExName.trim()) return;
+    const validToken = await getValidToken();
+    if (!validToken) {
+      alert('Please log in to search the online database.');
+      return;
+    }
+
+    setIsLoadingExternal(true);
+    try {
+      const response = await fetch(`${BASE_URL}/exercises/search?q=${encodeURIComponent(newExName)}`, {
+        headers: { 'Authorization': `Bearer ${validToken}` }
+      });
+      if (response.ok) {
+        const externalData = await response.json();
+        // Merge with existing avoiding duplicates
+        setAllExercises(prev => {
+          const existingIds = new Set(prev.map(ex => ex.id));
+          const newItems = externalData.filter((ex: StandardExercise) => !existingIds.has(ex.id));
+          return [...prev, ...newItems];
+        });
+      }
+    } catch (e) {
+      console.error('External search failed', e);
+    } finally {
+      setIsLoadingExternal(false);
+    }
+  };
+
+  const saveCustomExercise = async () => {
+    if (!customExName.trim()) return;
+    const validToken = await getValidToken();
+    if (!validToken) return;
+
+    try {
+      const response = await fetch(`${BASE_URL}/exercises/custom`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${validToken}`
+        },
+        body: JSON.stringify({
+          name: customExName,
+          category: 'strength',
+          primaryMuscles: customExMuscle ? [customExMuscle] : []
+        })
+      });
+
+      if (response.ok) {
+        const newEx = await response.json();
+        setAllExercises(prev => [...prev, newEx]);
+        addExercise(newEx);
+        setIsCreatingCustom(false);
+        setCustomExName("");
+        setCustomExMuscle("");
+      }
+    } catch (e) {
+      console.error('Failed to save custom exercise', e);
+      alert('Failed to save custom exercise');
     }
   };
 
@@ -980,22 +1058,38 @@ function App() {
                         }}
                       />
                       <div className="exercise-suggestions" style={{ position: 'static', marginTop: '0.5rem' }}>
-                        {filteredExercises.length > 0 ? filteredExercises.map((ex, i) => (
-                          <div 
-                            key={ex.id} 
-                            className={`suggestion-item ${i === searchIndex ? 'active' : ''}`}
-                            onClick={() => addExercise(ex)}
-                            onMouseEnter={() => setSearchIndex(i)}
-                          >
-                            <div style={{ display: 'flex', flexDirection: 'column' }}>
-                              <span style={{ fontWeight: '600' }}>{ex.name}</span>
-                              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{ex.primaryMuscles?.join(', ')}</span>
+                        {filteredExercises.length > 0 ? (
+                          <>
+                            {filteredExercises.map((ex, i) => (
+                              <div 
+                                key={ex.id} 
+                                className={`suggestion-item ${i === searchIndex ? 'active' : ''}`}
+                                onClick={() => addExercise(ex)}
+                                onMouseEnter={() => setSearchIndex(i)}
+                              >
+                                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                  <span style={{ fontWeight: '600' }}>{ex.name} {ex.is_external && <small style={{ color: 'var(--primary-color)', marginLeft: '0.5rem' }}>[Online]</small>}</span>
+                                  <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{ex.primaryMuscles?.join(', ')}</span>
+                                </div>
+                              </div>
+                            ))}
+                            <div className="suggestion-item" onClick={searchExternal} style={{ borderTop: '1px solid var(--border-color)', color: 'var(--primary-color)' }}>
+                              {isLoadingExternal ? 'Searching...' : '🔍 Search in Online Database'}
                             </div>
-                          </div>
-                        )) : (
-                          <div className="suggestion-item" onClick={() => addExercise()}>
-                            Add custom: "{newExName}"
-                          </div>
+                          </>
+                        ) : (
+                          <>
+                            <div className="suggestion-item" onClick={searchExternal}>
+                              {isLoadingExternal ? 'Searching...' : `🔍 Search "${newExName}" online`}
+                            </div>
+                            <div 
+                              className="suggestion-item" 
+                              onClick={() => { setCustomExName(newExName); setIsCreatingCustom(true); }}
+                              style={{ color: 'var(--success-color)' }}
+                            >
+                              ➕ Create Custom: "{newExName}"
+                            </div>
+                          </>
                         )}
                       </div>
                     </div>
@@ -1186,6 +1280,38 @@ function App() {
           )}
         </div>
       )}
+
+      {isCreatingCustom && (
+        <div className="modal-overlay" onClick={() => setIsCreatingCustom(false)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()}>
+            <h3 className="modal-title">Create Custom Exercise</h3>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginBottom: '1.5rem' }}>
+              <div className="set-input-group">
+                <label className="set-input-label">Exercise Name</label>
+                <input 
+                  autoFocus
+                  value={customExName} 
+                  onChange={e => setCustomExName(e.target.value)} 
+                  placeholder="e.g. Weighted Pullups"
+                />
+              </div>
+              <div className="set-input-group">
+                <label className="set-input-label">Primary Muscle</label>
+                <input 
+                  value={customExMuscle} 
+                  onChange={e => setCustomExMuscle(e.target.value)} 
+                  placeholder="e.g. lats"
+                />
+              </div>
+            </div>
+            <div className="modal-actions">
+              <button className="btn btn-secondary" onClick={() => setIsCreatingCustom(false)}>Cancel</button>
+              <button className="btn" onClick={saveCustomExercise}>Save & Add</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <FeedbackButton getValidToken={getValidToken} />
     </div>
   )
