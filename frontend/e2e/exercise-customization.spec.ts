@@ -31,6 +31,14 @@ test.describe('Exercise Library Expansion & Customization', () => {
       }
     });
 
+    // Mock history and routines to prevent proxy errors
+    await page.route('**/workouts', async route => {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) });
+    });
+    await page.route('**/routines', async route => {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) });
+    });
+
     // Mock external search
     await page.route('**/exercises/search?q=Low%20Row', async route => {
       await route.fulfill({

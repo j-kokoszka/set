@@ -2,31 +2,34 @@ import { test, expect } from '@playwright/test';
 
 test.describe('set app - error handling', () => {
   test.beforeEach(async ({ page }) => {
-    // Mock exercises
+    // Global mocks to prevent ECONNREFUSED
     await page.route('**/exercises', async route => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify([])
-      });
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) });
     });
-
-    // Mock custom exercises
     await page.route('**/exercises/custom', async route => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify([])
-      });
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) });
     });
-
-    await page.goto('/');
-    // Login
-    await page.getByLabel('Username').fill('testuser');
-    await page.getByRole('button', { name: 'Mock Login' }).click();
+    await page.route('**/workouts', async route => {
+      if (route.request().method() === 'GET') {
+        await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) });
+      } else {
+        await route.continue();
+      }
+    });
+    await page.route('**/routines', async route => {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) });
+    });
   });
 
+  async function login(page: any) {
+    await page.goto('/');
+    await page.getByLabel('Username').fill('testuser');
+    await page.getByRole('button', { name: 'Mock Login' }).click();
+  }
+
   test('should show descriptive error when saving a workout fails', async ({ page }) => {
+    await login(page);
+
     // Mock the backend API to return a 400 error
     await page.route('**/workouts', async route => {
       if (route.request().method() === 'POST') {
@@ -58,13 +61,12 @@ test.describe('set app - error handling', () => {
     await page.getByRole('button', { name: 'Save Workout' }).click();
     
     const alert = await alertPromise;
-    // Verify the alert message contains the detail and status code
     expect(alert.message()).toContain('Failed to save workout: Invalid workout data (Status: 400)');
     await alert.accept();
   });
 
   test('should show descriptive error when deleting a workout fails', async ({ page }) => {
-    // Mock the backend API to return a list of workouts and then fail on delete
+    // Mock the backend API to return a list of workouts
     await page.route('**/workouts', async route => {
       if (route.request().method() === 'GET') {
         await route.fulfill({
@@ -82,6 +84,8 @@ test.describe('set app - error handling', () => {
         await route.continue();
       }
     });
+
+    await login(page);
 
     await page.route('**/workouts/mock-id*', async route => {
       if (route.request().method() === 'DELETE') {
@@ -111,7 +115,6 @@ test.describe('set app - error handling', () => {
     await page.getByTitle('Delete workout').click();
     
     const alert = await alertPromise;
-    // Verify the alert message contains the detail and status code
     expect(alert.message()).toContain('Failed to delete workout: Permission denied (Status: 403)');
     await alert.accept();
   });
