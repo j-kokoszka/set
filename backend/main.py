@@ -59,8 +59,9 @@ if OTEL_ENABLED:
         from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader
         from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
         from opentelemetry.sdk._logs import LoggerProvider, LoggingHandler
-        from opentelemetry.sdk._logs.export import BatchLogRecordProcessor
+        from opentelemetry.sdk._logs.export import SimpleLogRecordProcessor
         from opentelemetry.exporter.otlp.proto.http._log_exporter import OTLPLogExporter
+        from opentelemetry.instrumentation.logging import LoggingInstrumentor
         from opentelemetry.instrumentation.botocore import BotocoreInstrumentor
         from opentelemetry.sdk.resources import SERVICE_NAME, Resource
 
@@ -84,17 +85,20 @@ if OTEL_ENABLED:
 
         # 3. Logging Setup
         logger_provider = LoggerProvider(resource=resource)
-        # Using BatchLogRecordProcessor but with short timeout for Lambda
+        # Using SimpleLogRecordProcessor for Lambda to ensure logs are sent immediately
         log_exporter = OTLPLogExporter()
-        logger_provider.add_log_record_processor(BatchLogRecordProcessor(log_exporter))
+        logger_provider.add_log_record_processor(SimpleLogRecordProcessor(log_exporter))
         logs.set_logger_provider(logger_provider)
 
-        # Connect standard logging to OTel
-        otel_handler = LoggingHandler(level=logging.INFO, logger_provider=logger_provider)
+        # Connect standard logging to OTel with dynamic level
+        current_level = getattr(logging, log_level, logging.INFO)
+        otel_handler = LoggingHandler(level=current_level, logger_provider=logger_provider)
         logging.getLogger().addHandler(otel_handler)
         
-        # 4. Instrument Botocore (DynamoDB, Bedrock, etc.)
+        # 4. Instrumentations
         BotocoreInstrumentor().instrument()
+        LoggingInstrumentor().instrument(set_logging_format=True)
+        
         logger.info("opentelemetry_initialized")
     except Exception as e:
         logger.error("opentelemetry_initialization_failed", error=str(e))
