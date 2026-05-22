@@ -77,3 +77,20 @@ def test_external_search_mock():
 def test_external_search_unauthorized():
     resp = client.get("/exercises/search?q=row")
     assert resp.status_code == 401 
+
+def test_external_search_error_502():
+    user_id = "test_user"
+    headers = {"Authorization": f"Bearer mock_{user_id}"}
+    
+    with patch("backend.main.http_client.get") as mock_get:
+        mock_resp = MagicMock()
+        mock_resp.status_code = 500
+        
+        async def mock_async_get(*args, **kwargs):
+            return mock_resp
+            
+        mock_get.side_effect = mock_async_get
+        
+        resp = client.get("/exercises/search?q=row", headers=headers)
+        assert resp.status_code == 502
+        assert "External exercise database unavailable" in resp.json()["detail"]

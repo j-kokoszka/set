@@ -160,7 +160,7 @@ async def search_exercises(q: str, _user_id: str = Depends(get_current_user)):
         
         if response.status_code != 200:
             logger.error("wger_api_error", status=response.status_code)
-            return []
+            raise HTTPException(status_code=502, detail="External exercise database unavailable")
                 
         data = response.json()
         suggestions = data.get("suggestions", [])
@@ -172,14 +172,16 @@ async def search_exercises(q: str, _user_id: str = Depends(get_current_user)):
             results.append({
                 "id": f"wger-{suggestion_data.get('id')}",
                 "name": suggestion_data.get("name"),
-                "category": suggestion_data.get("category", "strength").lower(),
+                "category": (suggestion_data.get("category") or "strength").lower(),
                 "primaryMuscles": [], # wger search doesn't return muscles directly here
                 "is_external": True
             })
         return results
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error("external_search_failed", error=str(e))
-        return []
+        raise HTTPException(status_code=502, detail="Error communicating with external database")
 
 @app.get("/exercises/custom")
 def list_custom_exercises(user_id: str = Depends(get_current_user)):
