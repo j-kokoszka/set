@@ -14,8 +14,8 @@
   },
   "workout": {
     "title": "Log",
-    "new_workout": "New Workout",
-    "add_exercise": "Add Exercise",
+    "new_workout": "Workout Name",
+    "add_exercise": "+ Add Exercise",
     "save_workout": "Save Workout",
     "update_workout": "Update Workout",
     "clear": "Clear",
