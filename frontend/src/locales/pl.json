@@ -14,7 +14,7 @@
   },
   "workout": {
     "title": "Trening",
-    "new_workout": "Nowy Trening",
+    "new_workout": "Nazwa treningu",
     "add_exercise": "+ Dodaj Ćwiczenie",
     "save_workout": "Zapisz Trening",
     "update_workout": "Aktualizuj Trening",
