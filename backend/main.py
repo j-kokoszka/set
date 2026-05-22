@@ -154,8 +154,9 @@ async def search_exercises(q: str, _user_id: str = Depends(get_current_user)):
     logger.info("searching_external_exercises", query=q)
     try:
         # language=2 is English
-        url = f"https://wger.de/api/v2/exercise/search/?term={q}"
-        response = await http_client.get(url)
+        url = "https://wger.de/api/v2/exercise/search/"
+        params = {"term": q}
+        response = await http_client.get(url, params=params)
         
         if response.status_code != 200:
             logger.error("wger_api_error", status=response.status_code)
