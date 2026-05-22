@@ -1186,7 +1186,7 @@ function App() {
                   <div className="item-title">
                     <span className="item-name">{w.name}</span>
                     <span className="item-meta">
-                      {new Date(w.sk.split('#')[1]).toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                      {new Date(w.sk.split('#')[1]).toLocaleDateString(i18n.resolvedLanguage, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
                     </span>
                   </div>
                   <div style={{ display: 'flex', gap: '0.25rem' }}>
