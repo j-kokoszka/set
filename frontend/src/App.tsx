@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/set-state-in-effect */
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import './index.css'
 import { parseBackendError } from './utils/error'

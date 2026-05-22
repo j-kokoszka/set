@@ -2,11 +2,7 @@ import { test, expect } from '@playwright/test';
 
 test.describe('set app - error handling', () => {
   test.beforeEach(async ({ page }) => {
-<<<<<<< HEAD
-    // Mock the backend exercises endpoint
-=======
     // Mock exercises
->>>>>>> origin/main
     await page.route('**/exercises', async route => {
       await route.fulfill({
         status: 200,
