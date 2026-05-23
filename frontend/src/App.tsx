@@ -1612,7 +1612,7 @@ function App() {
                     <div className="tag-list">
                       {p.routine.exercises.map((ex, eIdx) => (
                         <span key={eIdx} className="tag">
-                          {ex.exercise_name}
+                          {ex.exercise_name} ({ex.sets.length} sets, {ex.sets[0]?.weight}{ex.sets[0]?.unit})
                         </span>
                       ))}
                     </div>
