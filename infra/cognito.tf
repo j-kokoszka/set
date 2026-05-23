@@ -1,5 +1,5 @@
 resource "aws_cognito_user_pool" "user_pool" {
-  name = "${var.project_name}-user-pool"
+  name = "${var.project_name}-user-pool-v2"
 
   alias_attributes         = ["email"]
   auto_verified_attributes = ["email"]
@@ -30,6 +30,10 @@ resource "aws_cognito_user_pool" "user_pool" {
     name                = "name"
     required            = false
     mutable             = true
+  }
+
+  lifecycle {
+    create_before_destroy = true
   }
 }
 
