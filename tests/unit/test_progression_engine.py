@@ -1,7 +1,7 @@
 import pytest
 from backend.main import apply_progression
 from backend.models import WorkoutRoutine, RoutineExercise, RoutineExerciseSet, ProgressionConfig
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 @pytest.fixture
 def sample_routine():
