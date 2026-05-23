@@ -24,6 +24,13 @@ resource "aws_cognito_user_pool" "user_pool" {
     required            = true
     mutable             = true
   }
+
+  schema {
+    attribute_data_type = "String"
+    name                = "name"
+    required            = false
+    mutable             = true
+  }
 }
 
 resource "aws_cognito_user_pool_domain" "main" {
@@ -51,6 +58,7 @@ resource "aws_cognito_identity_provider" "google" {
   attribute_mapping = {
     email    = "email"
     username = "sub"
+    name     = "name"
   }
 }
 

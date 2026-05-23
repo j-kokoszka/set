@@ -16,6 +16,7 @@ export async function generateCodeChallenge(verifier: string): Promise<string> {
 
 export interface JwtPayload {
   email?: string;
+  name?: string;
   sub?: string;
   'cognito:username'?: string;
   exp?: number;

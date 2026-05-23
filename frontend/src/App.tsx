@@ -2,7 +2,7 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import './index.css'
 import { parseBackendError } from './utils/error'
-import { generateCodeVerifier, generateCodeChallenge, base64UrlDecode } from './utils/auth'
+import { generateCodeVerifier, generateCodeChallenge, base64UrlDecode, type JwtPayload } from './utils/auth'
 import FeedbackButton from './FeedbackButton'
 
 interface Set {
@@ -371,8 +371,8 @@ function App() {
             const refreshToken = data.refresh_token;
             
             // Extract user from ID Token (simple decode)
-            const payload = base64UrlDecode(idToken.split('.')[1]) as Record<string, string>;
-            const username = payload["cognito:username"] || payload.email;
+            const payload = base64UrlDecode(idToken.split('.')[1]) as JwtPayload;
+            const username = payload.name || payload.email || payload["cognito:username"];
 
             setToken(idToken);
             setUser(username || "Unknown");
