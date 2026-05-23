@@ -5,14 +5,14 @@ import { MeterProvider, PeriodicExportingMetricReader } from '@opentelemetry/sdk
 import { OTLPMetricExporter } from '@opentelemetry/exporter-metrics-otlp-http';
 import { registerInstrumentations } from '@opentelemetry/instrumentation';
 import { getWebAutoInstrumentations } from '@opentelemetry/auto-instrumentations-web';
-import { Resource } from '@opentelemetry/resources';
+import { resourceFromAttributes } from '@opentelemetry/resources';
 import { ZoneContextManager } from '@opentelemetry/context-zone';
 
 const otlpEndpoint = import.meta.env.VITE_OTEL_EXPORTER_OTLP_ENDPOINT;
 const otlpHeaders = import.meta.env.VITE_OTEL_EXPORTER_OTLP_HEADERS;
 
 if (otlpEndpoint) {
-  const resource = new Resource({
+  const resource = resourceFromAttributes({
     'service.name': 'set-frontend',
   });
 
@@ -26,26 +26,32 @@ if (otlpEndpoint) {
   }
 
   // 1. Tracing Setup
-  const tracerProvider = new WebTracerProvider({ resource });
   const traceExporter = new OTLPTraceExporter({
     url: `${otlpEndpoint}/v1/traces`,
     headers: parsedHeaders,
   });
-  tracerProvider.addSpanProcessor(new BatchSpanProcessor(traceExporter));
+  const tracerProvider = new WebTracerProvider({ 
+    resource,
+    spanProcessors: [new BatchSpanProcessor(traceExporter)]
+  });
   tracerProvider.register({
     contextManager: new ZoneContextManager(),
   });
 
   // 2. Metrics Setup
-  const meterProvider = new MeterProvider({ resource });
   const metricExporter = new OTLPMetricExporter({
     url: `${otlpEndpoint}/v1/metrics`,
     headers: parsedHeaders,
   });
-  meterProvider.addMetricReader(new PeriodicExportingMetricReader({
-    exporter: metricExporter,
-    exportIntervalMillis: 30000,
-  }));
+  new MeterProvider({ 
+    resource,
+    readers: [
+      new PeriodicExportingMetricReader({
+        exporter: metricExporter,
+        exportIntervalMillis: 30000,
+      })
+    ]
+  });
 
   // 3. Auto-instrumentation
   registerInstrumentations({
