@@ -371,8 +371,8 @@ function App() {
             const refreshToken = data.refresh_token;
             
             // Extract user from ID Token (simple decode)
-            const payload = base64UrlDecode(idToken.split('.')[1]) as JwtPayload;
-            const username = payload.name || payload.email || payload["cognito:username"];
+            const payload: JwtPayload | null = base64UrlDecode(idToken?.split('.')[1] || '');
+            const username = payload ? (payload.name || payload.email || payload["cognito:username"]) : null;
 
             setToken(idToken);
             setUser(username || "Unknown");
