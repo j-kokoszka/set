@@ -17,7 +17,8 @@ resource "grafana_cloud_access_policy" "otlp" {
     "metrics:read",
     "logs:read",
     "logs:write",
-    "traces:write"
+    "traces:write",
+    "traces:read"
   ]
 
   realm {
@@ -52,10 +53,9 @@ resource "grafana_cloud_stack_service_account_token" "manager" {
 
 # 4. Provider for managing resources INSIDE the stack
 provider "grafana" {
-  alias                     = "stack"
-  url                       = data.grafana_cloud_stack.main.url
-  auth                      = grafana_cloud_stack_service_account_token.manager.key
-  cloud_access_policy_token = var.grafana_cloud_api_key
+  alias = "stack"
+  url   = data.grafana_cloud_stack.main.url
+  auth  = grafana_cloud_stack_service_account_token.manager.key
 }
 
 # 5. Dashboard Folder
@@ -89,5 +89,48 @@ resource "grafana_data_source" "loki" {
   basic_auth_username = data.grafana_cloud_stack.main.logs_user_id
   secure_json_data_encoded = jsonencode({
     basicAuthPassword = grafana_cloud_access_policy_token.otlp.token
+  })
+}
+
+resource "grafana_data_source" "tempo" {
+  provider = grafana.stack
+  type     = "tempo"
+  name     = "grafanacloud-tempo"
+  url      = data.grafana_cloud_stack.main.traces_url
+  
+  basic_auth_enabled = true
+  basic_auth_username = data.grafana_cloud_stack.main.traces_user_id
+  secure_json_data_encoded = jsonencode({
+    basicAuthPassword = grafana_cloud_access_policy_token.otlp.token
+  })
+}
+
+# 7. CloudWatch Data Source (AWS Integration)
+resource "aws_iam_user" "grafana" {
+  name = "${var.project_name}-grafana-monitoring"
+}
+
+resource "aws_iam_user_policy_attachment" "grafana_cloudwatch" {
+  user       = aws_iam_user.grafana.name
+  policy_arn = "arn:aws:iam::aws:policy/CloudWatchReadOnlyAccess"
+}
+
+resource "aws_iam_access_key" "grafana" {
+  user = aws_iam_user.grafana.name
+}
+
+resource "grafana_data_source" "cloudwatch" {
+  provider = grafana.stack
+  type     = "cloudwatch"
+  name     = "aws-cloudwatch"
+
+  json_data_encoded = jsonencode({
+    defaultRegion = var.aws_region
+    authType      = "keys"
+  })
+
+  secure_json_data_encoded = jsonencode({
+    accessKey = aws_iam_access_key.grafana.id
+    secretKey = aws_iam_access_key.grafana.secret
   })
 }
