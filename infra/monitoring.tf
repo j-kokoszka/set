@@ -17,7 +17,8 @@ resource "grafana_cloud_access_policy" "otlp" {
     "metrics:read",
     "logs:read",
     "logs:write",
-    "traces:write"
+    "traces:write",
+    "traces:read"
   ]
 
   realm {
@@ -52,10 +53,9 @@ resource "grafana_cloud_stack_service_account_token" "manager" {
 
 # 4. Provider for managing resources INSIDE the stack
 provider "grafana" {
-  alias                     = "stack"
-  url                       = data.grafana_cloud_stack.main.url
-  auth                      = grafana_cloud_stack_service_account_token.manager.key
-  cloud_access_policy_token = var.grafana_cloud_api_key
+  alias = "stack"
+  url   = data.grafana_cloud_stack.main.url
+  auth  = grafana_cloud_stack_service_account_token.manager.key
 }
 
 # 5. Dashboard Folder
@@ -89,5 +89,62 @@ resource "grafana_data_source" "loki" {
   basic_auth_username = data.grafana_cloud_stack.main.logs_user_id
   secure_json_data_encoded = jsonencode({
     basicAuthPassword = grafana_cloud_access_policy_token.otlp.token
+  })
+}
+
+resource "grafana_data_source" "tempo" {
+  provider = grafana.stack
+  type     = "tempo"
+  name     = "grafanacloud-tempo"
+  url      = data.grafana_cloud_stack.main.traces_url
+  
+  basic_auth_enabled = true
+  basic_auth_username = data.grafana_cloud_stack.main.traces_user_id
+  secure_json_data_encoded = jsonencode({
+    basicAuthPassword = grafana_cloud_access_policy_token.otlp.token
+  })
+}
+
+# 7. CloudWatch Data Source (AWS Integration via AssumeRole)
+resource "aws_iam_role" "grafana_monitoring" {
+  name = "${var.project_name}-grafana-monitoring-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRole"
+        Effect = "Allow"
+        Principal = {
+          # Grafana Cloud AWS Account ID (standard for Grafana Cloud)
+          # Note: In a real scenario, this would be provided by Grafana Cloud UI
+          AWS = "arn:aws:iam::466121884175:root" 
+        }
+        Condition = {
+          StringEquals = {
+            # External ID provided by Grafana Cloud to prevent confused deputy
+            "sts:ExternalId": var.grafana_cloud_stack_slug
+          }
+        }
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "grafana_cloudwatch" {
+  role       = aws_iam_role.grafana_monitoring.name
+  policy_arn = "arn:aws:iam::aws:policy/CloudWatchReadOnlyAccess"
+}
+
+resource "grafana_data_source" "cloudwatch" {
+  provider = grafana.stack
+  type     = "cloudwatch"
+  name     = "aws-cloudwatch"
+
+  json_data_encoded = jsonencode({
+    defaultRegion = var.aws_region
+    authType      = "arn"
+    assumeRoleArn = aws_iam_role.grafana_monitoring.arn
+    externalId    = var.grafana_cloud_stack_slug
   })
 }
