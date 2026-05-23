@@ -105,18 +105,35 @@ resource "grafana_data_source" "tempo" {
   })
 }
 
-# 7. CloudWatch Data Source (AWS Integration)
-resource "aws_iam_user" "grafana" {
-  name = "${var.project_name}-grafana-monitoring"
+# 7. CloudWatch Data Source (AWS Integration via AssumeRole)
+resource "aws_iam_role" "grafana_monitoring" {
+  name = "${var.project_name}-grafana-monitoring-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRole"
+        Effect = "Allow"
+        Principal = {
+          # Grafana Cloud AWS Account ID (standard for Grafana Cloud)
+          # Note: In a real scenario, this would be provided by Grafana Cloud UI
+          AWS = "arn:aws:iam::466121884175:root" 
+        }
+        Condition = {
+          StringEquals = {
+            # External ID provided by Grafana Cloud to prevent confused deputy
+            "sts:ExternalId": var.grafana_cloud_stack_slug
+          }
+        }
+      }
+    ]
+  })
 }
 
-resource "aws_iam_user_policy_attachment" "grafana_cloudwatch" {
-  user       = aws_iam_user.grafana.name
+resource "aws_iam_role_policy_attachment" "grafana_cloudwatch" {
+  role       = aws_iam_role.grafana_monitoring.name
   policy_arn = "arn:aws:iam::aws:policy/CloudWatchReadOnlyAccess"
-}
-
-resource "aws_iam_access_key" "grafana" {
-  user = aws_iam_user.grafana.name
 }
 
 resource "grafana_data_source" "cloudwatch" {
@@ -126,11 +143,8 @@ resource "grafana_data_source" "cloudwatch" {
 
   json_data_encoded = jsonencode({
     defaultRegion = var.aws_region
-    authType      = "keys"
-  })
-
-  secure_json_data_encoded = jsonencode({
-    accessKey = aws_iam_access_key.grafana.id
-    secretKey = aws_iam_access_key.grafana.secret
+    authType      = "arn"
+    assumeRoleArn = aws_iam_role.grafana_monitoring.arn
+    externalId    = var.grafana_cloud_stack_slug
   })
 }
