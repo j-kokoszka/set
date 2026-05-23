@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 from typing import List, Optional, Literal
 from datetime import datetime
 
@@ -69,6 +69,14 @@ class Schedule(BaseModel):
     day_of_week: Optional[int] = None  # 0-6 (Monday-Sunday) for recurring
     specific_date: Optional[str] = None  # YYYY-MM-DD for specific_date
     user_id: Optional[str] = None
+
+    @model_validator(mode='after')
+    def validate_schedule_fields(self) -> 'Schedule':
+        if self.schedule_type == 'recurring' and self.day_of_week is None:
+            raise ValueError("day_of_week is required for recurring schedules")
+        if self.schedule_type == 'specific_date' and self.specific_date is None:
+            raise ValueError("specific_date is required for one-off schedules")
+        return self
 
 class PlannedWorkout(BaseModel):
     date: str

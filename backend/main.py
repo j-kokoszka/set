@@ -2,7 +2,7 @@ from fastapi import FastAPI, HTTPException, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from mangum import Mangum
-from typing import List
+from typing import List, Dict, Optional
 from models import Workout, WorkoutRoutine, Feedback, CustomExercise, Schedule, PlannedWorkout
 from database import db
 from auth import get_current_user
@@ -11,10 +11,12 @@ import json
 import os
 import boto3
 import httpx
+from datetime import date, timedelta
 from contextlib import asynccontextmanager
 import structlog
 import logging
 import sys
+import anyio
 
 # Configure structured logging
 log_level = os.getenv("LOG_LEVEL", "INFO").upper()
@@ -434,14 +436,23 @@ def update_routine(routine_id: str, routine: WorkoutRoutine, user_id: str = Depe
 
 # --- Workout Planning & Progression ---
 
-def apply_progression(user_id: str, routine: WorkoutRoutine) -> WorkoutRoutine:
+def apply_progression(user_id: str, routine: WorkoutRoutine, history_cache: Optional[Dict[str, List[dict]]] = None) -> WorkoutRoutine:
     """
     Analyzes user history and applies progression increments to a routine.
     """
     new_routine = routine.model_copy(deep=True)
     for ex in new_routine.exercises:
         if ex.progression and ex.progression.enabled:
-            history = db.get_exercise_history(user_id, ex.exercise_name)
+            history = None
+            if history_cache is not None:
+                if ex.exercise_name in history_cache:
+                    history = history_cache[ex.exercise_name]
+                else:
+                    history = db.get_exercise_history(user_id, ex.exercise_name)
+                    history_cache[ex.exercise_name] = history
+            else:
+                history = db.get_exercise_history(user_id, ex.exercise_name)
+                
             if history:
                 # Sort by date descending (sk format: EXERCISE#<name>#<date>)
                 history.sort(key=lambda x: x['sk'].split('#')[-1], reverse=True)
@@ -507,12 +518,11 @@ def get_upcoming_plan(days: int = 14, user_id: str = Depends(get_current_user)):
     """
     Returns a list of planned workouts for the next N days, with progression applied.
     """
-    from datetime import date, timedelta
-    
     logger.info("Fetching upcoming plan", user_id=user_id, days=days)
     try:
         schedules = db.get_schedules(user_id)
         routines_cache = {}
+        history_cache = {} # N+1 problem mitigation
         
         upcoming = []
         today = date.today()
@@ -537,8 +547,8 @@ def get_upcoming_plan(days: int = 14, user_id: str = Depends(get_current_user)):
                             routines_cache[routine_id] = WorkoutRoutine(**r_data)
                     
                     if routine_id in routines_cache:
-                        # Apply progression engine
-                        progressed_routine = apply_progression(user_id, routines_cache[routine_id])
+                        # Apply progression engine with cache
+                        progressed_routine = apply_progression(user_id, routines_cache[routine_id], history_cache)
                         upcoming.append(PlannedWorkout(
                             date=iso_date,
                             routine=progressed_routine,

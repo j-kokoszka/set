@@ -1193,7 +1193,10 @@ function App() {
                             type="number" 
                             step="0.5"
                             value={ex.progression.increment_weight} 
-                            onChange={(e) => updateProgression(exIdx, 'increment_weight', parseFloat(e.target.value))}
+                            onChange={(e) => {
+                              const val = parseFloat(e.target.value);
+                              if (!isNaN(val)) updateProgression(exIdx, 'increment_weight', val);
+                            }}
                             style={{ width: '60px', padding: '0.2rem' }}
                           />
                         </div>
@@ -1202,7 +1205,10 @@ function App() {
                           <input 
                             type="number" 
                             value={ex.progression.increment_reps} 
-                            onChange={(e) => updateProgression(exIdx, 'increment_reps', parseInt(e.target.value))}
+                            onChange={(e) => {
+                              const val = parseInt(e.target.value);
+                              if (!isNaN(val)) updateProgression(exIdx, 'increment_reps', val);
+                            }}
                             style={{ width: '50px', padding: '0.2rem' }}
                           />
                         </div>
