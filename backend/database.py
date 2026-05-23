@@ -4,7 +4,7 @@ import json
 from decimal import Decimal
 from botocore.exceptions import ClientError
 from typing import List, Optional
-from models import Workout, WorkoutRoutine, CustomExercise
+from models import Workout, WorkoutRoutine, CustomExercise, Schedule
 import structlog
 
 logger = structlog.get_logger()
@@ -258,6 +258,58 @@ class Database:
             return True
         except Exception as e:
             logger.error("Error deleting custom exercise", error=str(e), user_id=user_id, ex_id=ex_id)
+            raise e
+
+    def save_schedule(self, schedule: Schedule):
+        try:
+            schedule_data = to_dynamo_item(schedule.model_dump())
+            item = {
+                'pk': f"USER#{schedule.user_id}",
+                'sk': f"SCHEDULE#{schedule.id}",
+                'type': 'SCHEDULE',
+                **schedule_data
+            }
+            logger.info("Saving schedule", user_id=schedule.user_id, schedule_id=schedule.id)
+            self.table.put_item(Item=item)
+            return True
+        except Exception as e:
+            logger.error("Error saving schedule to DynamoDB", error=str(e), user_id=schedule.user_id)
+            raise e
+
+    def get_schedules(self, user_id: str) -> List[dict]:
+        try:
+            response = self.table.query(
+                KeyConditionExpression="pk = :pk AND begins_with(sk, :sk)",
+                ExpressionAttributeValues={
+                    ':pk': f"USER#{user_id}",
+                    ':sk': "SCHEDULE#"
+                }
+            )
+            return from_dynamo_item(response.get('Items', []))
+        except Exception as e:
+            logger.error("Error querying schedules", error=str(e), user_id=user_id)
+            raise e
+
+    def delete_schedule(self, user_id: str, schedule_id: str):
+        try:
+            self.table.delete_item(Key={
+                'pk': f"USER#{user_id}",
+                'sk': f"SCHEDULE#{schedule_id}"
+            })
+            return True
+        except Exception as e:
+            logger.error("Error deleting schedule from DynamoDB", error=str(e), user_id=user_id, schedule_id=schedule_id)
+            raise e
+
+    def get_routine_by_id(self, user_id: str, routine_id: str) -> Optional[dict]:
+        try:
+            response = self.table.get_item(Key={
+                'pk': f"USER#{user_id}",
+                'sk': f"PLAN#{routine_id}"
+            })
+            return from_dynamo_item(response.get('Item'))
+        except Exception as e:
+            logger.error("Error fetching routine by id", error=str(e), user_id=user_id, routine_id=routine_id)
             raise e
 
 db = Database()
