@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from mangum import Mangum
 from typing import List
-from models import Workout, WorkoutRoutine, Feedback, CustomExercise, Schedule, PlannedWorkout
+from models import Workout, WorkoutRoutine, Feedback, CustomExercise
 from database import db
 from auth import get_current_user
 import uuid
@@ -430,127 +430,6 @@ def update_routine(routine_id: str, routine: WorkoutRoutine, user_id: str = Depe
         return routine
     except Exception as e:
         logger.error("Failed to update workout routine", error=str(e), user_id=user_id, routine_id=routine_id)
-        raise HTTPException(status_code=500, detail=str(e))
-
-# --- Workout Planning & Progression ---
-
-def apply_progression(user_id: str, routine: WorkoutRoutine) -> WorkoutRoutine:
-    """
-    Analyzes user history and applies progression increments to a routine.
-    """
-    new_routine = routine.model_copy(deep=True)
-    for ex in new_routine.exercises:
-        if ex.progression and ex.progression.enabled:
-            history = db.get_exercise_history(user_id, ex.exercise_name)
-            if history:
-                # Sort by date descending (sk format: EXERCISE#<name>#<date>)
-                history.sort(key=lambda x: x['sk'].split('#')[-1], reverse=True)
-                last_record = history[0]
-                
-                # Check progression condition
-                success = False
-                if ex.progression.condition == "all_completed":
-                    success = all(s.get('completed', False) for s in last_record.get('sets', []))
-                elif ex.progression.condition == "last_set_completed":
-                    sets = last_record.get('sets', [])
-                    if sets:
-                        success = sets[-1].get('completed', False)
-                
-                if success:
-                    logger.info("Applying progression", exercise=ex.exercise_name, user_id=user_id)
-                    for s in ex.sets:
-                        if s.weight is not None:
-                            s.weight += ex.progression.increment_weight
-                        if s.reps is not None:
-                            s.reps += ex.progression.increment_reps
-    return new_routine
-
-@app.post("/schedules", response_model=Schedule)
-def create_schedule(schedule: Schedule, user_id: str = Depends(get_current_user)):
-    schedule.id = str(uuid.uuid4())
-    schedule.user_id = user_id
-    
-    # Fetch routine name for convenience
-    routine = db.get_routine_by_id(user_id, schedule.routine_id)
-    if routine:
-        schedule.routine_name = routine.get('name')
-    
-    logger.info("Creating schedule", user_id=user_id, schedule_id=schedule.id)
-    try:
-        db.save_schedule(schedule)
-        return schedule
-    except Exception as e:
-        logger.error("Failed to create schedule", error=str(e), user_id=user_id)
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.get("/schedules", response_model=List[Schedule])
-def list_schedules(user_id: str = Depends(get_current_user)):
-    logger.info("Listing schedules", user_id=user_id)
-    try:
-        return db.get_schedules(user_id)
-    except Exception as e:
-        logger.error("Failed to list schedules", error=str(e), user_id=user_id)
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.delete("/schedules/{schedule_id}")
-def delete_schedule(schedule_id: str, user_id: str = Depends(get_current_user)):
-    logger.info("Deleting schedule", user_id=user_id, schedule_id=schedule_id)
-    try:
-        db.delete_schedule(user_id, schedule_id)
-        return {"message": "Schedule deleted successfully"}
-    except Exception as e:
-        logger.error("Failed to delete schedule", error=str(e), user_id=user_id)
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.get("/plan/upcoming", response_model=List[PlannedWorkout])
-def get_upcoming_plan(days: int = 14, user_id: str = Depends(get_current_user)):
-    """
-    Returns a list of planned workouts for the next N days, with progression applied.
-    """
-    from datetime import date, timedelta
-    
-    logger.info("Fetching upcoming plan", user_id=user_id, days=days)
-    try:
-        schedules = db.get_schedules(user_id)
-        routines_cache = {}
-        
-        upcoming = []
-        today = date.today()
-        
-        for i in range(days + 1):
-            current_date = today + timedelta(days=i)
-            iso_date = current_date.isoformat()
-            dow = current_date.weekday()
-            
-            for s in schedules:
-                match = False
-                if s.get('schedule_type') == 'recurring' and s.get('day_of_week') == dow:
-                    match = True
-                elif s.get('schedule_type') == 'specific_date' and s.get('specific_date') == iso_date:
-                    match = True
-                
-                if match:
-                    routine_id = s.get('routine_id')
-                    if routine_id not in routines_cache:
-                        r_data = db.get_routine_by_id(user_id, routine_id)
-                        if r_data:
-                            routines_cache[routine_id] = WorkoutRoutine(**r_data)
-                    
-                    if routine_id in routines_cache:
-                        # Apply progression engine
-                        progressed_routine = apply_progression(user_id, routines_cache[routine_id])
-                        upcoming.append(PlannedWorkout(
-                            date=iso_date,
-                            routine=progressed_routine,
-                            is_recurring=(s.get('schedule_type') == 'recurring')
-                        ))
-        
-        # Sort by date
-        upcoming.sort(key=lambda x: x.date)
-        return upcoming
-        
-    except Exception as e:
-        logger.error("Failed to fetch upcoming plan", error=str(e), user_id=user_id)
         raise HTTPException(status_code=500, detail=str(e))
 
 def get_github_pat():
