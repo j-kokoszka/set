@@ -27,17 +27,10 @@ class RoutineExerciseSet(BaseModel):
     weight: Optional[float] = None
     unit: str = "kg"
 
-class ProgressionConfig(BaseModel):
-    enabled: bool = False
-    increment_weight: float = 2.5
-    increment_reps: int = 0
-    condition: Literal["all_completed", "last_set_completed"] = "all_completed"
-
 class RoutineExercise(BaseModel):
     exercise_id: Optional[str] = None
     exercise_name: str
     sets: List[RoutineExerciseSet]
-    progression: Optional[ProgressionConfig] = None
 
 class WorkoutRoutine(BaseModel):
     id: Optional[str] = None
@@ -60,17 +53,3 @@ class CustomExercise(BaseModel):
     instructions: List[str] = []
     category: str = "strength"
     user_id: Optional[str] = None
-
-class Schedule(BaseModel):
-    id: Optional[str] = None
-    routine_id: str
-    routine_name: Optional[str] = None
-    schedule_type: Literal["recurring", "specific_date"]
-    day_of_week: Optional[int] = None  # 0-6 (Monday-Sunday) for recurring
-    specific_date: Optional[str] = None  # YYYY-MM-DD for specific_date
-    user_id: Optional[str] = None
-
-class PlannedWorkout(BaseModel):
-    date: str
-    routine: WorkoutRoutine
-    is_recurring: bool

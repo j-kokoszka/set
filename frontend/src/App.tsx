@@ -17,7 +17,6 @@ interface Exercise {
   id?: string;
   name: string;
   sets: Set[];
-  progression?: ProgressionConfig;
 }
 
 interface StandardExercise {
@@ -56,39 +55,16 @@ interface RoutineExerciseSet {
   unit: 'kg' | 'lbs';
 }
 
-interface ProgressionConfig {
-  enabled: boolean;
-  increment_weight: number;
-  increment_reps: number;
-  condition: 'all_completed' | 'last_set_completed';
-}
-
 interface RoutineExercise {
   exercise_id?: string;
   exercise_name: string;
   sets: RoutineExerciseSet[];
-  progression?: ProgressionConfig;
 }
 
 interface WorkoutRoutine {
   id: string;
   name: string;
   exercises: RoutineExercise[];
-}
-
-interface Schedule {
-  id: string;
-  routine_id: string;
-  routine_name?: string;
-  schedule_type: 'recurring' | 'specific_date';
-  day_of_week?: number;
-  specific_date?: string;
-}
-
-interface PlannedWorkout {
-  date: string;
-  routine: WorkoutRoutine;
-  is_recurring: boolean;
 }
 
 const KG_TO_LBS = 2.20462;
@@ -106,7 +82,7 @@ function App() {
   const [user, setUser] = useState<string | null>(localStorage.getItem('set_user'));
   const [loginUsername, setLoginUsername] = useState('');
 
-  const [view, setView] = useState<'workout' | 'history' | 'routines' | 'plan'>('workout');
+  const [view, setView] = useState<'workout' | 'history' | 'routines'>('workout');
   const [workoutName, setWorkoutName] = useState(t('workout.new_workout', 'New Workout'));
   const [exercises, setExercises] = useState<Exercise[]>([]);
 
@@ -129,8 +105,6 @@ function App() {
   const [allExercises, setAllExercises] = useState<StandardExercise[]>([]);
   const [history, setHistory] = useState<WorkoutHistoryItem[]>([]);
   const [routines, setRoutines] = useState<WorkoutRoutine[]>([]);
-  const [upcomingPlan, setUpcomingPlan] = useState<PlannedWorkout[]>([]);
-  const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadingExercises, setLoadingExercises] = useState(false);
   const [isLoadingExternal, setIsLoadingExternal] = useState(false);
@@ -153,16 +127,6 @@ function App() {
   const [editingWorkoutDate, setEditingWorkoutDate] = useState<string | null>(null);
   const [editingRoutineId, setEditingRoutineId] = useState<string | null>(null);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [isScheduling, setIsScheduling] = useState(false);
-  const [planSubView, setPlanSubView] = useState<'list' | 'calendar'>('list');
-  const [calendarDate, setCalendarDate] = useState(new Date());
-  
-  // Scheduling state
-  const [selectedRoutineId, setSelectedRoutineId] = useState("");
-  const [scheduleType, setScheduleType] = useState<'recurring' | 'specific_date'>('recurring');
-  const [selectedDay, setSelectedDay] = useState(0);
-  const [selectedSpecificDate, setSelectedSpecificDate] = useState(new Date().toISOString().split('T')[0]);
-
 
   // Navigation state
   const [navPath, setNavPath] = useState<string[]>([]);
@@ -333,49 +297,12 @@ function App() {
     }
   }, [getValidToken]);
 
-  const fetchPlan = useCallback(async () => {
-    const validToken = await getValidToken();
-    if (!validToken) return;
-    setLoading(true);
-    try {
-      const response = await fetch(`${BASE_URL}/plan/upcoming`, {
-        headers: { 'Authorization': `Bearer ${validToken}` }
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setUpcomingPlan(data);
-      }
-    } catch (error) {
-      console.error('Error fetching plan:', error);
-    } finally {
-      setLoading(false);
-    }
-  }, [getValidToken]);
-
-  const fetchSchedules = useCallback(async () => {
-    const validToken = await getValidToken();
-    if (!validToken) return;
-    try {
-      const response = await fetch(`${BASE_URL}/schedules`, {
-        headers: { 'Authorization': `Bearer ${validToken}` }
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setSchedules(data);
-      }
-    } catch (error) {
-      console.error('Error fetching schedules:', error);
-    }
-  }, [getValidToken]);
-
   useEffect(() => {
     if (token) {
       fetchHistory();
       fetchRoutines();
-      fetchPlan();
-      fetchSchedules();
     }
-  }, [token, fetchHistory, fetchRoutines, fetchPlan, fetchSchedules]);
+  }, [token, fetchHistory, fetchRoutines]);
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -522,17 +449,6 @@ function App() {
     }));
   };
 
-  const updateProgression = (exerciseIndex: number, field: keyof ProgressionConfig, value: string | number | boolean) => {
-    setExercises(prev => prev.map((ex, exIdx) => {
-      if (exIdx !== exerciseIndex) return ex;
-      const currentProg = ex.progression || { enabled: false, increment_weight: 2.5, increment_reps: 0, condition: 'all_completed' };
-      return {
-        ...ex,
-        progression: { ...currentProg, [field]: value }
-      };
-    }));
-  };
-
   const startEdit = (workout: WorkoutHistoryItem) => {
     setWorkoutName(workout.name);
     setExercises(workout.exercises.map(ex => ({
@@ -596,122 +512,6 @@ function App() {
       const errorMessage = e instanceof Error ? e.message : t('common.unknown_error', 'An unknown error occurred');
       alert(`${t('routines.error_delete', 'Error deleting routine')}: ${errorMessage}`);
     }
-  };
-
-  const startFromPlanned = (planned: PlannedWorkout) => {
-    setWorkoutName(planned.routine.name);
-    setExercises(planned.routine.exercises.map(ex => ({
-      id: ex.exercise_id,
-      name: ex.exercise_name,
-      sets: ex.sets.map(s => ({
-        reps: s.reps || 0,
-        weight: s.weight || 0,
-        unit: s.unit || 'kg'
-      })),
-      progression: ex.progression
-    })));
-    setView('workout');
-  };
-
-  const saveSchedule = async () => {
-    const validToken = await getValidToken();
-    if (!validToken) return;
-
-    const schedule: Partial<Schedule> = {
-      routine_id: selectedRoutineId,
-      schedule_type: scheduleType,
-      day_of_week: scheduleType === 'recurring' ? selectedDay : undefined,
-      specific_date: scheduleType === 'specific_date' ? selectedSpecificDate : undefined,
-    };
-
-    try {
-      const response = await fetch(`${BASE_URL}/schedules`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${validToken}`
-        },
-        body: JSON.stringify(schedule)
-      });
-
-      if (response.ok) {
-        setIsScheduling(false);
-        fetchSchedules();
-        fetchPlan();
-      } else {
-        alert(t("plan.error_save", "Failed to save schedule"));
-      }
-    } catch (e) {
-      console.error('Error saving schedule:', e);
-    }
-  };
-
-  const deleteSchedule = async (scheduleId: string) => {
-    if (!window.confirm(t("plan.confirm_delete", "Delete this schedule?"))) return;
-    const validToken = await getValidToken();
-    if (!validToken) return;
-
-    try {
-      const response = await fetch(`${BASE_URL}/schedules/${scheduleId}`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${validToken}` }
-      });
-      if (response.ok) {
-        fetchSchedules();
-        fetchPlan();
-      }
-    } catch (e) {
-      console.error('Error deleting schedule:', e);
-    }
-  };
-
-  const renderCalendar = () => {
-    const year = calendarDate.getFullYear();
-    const month = calendarDate.getMonth();
-    const firstDay = new Date(year, month, 1).getDay();
-    const daysInMonth = new Date(year, month + 1, 0).getDate();
-    
-    const days = [];
-    // Adjusted for Monday start (0=Mon, 6=Sun)
-    const adjustedFirstDay = (firstDay + 6) % 7;
-    
-    for (let i = 0; i < adjustedFirstDay; i++) {
-      days.push(<div key={`empty-${i}`} className="calendar-day empty"></div>);
-    }
-    
-    for (let d = 1; d <= daysInMonth; d++) {
-      const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-      const dayPlan = upcomingPlan.filter(p => p.date === dateStr);
-      
-      days.push(
-        <div key={d} className="calendar-day">
-          <span className="day-number">{d}</span>
-          <div className="day-content">
-            {dayPlan.map((p, idx) => (
-              <div key={idx} className="calendar-event" onClick={() => startFromPlanned(p)}>
-                {p.routine.name}
-              </div>
-            ))}
-          </div>
-        </div>
-      );
-    }
-    
-    return (
-      <div className="calendar">
-        <div className="calendar-header">
-          <button className="btn btn-small" onClick={() => setCalendarDate(new Date(year, month - 1))}>&lt;</button>
-          <h3>{new Date(year, month).toLocaleString(i18n.resolvedLanguage, { month: 'long', year: 'numeric' })}</h3>
-          <button className="btn btn-small" onClick={() => setCalendarDate(new Date(year, month + 1))}>&gt;</button>
-        </div>
-        <div className="calendar-grid">
-          {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(day => (
-            <div key={day} className="calendar-weekday">{t(`common.days_short.${day.toLowerCase()}`, day)}</div>
-          ))}
-          {days}
-        </div>
-      </div>
-    );
   };
 
   const startFromRoutine = (routine: WorkoutRoutine) => {
@@ -1096,12 +896,6 @@ function App() {
             {t("routines.title", "Routines")}
           </button>
           <button 
-            className={`btn btn-small ${view === 'plan' ? '' : 'btn-secondary'}`} 
-            onClick={() => { setView('plan'); setIsMenuOpen(false); }}
-          >
-            {t("plan.title", "Plan")}
-          </button>
-          <button 
             className="btn btn-secondary btn-small" 
             onClick={() => { handleLogout(); setIsMenuOpen(false); }} 
             title={t("app.sign_out", "Sign Out")}
@@ -1170,53 +964,6 @@ function App() {
                   <button className="btn btn-secondary btn-small" onClick={() => addSet(exIdx)}>
                     {t("workout.add_set", "+ Set")}
                   </button>
-                </div>
-
-                {/* Progression Config */}
-                <div className="progression-config-row" style={{ marginBottom: '1rem', padding: '0.75rem', background: 'rgba(255,255,255,0.03)', borderRadius: '8px' }}>
-                  <div className="flex-between">
-                    <div className="flex-center">
-                      <input 
-                        type="checkbox" 
-                        id={`prog-enable-${exIdx}`}
-                        checked={ex.progression?.enabled || false}
-                        onChange={(e) => updateProgression(exIdx, 'enabled', e.target.checked)}
-                        style={{ width: 'auto', marginRight: '0.5rem' }}
-                      />
-                      <label htmlFor={`prog-enable-${exIdx}`} style={{ fontSize: '0.85rem', fontWeight: 600 }}>{t("plan.enable_progression", "Auto Progression")}</label>
-                    </div>
-                    {ex.progression?.enabled && (
-                      <div className="flex-center" style={{ gap: '1rem' }}>
-                        <div className="set-input-group" style={{ flexDirection: 'row', alignItems: 'center', gap: '0.5rem' }}>
-                          <span className="set-input-label">+{t("workout.weight", "Weight")}</span>
-                          <input 
-                            type="number" 
-                            step="0.5"
-                            value={ex.progression.increment_weight} 
-                            onChange={(e) => updateProgression(exIdx, 'increment_weight', parseFloat(e.target.value))}
-                            style={{ width: '60px', padding: '0.2rem' }}
-                          />
-                        </div>
-                        <div className="set-input-group" style={{ flexDirection: 'row', alignItems: 'center', gap: '0.5rem' }}>
-                          <span className="set-input-label">+{t("workout.reps", "Reps")}</span>
-                          <input 
-                            type="number" 
-                            value={ex.progression.increment_reps} 
-                            onChange={(e) => updateProgression(exIdx, 'increment_reps', parseInt(e.target.value))}
-                            style={{ width: '50px', padding: '0.2rem' }}
-                          />
-                        </div>
-                        <select 
-                          value={ex.progression.condition} 
-                          onChange={(e) => updateProgression(exIdx, 'condition', e.target.value)}
-                          style={{ fontSize: '0.75rem', padding: '0.2rem' }}
-                        >
-                          <option value="all_completed">{t("plan.cond_all", "All Sets")}</option>
-                          <option value="last_set_completed">{t("plan.cond_last", "Last Set")}</option>
-                        </select>
-                      </div>
-                    )}
-                  </div>
                 </div>
                 
                 <div className="set-list">
@@ -1527,93 +1274,6 @@ function App() {
             ))
           )}
         </div>
-      ) : view === 'plan' ? (
-        <div className="plan-view">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-            <h2 className="modal-title" style={{ margin: 0 }}>{t("plan.title", "Workout Plan")}</h2>
-            <div style={{ display: 'flex', gap: '0.5rem' }}>
-              <button 
-                className={`btn btn-small ${planSubView === 'list' ? '' : 'btn-secondary'}`}
-                onClick={() => setPlanSubView('list')}
-              >
-                {t("plan.list_view", "List")}
-              </button>
-              <button 
-                className={`btn btn-small ${planSubView === 'calendar' ? '' : 'btn-secondary'}`}
-                onClick={() => setPlanSubView('calendar')}
-              >
-                {t("plan.calendar_view", "Calendar")}
-              </button>
-              <button className="btn btn-small" onClick={() => setIsScheduling(true)}>
-                {t("plan.schedule_btn", "Schedule Routine")}
-              </button>
-            </div>
-          </div>
-
-          {loading ? (
-            <p style={{ textAlign: 'center', padding: '2rem' }}>{t("plan.loading", "Loading plan...")}</p>
-          ) : planSubView === 'list' ? (
-            <div className="plan-list">
-              {/* Active Schedules Section */}
-              <div style={{ marginBottom: '2rem' }}>
-                <h3 style={{ fontSize: '0.9rem', color: 'var(--text-muted)', marginBottom: '1rem', textTransform: 'uppercase' }}>{t("plan.active_schedules", "Your Schedules")}</h3>
-                {schedules.length === 0 ? (
-                   <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{t("plan.no_schedules", "No recurring schedules set.")}</p>
-                ) : (
-                  <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                    {schedules.map(s => (
-                      <div key={s.id} className="tag" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        {s.routine_name} ({s.schedule_type === 'recurring' ? t(`common.days_short.${['mon','tue','wed','thu','fri','sat','sun'][s.day_of_week!]}`) : s.specific_date})
-                        <button 
-                          className="btn-danger" 
-                          style={{ padding: 0, fontSize: '0.6rem', border: 'none', background: 'transparent', cursor: 'pointer' }} 
-                          onClick={() => deleteSchedule(s.id)}
-                        >
-                          ✕
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              <h3 style={{ fontSize: '0.9rem', color: 'var(--text-muted)', marginBottom: '1rem', textTransform: 'uppercase' }}>{t("plan.upcoming", "Upcoming Workouts")}</h3>
-              {upcomingPlan.length === 0 ? (
-                <p style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '4rem' }}>
-                  {t("plan.no_upcoming", "No upcoming workouts scheduled.")}
-                </p>
-              ) : (
-                upcomingPlan.map((p, idx) => (
-                  <div key={idx} className="card plan-item">
-                    <div className="item-header">
-                      <div className="item-title">
-                        <span className="item-name">{p.routine.name}</span>
-                        <span className="item-meta">
-                          {new Date(p.date).toLocaleDateString(i18n.resolvedLanguage, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
-                          {p.is_recurring && <span className="tag" style={{ marginLeft: '0.5rem' }}>{t("plan.recurring", "Recurring")}</span>}
-                        </span>
-                      </div>
-                      <button className="btn btn-small" onClick={() => startFromPlanned(p)}>
-                        {t("plan.start_workout", "Start")}
-                      </button>
-                    </div>
-                    <div className="tag-list">
-                      {p.routine.exercises.map((ex, eIdx) => (
-                        <span key={eIdx} className="tag">
-                          {ex.exercise_name}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          ) : (
-            <div className="calendar-container card">
-              {renderCalendar()}
-            </div>
-          )}
-        </div>
       ) : (
         <div className="routines-list">
           {loading ? (
@@ -1801,77 +1461,6 @@ function App() {
       )}
 
       <FeedbackButton getValidToken={getValidToken} />
-
-      {isScheduling && (
-        <div className="modal-overlay" onClick={() => setIsScheduling(false)}>
-          <div className="modal-content" onClick={e => e.stopPropagation()}>
-            <h3 className="modal-title">{t("plan.schedule_modal_title", "Schedule a Routine")}</h3>
-            
-            <div className="set-input-group mb-1">
-              <label className="set-input-label">{t("plan.select_routine", "Routine")}</label>
-              <select value={selectedRoutineId} onChange={e => setSelectedRoutineId(e.target.value)}>
-                <option value="">{t("common.select_prompt", "Select...")}</option>
-                {routines.map(r => (
-                  <option key={r.id} value={r.id}>{r.name}</option>
-                ))}
-              </select>
-            </div>
-
-            <div className="set-input-group mb-1">
-              <label className="set-input-label">{t("plan.schedule_type", "Schedule Type")}</label>
-              <div style={{ display: 'flex', gap: '0.5rem' }}>
-                <button 
-                  className={`btn btn-small ${scheduleType === 'recurring' ? '' : 'btn-secondary'}`}
-                  style={{ flex: 1 }}
-                  onClick={() => setScheduleType('recurring')}
-                >
-                  {t("plan.recurring", "Recurring")}
-                </button>
-                <button 
-                  className={`btn btn-small ${scheduleType === 'specific_date' ? '' : 'btn-secondary'}`}
-                  style={{ flex: 1 }}
-                  onClick={() => setScheduleType('specific_date')}
-                >
-                  {t("plan.specific_date", "Specific Date")}
-                </button>
-              </div>
-            </div>
-
-            {scheduleType === 'recurring' ? (
-              <div className="set-input-group mb-1">
-                <label className="set-input-label">{t("plan.day_of_week", "Day of Week")}</label>
-                <select value={selectedDay} onChange={e => setSelectedDay(parseInt(e.target.value))}>
-                  {[
-                    { val: 0, label: 'Monday' },
-                    { val: 1, label: 'Tuesday' },
-                    { val: 2, label: 'Wednesday' },
-                    { val: 3, label: 'Thursday' },
-                    { val: 4, label: 'Friday' },
-                    { val: 5, label: 'Saturday' },
-                    { val: 6, label: 'Sunday' }
-                  ].map(d => (
-                    <option key={d.val} value={d.val}>{t(`common.days.${d.label.toLowerCase()}`, d.label)}</option>
-                  ))}
-                </select>
-              </div>
-            ) : (
-              <div className="set-input-group mb-1">
-                <label className="set-input-label">{t("plan.date", "Date")}</label>
-                <input 
-                  type="date" 
-                  value={selectedSpecificDate} 
-                  onChange={e => setSelectedSpecificDate(e.target.value)} 
-                />
-              </div>
-            )}
-
-            <div className="modal-actions mt-2">
-              <button className="btn btn-secondary" onClick={() => setIsScheduling(false)}>{t("common.cancel", "Cancel")}</button>
-              <button className="btn" onClick={saveSchedule} disabled={!selectedRoutineId}>{t("common.save", "Save")}</button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
 }
