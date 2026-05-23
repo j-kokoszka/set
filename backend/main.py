@@ -254,7 +254,6 @@ async def suggest_custom_exercise(exercise: CustomExercise, user_id: str = Depen
         JSON Output:
         """
         
-        import anyio
         # Region-agnostic cross-region inference profile
         inference_profile_id = "eu.amazon.nova-micro-v1:0"
         
@@ -582,8 +581,6 @@ async def submit_feedback(feedback: Feedback, user_id: str = Depends(get_current
     
     # 1. Call Bedrock to parse feedback
     try:
-        import anyio
-        
         prompt = f"""
         Analyze the following user feedback for a workout tracking app and return a JSON object.
         The JSON object must have the following keys:

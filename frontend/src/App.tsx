@@ -1260,7 +1260,10 @@ function App() {
                               type="number" 
                               value={set.weight || ''} 
                               placeholder="0"
-                              onChange={(e) => updateSet(exIdx, sIdx, 'weight', parseFloat(e.target.value))} 
+                              onChange={(e) => {
+                                const val = parseFloat(e.target.value);
+                                if (!isNaN(val)) updateSet(exIdx, sIdx, 'weight', val);
+                              }} 
                               style={{ paddingRight: '2.8rem' }}
                             />
                             <button 
@@ -1278,7 +1281,10 @@ function App() {
                             type="number" 
                             value={set.reps || ''} 
                             placeholder="0"
-                            onChange={(e) => updateSet(exIdx, sIdx, 'reps', parseInt(e.target.value))} 
+                            onChange={(e) => {
+                              const val = parseInt(e.target.value);
+                              if (!isNaN(val)) updateSet(exIdx, sIdx, 'reps', val);
+                            }} 
                           />
                         </div>
                       </div>
@@ -1846,7 +1852,10 @@ function App() {
             {scheduleType === 'recurring' ? (
               <div className="set-input-group mb-1">
                 <label className="set-input-label">{t("plan.day_of_week", "Day of Week")}</label>
-                <select value={selectedDay} onChange={e => setSelectedDay(parseInt(e.target.value))}>
+                <select value={selectedDay} onChange={e => {
+                  const val = parseInt(e.target.value);
+                  if (!isNaN(val)) setSelectedDay(val);
+                }}>
                   {[
                     { val: 0, label: 'Monday' },
                     { val: 1, label: 'Tuesday' },
