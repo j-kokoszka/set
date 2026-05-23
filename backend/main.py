@@ -254,7 +254,7 @@ async def suggest_custom_exercise(exercise: CustomExercise, user_id: str = Depen
         
         import anyio
         # Region-agnostic cross-region inference profile
-        inference_profile_id = f"eu.{AWS_REGION}.amazon.nova-micro-v1:0" if "central" in AWS_REGION else "eu.amazon.nova-micro-v1:0"
+        inference_profile_id = "eu.amazon.nova-micro-v1:0"
         
         # Run synchronous boto3 call in a thread to avoid blocking the event loop
         def invoke_bedrock():
@@ -467,7 +467,7 @@ async def submit_feedback(feedback: Feedback, user_id: str = Depends(get_current
         """
         
         # Region-agnostic cross-region inference profile
-        inference_profile_id = f"eu.{AWS_REGION}.amazon.nova-micro-v1:0" if "central" in AWS_REGION else "eu.amazon.nova-micro-v1:0"
+        inference_profile_id = "eu.amazon.nova-micro-v1:0"
         
         def invoke_bedrock():
             return bedrock_client.invoke_model(
