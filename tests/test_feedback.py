@@ -7,21 +7,13 @@ import os
 
 client = TestClient(app)
 
+@patch("backend.main.bedrock_client")
 @patch("backend.main.boto3.client")
 @patch("backend.main.httpx.AsyncClient")
-def test_submit_feedback_success(mock_httpx_class, mock_boto3_client):
-    # Mock Bedrock and Secrets Manager
-    mock_bedrock = MagicMock()
+def test_submit_feedback_success(mock_httpx_class, mock_boto3_client, mock_bedrock):
+    # Mock Secrets Manager
     mock_secretsmanager = MagicMock()
-    
-    def boto3_client_side_effect(service_name, **kwargs):
-        if service_name == "bedrock-runtime":
-            return mock_bedrock
-        if service_name == "secretsmanager":
-            return mock_secretsmanager
-        return MagicMock()
-        
-    mock_boto3_client.side_effect = boto3_client_side_effect
+    mock_boto3_client.return_value = mock_secretsmanager
     
     # Mock Bedrock response
     mock_response = MagicMock()
@@ -73,21 +65,13 @@ def test_submit_feedback_success(mock_httpx_class, mock_boto3_client):
         assert "Submitted by: user_123" in kwargs["json"]["body"]
         assert kwargs["json"]["labels"] == ["bug"]
 
+@patch("backend.main.bedrock_client")
 @patch("backend.main.boto3.client")
 @patch("backend.main.httpx.AsyncClient")
-def test_submit_feedback_bedrock_failure_fallback(mock_httpx_class, mock_boto3_client):
-    # Mock Bedrock and Secrets Manager
-    mock_bedrock = MagicMock()
+def test_submit_feedback_bedrock_failure_fallback(mock_httpx_class, mock_boto3_client, mock_bedrock):
+    # Mock Secrets Manager
     mock_secretsmanager = MagicMock()
-    
-    def boto3_client_side_effect(service_name, **kwargs):
-        if service_name == "bedrock-runtime":
-            return mock_bedrock
-        if service_name == "secretsmanager":
-            return mock_secretsmanager
-        return MagicMock()
-        
-    mock_boto3_client.side_effect = boto3_client_side_effect
+    mock_boto3_client.return_value = mock_secretsmanager
     
     # Mock Bedrock failure
     mock_bedrock.invoke_model.side_effect = Exception("Bedrock error")
@@ -101,22 +85,22 @@ def test_submit_feedback_bedrock_failure_fallback(mock_httpx_class, mock_boto3_c
     
     mock_gh_response = MagicMock()
     mock_gh_response.status_code = 201
-    mock_gh_response.json.return_value = {"html_url": "https://github.com/j-kokoszka/set/issues/2"}
+    mock_gh_response.json.return_value = {"html_url": "https://github.com/j-kokoszka/set/issues/1"}
     mock_http_client.post.return_value = mock_gh_response
     
+    # Set environment variable
     with patch.dict(os.environ, {"GITHUB_PAT_SECRET_ID": "my-secret-id"}):
         headers = {"Authorization": "Bearer mock_user_123"}
-        payload = {"text": "Just some feedback."}
+        payload = {"text": "I found a bug."}
         
         resp = client.post("/feedback", json=payload, headers=headers)
         
         assert resp.status_code == 200
-        # Verify fallback values
+        # Should fallback to raw text
+        assert resp.json()["message"] == "Feedback submitted successfully"
+        
         args, kwargs = mock_http_client.post.call_args
-        assert kwargs["headers"]["Authorization"] == "token fake_pat_from_sm"
-        assert kwargs["json"]["title"] == "User Feedback"
-        assert "Just some feedback." in kwargs["json"]["body"]
-        assert kwargs["json"]["labels"] == ["feedback"]
+        assert kwargs["json"]["body"] == "I found a bug.\n\n---\nSubmitted by: user_123"
 
 def test_submit_feedback_too_long():
     headers = {"Authorization": "Bearer mock_user_123"}

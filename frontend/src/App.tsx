@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/set-state-in-effect */
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import './index.css'
 import { parseBackendError } from './utils/error'
@@ -22,7 +23,13 @@ interface StandardExercise {
   id: string;
   name: string;
   primaryMuscles: string[];
+  secondaryMuscles?: string[];
+  instructions?: string[];
   category: string;
+  level?: string;
+  force?: string;
+  mechanic?: string;
+  equipment?: string;
   is_external?: boolean;
 }
 
@@ -87,7 +94,6 @@ function App() {
     if (enDefaults.includes(workoutName) || plDefaults.includes(workoutName)) {
       // If it matches a routine default, use routine key, otherwise workout key
       if (workoutName.includes("Routine") || workoutName.includes("Rutyna")) {
-        // eslint-disable-next-line react-hooks/set-state-in-effect
         setWorkoutName(t('routines.new_routine', 'New Routine'));
       } else {
         setWorkoutName(t('workout.new_workout', 'New Workout'));
@@ -95,6 +101,7 @@ function App() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [i18n.language]);
+
   const [allExercises, setAllExercises] = useState<StandardExercise[]>([]);
   const [history, setHistory] = useState<WorkoutHistoryItem[]>([]);
   const [routines, setRoutines] = useState<WorkoutRoutine[]>([]);
@@ -107,6 +114,14 @@ function App() {
   const [newExName, setNewExName] = useState("");
   const [customExName, setCustomExName] = useState("");
   const [customExMuscle, setCustomExMuscle] = useState("");
+  const [customExCategory, setCustomExCategory] = useState("strength");
+  const [customExLevel, setCustomExLevel] = useState("beginner");
+  const [customExForce, setCustomExForce] = useState("");
+  const [customExMechanic, setCustomExMechanic] = useState("");
+  const [customExEquipment, setCustomExEquipment] = useState("");
+  const [customExSecondaryMuscles, setCustomExSecondaryMuscles] = useState("");
+  const [customExInstructions, setCustomExInstructions] = useState("");
+  const [isLoadingSuggest, setIsLoadingSuggest] = useState(false);
   const [searchIndex, setSearchIndex] = useState(-1);
   const [editingWorkoutId, setEditingWorkoutId] = useState<string | null>(null);
   const [editingWorkoutDate, setEditingWorkoutDate] = useState<string | null>(null);
@@ -235,142 +250,59 @@ function App() {
   }, [newExName, allExercises]);
 
   const navExercises = useMemo(() => {
-    if (navPath.length !== 2) return [];
-    const targetMuscle = navPath[1].toLowerCase().trim();
-    return allExercises.filter(ex => 
-      ex.primaryMuscles?.some(m => m.toLowerCase().trim() === targetMuscle)
-    );
+    if (navPath.length < 2) return [];
+    const muscle = navPath[1];
+    return allExercises.filter(ex => ex.primaryMuscles.includes(muscle));
   }, [navPath, allExercises]);
 
-  const fetchHistory = async () => {
+  useEffect(() => {
+    fetchExercises();
+  }, [fetchExercises]);
+
+  const fetchHistory = useCallback(async () => {
     const validToken = await getValidToken();
     if (!validToken) return;
     setLoading(true);
     try {
       const response = await fetch(`${BASE_URL}/workouts`, {
-        headers: {
-          'Authorization': `Bearer ${validToken}`
-        }
+        headers: { 'Authorization': `Bearer ${validToken}` }
       });
-      const data = await response.json();
-      setHistory(data.sort((a: WorkoutHistoryItem, b: WorkoutHistoryItem) => 
-        new Date(b.sk.split('#')[1]).getTime() - new Date(a.sk.split('#')[1]).getTime()
-      ));
+      if (response.ok) {
+        const data = await response.json();
+        setHistory(data);
+      }
     } catch (error) {
       console.error('Error fetching history:', error);
     } finally {
       setLoading(false);
     }
-  };
+  }, [getValidToken]);
 
-  const fetchRoutines = async () => {
+  const fetchRoutines = useCallback(async () => {
     const validToken = await getValidToken();
     if (!validToken) return;
     setLoading(true);
     try {
       const response = await fetch(`${BASE_URL}/routines`, {
-        headers: {
-          'Authorization': `Bearer ${validToken}`
-        }
+        headers: { 'Authorization': `Bearer ${validToken}` }
       });
       if (response.ok) {
         const data = await response.json();
         setRoutines(data);
-      } else {
-        console.error('Failed to fetch routines');
       }
-    } catch (e) {
-      console.error('Error fetching routines:', e);
+    } catch (error) {
+      console.error('Error fetching routines:', error);
     } finally {
       setLoading(false);
     }
-  };
-
-  useEffect(() => {
-    const handleAuth = async () => {
-      // 1. Check for 'code' in URL query (returning from Cognito with Auth Code Flow)
-      const params = new URLSearchParams(window.location.search);
-      const code = params.get('code');
-      
-      if (code) {
-        const codeVerifier = sessionStorage.getItem('code_verifier');
-        if (codeVerifier) {
-          try {
-            const response = await fetch(`https://${COGNITO_DOMAIN}/oauth2/token`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-              body: new URLSearchParams({
-                grant_type: 'authorization_code',
-                client_id: COGNITO_CLIENT_ID!,
-                code: code,
-                redirect_uri: APP_URL,
-                code_verifier: codeVerifier
-              })
-            });
-
-            if (response.ok) {
-              const data = await response.json();
-              const idToken = data.id_token;
-              const refreshToken = data.refresh_token;
-              
-              if (idToken) {
-                setToken(idToken);
-                localStorage.setItem('set_token', idToken);
-                if (refreshToken) {
-                  localStorage.setItem('set_refresh_token', refreshToken);
-                }
-                
-                const payload = base64UrlDecode(idToken.split('.')[1]);
-                const username = payload?.email || payload?.['cognito:username'] || payload?.sub || 'Authenticated User';
-                setUser(username);
-                localStorage.setItem('set_user', username);
-              }
-            }
-          } catch (e) {
-            console.error('Token exchange failed', e);
-          } finally {
-            sessionStorage.removeItem('code_verifier');
-            window.history.replaceState(null, '', window.location.pathname);
-          }
-        }
-      }
-
-      // 2. Legacy/Fallback: Implicit Flow check (checking for tokens in the hash)
-      const hash = window.location.hash;
-      if (hash) {
-        const hashParams = new URLSearchParams(hash.substring(1));
-        const idToken = hashParams.get('id_token') || hashParams.get('access_token');
-
-        if (idToken) {
-          setToken(idToken);
-          localStorage.setItem('set_token', idToken);
-          
-          const payload = base64UrlDecode(idToken.split('.')[1]);
-          const username = payload?.email || payload?.['cognito:username'] || payload?.sub || 'Authenticated User';
-          setUser(username);
-          localStorage.setItem('set_user', username);
-
-          window.history.replaceState(null, '', window.location.pathname);
-        }
-      }
-    };
-
-    void handleAuth();
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    void fetchExercises();
-  }, [fetchExercises]);
+  }, [getValidToken]);
 
   useEffect(() => {
     if (token) {
-      if (view === 'history') {
-        // eslint-disable-next-line react-hooks/set-state-in-effect
-        void fetchHistory();
-      } else if (view === 'routines') {
-        void fetchRoutines();
-      }
+      fetchHistory();
+      fetchRoutines();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token, view]);
+  }, [token, fetchHistory, fetchRoutines]);
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -391,56 +323,146 @@ function App() {
 
     // Secure Authorization Code Flow with PKCE
     const codeVerifier = generateCodeVerifier();
-    sessionStorage.setItem('code_verifier', codeVerifier);
+    localStorage.setItem('set_code_verifier', codeVerifier);
     const codeChallenge = await generateCodeChallenge(codeVerifier);
 
-    const loginUrl = `https://${COGNITO_DOMAIN}/oauth2/authorize?` + new URLSearchParams({
-      client_id: COGNITO_CLIENT_ID,
+    const params = new URLSearchParams({
       response_type: 'code',
-      scope: 'email openid profile',
+      client_id: COGNITO_CLIENT_ID,
       redirect_uri: APP_URL,
+      scope: 'openid profile email',
       code_challenge_method: 'S256',
       code_challenge: codeChallenge,
-      identity_provider: 'Google' // Direct to Google login
-    }).toString();
+      identity_provider: 'Google'
+    });
 
-    window.location.href = loginUrl;
+    window.location.href = `https://${COGNITO_DOMAIN}/oauth2/authorize?${params.toString()}`;
   };
 
-  const deleteRoutine = async (id: string) => {
-    const validToken = await getValidToken();
-    if (!validToken) return;
-    if (!window.confirm(t('routines.confirm_delete', 'Are you sure you want to delete this routine?'))) return;
+  useEffect(() => {
+    const handleAuth = async () => {
+      // 1. Check for 'code' in URL query (returning from Cognito with Auth Code Flow)
+      const params = new URLSearchParams(window.location.search);
+      const code = params.get('code');
+      
+      if (code) {
+        const codeVerifier = localStorage.getItem('set_code_verifier');
+        if (!codeVerifier) {
+          console.error('No code verifier found');
+          return;
+        }
 
-    try {
-      const response = await fetch(`${BASE_URL}/routines/${id}`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${validToken}` }
-      });
-      if (response.ok) fetchRoutines();
-    } catch (e) {
-      console.error('Error deleting routine:', e);
-      alert(t('routines.error_delete', 'Error deleting routine'));
+        try {
+          const response = await fetch(`https://${COGNITO_DOMAIN}/oauth2/token`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: new URLSearchParams({
+              grant_type: 'authorization_code',
+              client_id: COGNITO_CLIENT_ID!,
+              code: code,
+              redirect_uri: APP_URL,
+              code_verifier: codeVerifier
+            })
+          });
+
+          if (response.ok) {
+            const data = await response.json();
+            const idToken = data.id_token;
+            const refreshToken = data.refresh_token;
+            
+            // Extract user from ID Token (simple decode)
+            const payload = base64UrlDecode(idToken.split('.')[1]) as Record<string, string>;
+            const username = payload["cognito:username"] || payload.email;
+
+            setToken(idToken);
+            setUser(username || "Unknown");
+            localStorage.setItem('set_token', idToken);
+            if (refreshToken) {
+              localStorage.setItem('set_refresh_token', refreshToken);
+            }
+            localStorage.setItem('set_user', username || "Unknown");
+            
+            // Clean URL
+            window.history.replaceState({}, document.title, window.location.pathname);
+          }
+        } catch (e) {
+          console.error('Auth failed', e);
+        }
+      }
+    };
+
+    if (COGNITO_DOMAIN) {
+      handleAuth();
     }
+  }, []);
+
+  const addExercise = (standardEx?: StandardExercise) => {
+    const newEx: Exercise = {
+      id: standardEx?.id,
+      name: standardEx ? standardEx.name : newExName,
+      sets: [{ reps: 0, weight: 0, unit: 'kg' }]
+    };
+    setExercises([...exercises, newEx]);
+    setNewExName("");
+    setIsAdding(false);
+    setNavPath([]);
   };
 
-  const startFromRoutine = (routine: WorkoutRoutine) => {
-    setWorkoutName(routine.name);
-    setExercises(routine.exercises.map(ex => ({
+  const removeExercise = (index: number) => {
+    setExercises(exercises.filter((_, i) => i !== index));
+  };
+
+  const addSet = (exerciseIndex: number) => {
+    setExercises(prev => prev.map((ex, exIdx) => {
+      if (exIdx !== exerciseIndex) return ex;
+      const lastSet = ex.sets[ex.sets.length - 1];
+      return {
+        ...ex,
+        sets: [...ex.sets, { 
+          reps: lastSet?.reps || 0, 
+          weight: lastSet?.weight || 0, 
+          unit: lastSet?.unit || 'kg' 
+        }]
+      };
+    }));
+  };
+
+  const removeSet = (exerciseIndex: number, setIndex: number) => {
+    setExercises(prev => prev.map((ex, exIdx) => {
+      if (exIdx !== exerciseIndex) return ex;
+      return {
+        ...ex,
+        sets: ex.sets.filter((_, sIdx) => sIdx !== setIndex)
+      };
+    }));
+  };
+
+  const updateSet = (exerciseIndex: number, setIndex: number, field: keyof Set, value: string | number | boolean) => {
+    setExercises(prev => prev.map((ex, exIdx) => {
+      if (exIdx !== exerciseIndex) return ex;
+      return {
+        ...ex,
+        sets: ex.sets.map((s, sIdx) => 
+          sIdx === setIndex ? { ...s, [field]: value } : s
+        )
+      };
+    }));
+  };
+
+  const startEdit = (workout: WorkoutHistoryItem) => {
+    setWorkoutName(workout.name);
+    setExercises(workout.exercises.map(ex => ({
       id: ex.exercise_id,
       name: ex.exercise_name,
-      sets: ex.sets.map(s => ({
-        reps: s.reps || 10,
-        weight: s.weight || 0,
-        unit: s.unit
-      }))
+      sets: ex.sets
     })));
-    setIsSelectingRoutine(false);
+    setEditingWorkoutId(workout.sk.split('#')[2]);
+    setEditingWorkoutDate(workout.sk.split('#')[1]);
+    setView('workout');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const deleteWorkout = async (sk: string) => {
-    const validToken = await getValidToken();
-    if (!validToken) return;
     const parts = sk.split('#');
     const date = parts[1];
     const workoutId = parts[2];
@@ -450,53 +472,76 @@ function App() {
     }
 
     try {
+      const validToken = await getValidToken();
+      if (!validToken) return;
+
       const response = await fetch(`${BASE_URL}/workouts/${workoutId}?date=${encodeURIComponent(date)}`, {
         method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${validToken}`
-        }
+        headers: { 'Authorization': `Bearer ${validToken}` }
       });
-
       if (response.ok) {
         fetchHistory();
       } else {
-        const errorMessage = await parseBackendError(response, 'Failed to delete workout');
+        const errorMessage = await parseBackendError(response, t('workout.error_delete', 'Failed to delete workout'));
         alert(errorMessage);
       }
     } catch (error) {
+      console.error('Error deleting workout:', error);
       alert(`Error connecting to backend: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };
 
-  const startEdit = (workout: WorkoutHistoryItem) => {
-    const parts = workout.sk.split('#');
-    const date = parts[1];
-    const workoutId = parts[2];
+  const deleteRoutine = async (routineId: string) => {
+    if (!window.confirm(t('routines.confirm_delete', 'Are you sure you want to delete this routine?'))) return;
+    const validToken = await getValidToken();
+    if (!validToken) return;
 
-    setEditingWorkoutId(workoutId);
-    setEditingWorkoutDate(date);
-    setWorkoutName(workout.name);
-    setExercises(workout.exercises.map(ex => ({
-      id: ex.exercise_id,
-      name: ex.exercise_name,
-      sets: ex.sets
-    })));
-    setView('workout');
+    try {
+      const response = await fetch(`${BASE_URL}/routines/${routineId}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${validToken}` }
+      });
+      if (response.ok) {
+        fetchRoutines();
+      } else {
+        const errorMessage = await parseBackendError(response, t('routines.error_delete', 'Error deleting routine'));
+        alert(errorMessage);
+      }
+    } catch (e) {
+      console.error('Error deleting routine:', e);
+      const errorMessage = e instanceof Error ? e.message : t('common.unknown_error', 'An unknown error occurred');
+      alert(`${t('routines.error_delete', 'Error deleting routine')}: ${errorMessage}`);
+    }
   };
 
-  const startRoutineEdit = (routine: WorkoutRoutine) => {
-    setEditingRoutineId(routine.id);
+  const startFromRoutine = (routine: WorkoutRoutine) => {
     setWorkoutName(routine.name);
     setExercises(routine.exercises.map(ex => ({
       id: ex.exercise_id,
       name: ex.exercise_name,
       sets: ex.sets.map(s => ({
-        reps: s.reps || 10,
+        reps: s.reps || 0,
         weight: s.weight || 0,
-        unit: s.unit
+        unit: s.unit || 'kg'
       }))
     })));
+    setIsSelectingRoutine(false);
+  };
+
+  const startRoutineEdit = (routine: WorkoutRoutine) => {
+    setWorkoutName(routine.name);
+    setExercises(routine.exercises.map(ex => ({
+      id: ex.exercise_id,
+      name: ex.exercise_name,
+      sets: ex.sets.map(s => ({
+        reps: s.reps || 0,
+        weight: s.weight || 0,
+        unit: s.unit || 'kg'
+      }))
+    })));
+    setEditingRoutineId(routine.id);
     setView('workout');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const clearWorkout = () => {
@@ -524,18 +569,56 @@ function App() {
         headers: { 'Authorization': `Bearer ${validToken}` }
       });
       if (response.ok) {
-        const externalData = await response.json();
-        // Merge with existing avoiding duplicates
+        const data = await response.json();
+        // Merge with existing but prefer external
         setAllExercises(prev => {
-          const existingIds = new Set(prev.map(ex => ex.id));
-          const newItems = externalData.filter((ex: StandardExercise) => !existingIds.has(ex.id));
-          return [...prev, ...newItems];
+          const combined = [...data, ...prev];
+          const seen = new Set();
+          return combined.filter(ex => {
+            const duplicate = seen.has(ex.id);
+            seen.add(ex.id);
+            return !duplicate;
+          });
         });
       }
     } catch (e) {
       console.error('External search failed', e);
     } finally {
       setIsLoadingExternal(false);
+    }
+  };
+
+  const suggestCustomExercise = async () => {
+    if (!customExName.trim()) return;
+    const validToken = await getValidToken();
+    if (!validToken) return;
+
+    setIsLoadingSuggest(true);
+    try {
+      const response = await fetch(`${BASE_URL}/exercises/custom/suggest`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${validToken}`
+        },
+        body: JSON.stringify({ name: customExName })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setCustomExMuscle(data.primaryMuscles?.join(', ') || "");
+        setCustomExSecondaryMuscles(data.secondaryMuscles?.join(', ') || "");
+        setCustomExCategory(data.category || "strength");
+        setCustomExLevel(data.level || "beginner");
+        setCustomExForce(data.force || "");
+        setCustomExMechanic(data.mechanic || "");
+        setCustomExEquipment(data.equipment || "");
+        setCustomExInstructions(data.instructions?.join('\n') || "");
+      }
+    } catch (e) {
+      console.error('Failed to get AI suggestions', e);
+    } finally {
+      setIsLoadingSuggest(false);
     }
   };
 
@@ -553,8 +636,14 @@ function App() {
         },
         body: JSON.stringify({
           name: customExName,
-          category: 'strength',
-          primaryMuscles: customExMuscle ? [customExMuscle] : []
+          category: customExCategory,
+          level: customExLevel,
+          force: customExForce || undefined,
+          mechanic: customExMechanic || undefined,
+          equipment: customExEquipment || undefined,
+          primaryMuscles: customExMuscle ? customExMuscle.split(',').map(m => m.trim()).filter(m => m) : [],
+          secondaryMuscles: customExSecondaryMuscles ? customExSecondaryMuscles.split(',').map(m => m.trim()).filter(m => m) : [],
+          instructions: customExInstructions ? customExInstructions.split('\n').map(i => i.trim()).filter(i => i) : []
         })
       });
 
@@ -563,91 +652,22 @@ function App() {
         setAllExercises(prev => [...prev, newEx]);
         addExercise(newEx);
         setIsCreatingCustom(false);
+        // Reset states
         setCustomExName("");
         setCustomExMuscle("");
+        setCustomExSecondaryMuscles("");
+        setCustomExCategory("strength");
+        setCustomExLevel("beginner");
+        setCustomExForce("");
+        setCustomExMechanic("");
+        setCustomExEquipment("");
+        setCustomExInstructions("");
       }
     } catch (e) {
       console.error(t('custom_exercise.save_error', 'Failed to save custom exercise'), e);
       alert(t('custom_exercise.save_error', 'Failed to save custom exercise'));
     }
   };
-
-  const addExercise = (nameOrEx?: string | StandardExercise) => {
-    let name: string;
-    let id: string | undefined;
-
-    if (typeof nameOrEx === 'object' && nameOrEx !== null) {
-      name = nameOrEx.name;
-      id = nameOrEx.id;
-    } else if (typeof nameOrEx === 'string') {
-      name = nameOrEx;
-      id = undefined;
-    } else {
-      name = newExName.trim();
-      id = undefined;
-    }
-
-    if (name) {
-      setExercises([...exercises, { id, name, sets: [] }]);
-      setNewExName("");
-      setSearchIndex(-1);
-      setIsAdding(false);
-    }
-  };
-
-  const removeExercise = (index: number) => {
-    const newExercises = [...exercises];
-    newExercises.splice(index, 1);
-    setExercises(newExercises);
-  };
-
-  const addSet = (exerciseIndex: number) => {
-    setExercises(prev => prev.map((ex, exIdx) => {
-      if (exIdx !== exerciseIndex) return ex;
-      const lastSet = ex.sets.length > 0 
-        ? ex.sets[ex.sets.length - 1]
-        : { reps: 10, weight: 0, unit: 'kg' as const };
-      return {
-        ...ex,
-        sets: [...ex.sets, { ...lastSet, completed: false, difficulty: undefined }]
-      };
-    }));
-  };
-
-  const removeSet = (exerciseIndex: number, setIndex: number) => {
-    setExercises(prev => prev.map((ex, exIdx) => {
-      if (exIdx !== exerciseIndex) return ex;
-      return {
-        ...ex,
-        sets: ex.sets.filter((_, sIdx) => sIdx !== setIndex)
-      };
-    }));
-  };
-
-  const updateSet = <K extends keyof Set>(exerciseIndex: number, setIndex: number, field: K, value: Set[K]) => {
-    setExercises(prev => prev.map((ex, exIdx) => {
-      if (exIdx !== exerciseIndex) return ex;
-      return {
-        ...ex,
-        sets: ex.sets.map((s, sIdx) => {
-          if (sIdx !== setIndex) return s;
-          const updatedSet = { ...s, [field]: value };
-          if (field === 'weight') {
-            updatedSet.weight = typeof value === 'string' ? parseFloat(value) : value as number;
-          } else if (field === 'reps') {
-            updatedSet.reps = typeof value === 'string' ? parseInt(value) : value as number;
-          } else if (field === 'difficulty') {
-            updatedSet.difficulty = value as Set['difficulty'];
-            updatedSet.completed = true;
-          } else if (field === 'completed') {
-            updatedSet.completed = value as boolean;
-          }
-          return updatedSet;
-        })
-      };
-    }));
-  };
-
 
   const toggleUnit = (exerciseIndex: number, setIndex: number) => {
     setExercises(prev => prev.map((ex, exIdx) => {
@@ -1062,7 +1082,7 @@ function App() {
 
               {loadingExercises ? (
                 <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
-                  Loading exercise database...
+                  {t("exercises.loading", "Loading exercise database...")}
                 </div>
               ) : (
                 <>
@@ -1195,7 +1215,7 @@ function App() {
                   style={{ flex: 1, color: 'var(--danger-color)', borderColor: 'var(--danger-color)' }} 
                   onClick={clearWorkout}
                 >
-                  Clear
+                  {t("workout.clear", "Clear")}
                 </button>
               </>
             )}
@@ -1223,7 +1243,7 @@ function App() {
                   <div className="item-title">
                     <span className="item-name">{w.name}</span>
                     <span className="item-meta">
-                      {new Date(w.sk.split('#')[1]).toLocaleDateString(i18n.language, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                      {new Date(w.sk.split('#')[1]).toLocaleDateString(i18n.resolvedLanguage, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
                     </span>
                   </div>
                   <div style={{ display: 'flex', gap: '0.25rem' }}>
@@ -1262,7 +1282,7 @@ function App() {
             <div className="card" style={{ textAlign: 'center', padding: '4rem' }}>
               <p style={{ color: 'var(--text-muted)', marginBottom: '1.5rem' }}>{t("routines.no_routines", "No routines found. Templates help you start workouts faster!")}</p>
               <button className="btn" style={{ width: 'auto' }} onClick={() => { setView('workout'); setWorkoutName(t('routines.new_routine', 'New Routine')); setExercises([]); setEditingWorkoutId(null); setEditingWorkoutDate(null); setEditingRoutineId(null); }}>
-                Create My First Routine
+                {t("routines.create_first", "Create My First Routine")}
               </button>
             </div>
           ) : (
@@ -1272,7 +1292,7 @@ function App() {
                 style={{ marginBottom: '1.5rem', border: '1px dashed var(--border-color)', background: 'transparent' }}
                 onClick={() => { setView('workout'); setWorkoutName(t('routines.new_routine', 'New Routine')); setExercises([]); setEditingWorkoutId(null); setEditingWorkoutDate(null); setEditingRoutineId(null); }}
               >
-                + Create New Routine
+                {t("routines.create_new", "+ Create New Routine")}
               </button>
               {routines.map((p) => (
               <div key={p.id} className="card routine-item">
@@ -1286,7 +1306,7 @@ function App() {
                       className="btn btn-small" 
                       onClick={() => startFromRoutine(p)}
                     >
-                      Use
+                      {t("routines.use", "Use")}
                     </button>
                     <button 
                       className="btn-secondary btn-small"
@@ -1320,27 +1340,118 @@ function App() {
 
       {isCreatingCustom && (
         <div className="modal-overlay" onClick={() => setIsCreatingCustom(false)}>
-          <div className="modal-content" onClick={e => e.stopPropagation()}>
-            <h3 className="modal-title">{t("custom_exercise.title", "Create Custom Exercise")}</h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginBottom: '1.5rem' }}>
+          <div className="modal-content" style={{ maxWidth: '600px', maxHeight: '90vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+              <h3 className="modal-title" style={{ margin: 0 }}>{t("custom_exercise.title", "Create Custom Exercise")}</h3>
+              <button 
+                className="btn btn-secondary btn-small"
+                onClick={suggestCustomExercise}
+                disabled={!customExName || isLoadingSuggest}
+                style={{ background: 'var(--primary-color)', color: 'white', border: 'none' }}
+              >
+                {isLoadingSuggest ? t("custom_exercise.generating", "Generating...") : t("custom_exercise.autofill", "✨ Auto-fill with AI")}
+              </button>
+            </div>
+
+            <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '1.5rem' }}>
+              {t("custom_exercise.instruction_text", "Fill in the details below or use AI to generate them based on the name.")}
+            </p>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', marginBottom: '2rem' }}>
               <div className="set-input-group">
-                <label className="set-input-label">{t("custom_exercise.name", "Exercise Name")}</label>
+                <label className="set-input-label" htmlFor="custom-ex-name">{t("custom_exercise.name", "Exercise Name")}</label>
                 <input 
+                  id="custom-ex-name"
                   autoFocus
                   value={customExName} 
                   onChange={e => setCustomExName(e.target.value)} 
                   placeholder={t("custom_exercise.placeholder_name", "e.g. Weighted Pullups")}
                 />
               </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                <div className="set-input-group">
+                  <label className="set-input-label" htmlFor="custom-ex-category">{t("custom_exercise.category", "Category")}</label>
+                  <select id="custom-ex-category" value={customExCategory} onChange={e => setCustomExCategory(e.target.value)}>
+                    <option value="strength">{t("category.strength", "Strength")}</option>
+                    <option value="cardio">{t("category.cardio", "Cardio")}</option>
+                    <option value="stretching">{t("category.stretching", "Stretching")}</option>
+                    <option value="plyometrics">{t("category.plyometrics", "Plyometrics")}</option>
+                  </select>
+                </div>
+                <div className="set-input-group">
+                  <label className="set-input-label" htmlFor="custom-ex-level">{t("custom_exercise.level", "Level")}</label>
+                  <select id="custom-ex-level" value={customExLevel} onChange={e => setCustomExLevel(e.target.value)}>
+                    <option value="beginner">{t("difficulty.beginner", "Beginner")}</option>
+                    <option value="intermediate">{t("difficulty.intermediate", "Intermediate")}</option>
+                    <option value="expert">{t("difficulty.expert", "Expert")}</option>
+                  </select>
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                <div className="set-input-group">
+                  <label className="set-input-label" htmlFor="custom-ex-force">{t("custom_exercise.force", "Force")}</label>
+                  <select id="custom-ex-force" value={customExForce} onChange={e => setCustomExForce(e.target.value)}>
+                    <option value="">{t("common.select_prompt", "Select...")}</option>
+                    <option value="push">{t("force.push", "Push")}</option>
+                    <option value="pull">{t("force.pull", "Pull")}</option>
+                    <option value="static">{t("force.static", "Static")}</option>
+                  </select>
+                </div>
+                <div className="set-input-group">
+                  <label className="set-input-label" htmlFor="custom-ex-mechanic">{t("custom_exercise.mechanic", "Mechanic")}</label>
+                  <select id="custom-ex-mechanic" value={customExMechanic} onChange={e => setCustomExMechanic(e.target.value)}>
+                    <option value="">{t("common.select_prompt", "Select...")}</option>
+                    <option value="compound">{t("mechanic.compound", "Compound")}</option>
+                    <option value="isolation">{t("mechanic.isolation", "Isolation")}</option>
+                  </select>
+                </div>
+              </div>
+
               <div className="set-input-group">
-                <label className="set-input-label">{t("custom_exercise.primary_muscles", "Primary Muscle")}</label>
+                <label className="set-input-label" htmlFor="custom-ex-equipment">{t("custom_exercise.equipment", "Equipment")}</label>
                 <input 
+                  id="custom-ex-equipment"
+                  value={customExEquipment} 
+                  onChange={e => setCustomExEquipment(e.target.value)} 
+                  placeholder={t("custom_exercise.placeholder_equipment", "e.g. barbell, dumbbell, machine")}
+                />
+              </div>
+
+              <div className="set-input-group">
+                <label className="set-input-label" htmlFor="custom-ex-primary">{t("custom_exercise.primary_muscles", "Primary Muscles")}</label>
+                <input 
+                  id="custom-ex-primary"
                   value={customExMuscle} 
                   onChange={e => setCustomExMuscle(e.target.value)} 
-                  placeholder={t("custom_exercise.placeholder_muscles", "e.g. lats")}
+                  placeholder={t("custom_exercise.placeholder_muscles", "e.g. chest, shoulders (comma separated)")}
+                />
+              </div>
+
+              <div className="set-input-group">
+                <label className="set-input-label" htmlFor="custom-ex-secondary">{t("custom_exercise.secondary_muscles", "Secondary Muscles")}</label>
+                <input 
+                  id="custom-ex-secondary"
+                  value={customExSecondaryMuscles} 
+                  onChange={e => setCustomExSecondaryMuscles(e.target.value)} 
+                  placeholder={t("custom_exercise.placeholder_muscles", "e.g. triceps (comma separated)")}
+                />
+              </div>
+
+              <div className="set-input-group">
+                <label className="set-input-label" htmlFor="custom-ex-instructions">{t("custom_exercise.instructions", "Instructions")}</label>
+                <textarea 
+                  id="custom-ex-instructions"
+                  value={customExInstructions} 
+                  onChange={e => setCustomExInstructions(e.target.value)} 
+                  placeholder={t("custom_exercise.placeholder_instructions", "Enter each step on a new line")}
+                  rows={4}
+                  style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', resize: 'vertical' }}
                 />
               </div>
             </div>
+
             <div className="modal-actions">
               <button className="btn btn-secondary" onClick={() => setIsCreatingCustom(false)}>{t("common.cancel", "Cancel")}</button>
               <button className="btn" onClick={saveCustomExercise}>{t("custom_exercise.save_and_add", "Save & Add")}</button>

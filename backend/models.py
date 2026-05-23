@@ -44,6 +44,12 @@ class Feedback(BaseModel):
 class CustomExercise(BaseModel):
     id: Optional[str] = None
     name: str
-    category: str = "strength"
+    force: Optional[str] = None
+    level: str = "beginner"
+    mechanic: Optional[str] = None
+    equipment: Optional[str] = None
     primaryMuscles: List[str] = []
+    secondaryMuscles: List[str] = []
+    instructions: List[str] = []
+    category: str = "strength"
     user_id: Optional[str] = None
