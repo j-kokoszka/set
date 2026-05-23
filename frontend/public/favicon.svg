@@ -1,10 +1,15 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#aa3bff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-  <!-- Barbell/Dumbbell -->
-  <path d="M6 12h12" />
-  <!-- Left weights -->
-  <rect x="2" height="8" width="4" y="8" rx="1" fill="#aa3bff" />
-  <rect x="0" height="4" width="2" y="10" rx="0.5" fill="#aa3bff" />
-  <!-- Right weights -->
-  <rect x="18" height="8" width="4" y="8" rx="1" fill="#aa3bff" />
-  <rect x="22" height="4" width="2" y="10" rx="0.5" fill="#aa3bff" />
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <!-- Brand color background for better visibility if needed, or just transparent -->
+  <rect width="24" height="24" fill="none"/>
+  
+  <!-- Dumbbell Handle -->
+  <rect x="4" y="11" width="16" height="2" rx="1" fill="#aa3bff"/>
+  
+  <!-- Left Plates -->
+  <rect x="2" y="8" width="3" height="8" rx="1" fill="#aa3bff"/>
+  <rect x="6" y="7" width="2" height="10" rx="1" fill="#aa3bff"/>
+  
+  <!-- Right Plates -->
+  <rect x="16" y="7" width="2" height="10" rx="1" fill="#aa3bff"/>
+  <rect x="19" y="8" width="3" height="8" rx="1" fill="#aa3bff"/>
 </svg>
