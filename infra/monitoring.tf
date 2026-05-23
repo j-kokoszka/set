@@ -116,9 +116,8 @@ resource "aws_iam_role" "grafana_monitoring" {
         Action = "sts:AssumeRole"
         Effect = "Allow"
         Principal = {
-          # Grafana Cloud AWS Account ID (standard for Grafana Cloud)
-          # Note: In a real scenario, this would be provided by Grafana Cloud UI
-          AWS = "arn:aws:iam::466121884175:root" 
+          # Grafana Cloud AWS Account ID
+          AWS = "arn:aws:iam::${var.grafana_cloud_aws_account_id}:root" 
         }
         Condition = {
           StringEquals = {

@@ -82,3 +82,9 @@ variable "grafana_cloud_region" {
   type        = string
   default     = "prod-eu-west-0"
 }
+
+variable "grafana_cloud_aws_account_id" {
+  description = "AWS Account ID provided by Grafana Cloud for AssumeRole integration"
+  type        = string
+  default     = "008923505280"
+}
