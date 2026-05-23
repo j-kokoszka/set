@@ -482,8 +482,8 @@ function App() {
       if (response.ok) {
         fetchHistory();
       } else {
-        const errorData = await response.json();
-        alert(t('workout.error_delete', 'Failed to delete workout: {{error}}', { error: errorData.detail || 'Unknown error' }));
+        const errorMessage = await parseBackendError(response, t('workout.error_delete', 'Failed to delete workout'));
+        alert(errorMessage);
       }
     } catch (error) {
       console.error('Error deleting workout:', error);
@@ -504,11 +504,13 @@ function App() {
       if (response.ok) {
         fetchRoutines();
       } else {
-        alert(t('routines.error_delete', 'Error deleting routine'));
+        const errorMessage = await parseBackendError(response, t('routines.error_delete', 'Error deleting routine'));
+        alert(errorMessage);
       }
     } catch (e) {
       console.error('Error deleting routine:', e);
-      alert(t('routines.error_delete', 'Error deleting routine'));
+      const errorMessage = e instanceof Error ? e.message : t('common.unknown_error', 'An unknown error occurred');
+      alert(`${t('routines.error_delete', 'Error deleting routine')}: ${errorMessage}`);
     }
   };
 

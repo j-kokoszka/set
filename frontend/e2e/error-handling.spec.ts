@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, Page } from '@playwright/test';
 
 test.describe('set app - error handling', () => {
   test.beforeEach(async ({ page }) => {
@@ -21,7 +21,7 @@ test.describe('set app - error handling', () => {
     });
   });
 
-  async function login(page: any) {
+  async function login(page: Page) {
     await page.goto('/');
     await page.getByLabel('Username').fill('testuser');
     await page.getByRole('button', { name: 'Mock Login' }).click();
