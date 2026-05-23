@@ -45,6 +45,7 @@
     "title": "Routines",
     "loading": "Loading routines...",
     "no_routines": "No routines found. Templates help you start workouts faster!",
+    "no_routines_found": "No routines found. Create one in the Routines tab!",
     "create_first": "Create My First Routine",
     "create_new": "+ Create New Routine",
     "save_as_routine": "Save as Routine",
