@@ -17,7 +17,7 @@ resource "aws_lambda_function" "api" {
       DYNAMODB_TABLE         = aws_dynamodb_table.workouts.name
       MOCK_AUTH              = "false"
       LOG_LEVEL              = var.log_level
-      COGNITO_USER_POOL_ID   = aws_cognito_user_pool.user_pool.id
+      COGNITO_USER_POOL_ID   = aws_cognito_user_pool.user_pool_v2.id
       COGNITO_APP_CLIENT_ID  = aws_cognito_user_pool_client.client.id
       SET_AWS_REGION         = var.aws_region
       GITHUB_PAT_SECRET_ID   = aws_secretsmanager_secret.github_pat.name
