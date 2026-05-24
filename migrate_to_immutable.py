@@ -4,7 +4,6 @@ import time
 import argparse
 import sys
 from decimal import Decimal
-from botocore.exceptions import ClientError
 
 def migrate(external_id, table_name):
     """
