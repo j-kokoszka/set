@@ -671,6 +671,22 @@ function App() {
     const firstDay = new Date(year, month, 1).getDay();
     const daysInMonth = new Date(year, month + 1, 0).getDate();
     
+    // Pre-group data by date for O(1) lookup in loop
+    const historyByDate: Record<string, WorkoutHistoryItem[]> = {};
+    history.forEach(w => {
+      const date = w.sk.split('#')[1]?.split('T')[0];
+      if (date) {
+        if (!historyByDate[date]) historyByDate[date] = [];
+        historyByDate[date].push(w);
+      }
+    });
+
+    const planByDate: Record<string, PlannedWorkout[]> = {};
+    upcomingPlan.forEach(p => {
+      if (!planByDate[p.date]) planByDate[p.date] = [];
+      planByDate[p.date].push(p);
+    });
+
     const days = [];
     // Adjusted for Monday start (0=Mon, 6=Sun)
     const adjustedFirstDay = (firstDay + 6) % 7;
@@ -681,20 +697,20 @@ function App() {
     
     for (let d = 1; d <= daysInMonth; d++) {
       const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-      const dayPlan = upcomingPlan.filter(p => p.date === dateStr);
-      const dayHistory = history.filter(w => w.sk.split('#')[1]?.startsWith(dateStr));
+      const dayPlan = planByDate[dateStr] || [];
+      const dayHistory = historyByDate[dateStr] || [];
       
       days.push(
         <div key={d} className="calendar-day">
           <span className="day-number">{d}</span>
           <div className="day-content">
-            {dayHistory.map((w, idx) => (
-              <div key={`hist-${idx}`} className="calendar-event completed" onClick={() => { setView('history'); setIsMenuOpen(false); }}>
+            {dayHistory.map((w) => (
+              <div key={w.sk} className="calendar-event completed" onClick={() => { setView('history'); setIsMenuOpen(false); }}>
                 {w.name} ✓
               </div>
             ))}
-            {dayPlan.map((p, idx) => (
-              <div key={`plan-${idx}`} className="calendar-event" onClick={() => startFromPlanned(p)}>
+            {dayPlan.map((p) => (
+              <div key={`${p.date}-${p.routine.id}`} className="calendar-event" onClick={() => startFromPlanned(p)}>
                 {p.routine.name}
               </div>
             ))}
