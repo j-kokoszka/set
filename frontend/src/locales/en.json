@@ -27,6 +27,8 @@
     "add_set": "+ Set",
     "remove_set": "Remove set",
     "remove_exercise": "Remove exercise",
+    "move_up": "Move up",
+    "move_down": "Move down",
     "completed": "Completed",
     "unit": { "kg": "kg", "lbs": "lbs" },
     "error_save": "Failed to save workout",

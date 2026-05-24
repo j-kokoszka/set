@@ -132,6 +132,13 @@ function App() {
   const [upcomingPlan, setUpcomingPlan] = useState<PlannedWorkout[]>([]);
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [loading, setLoading] = useState(false);
+
+  const timelineItems = useMemo(() => {
+    return [
+      ...history.map(w => ({ type: 'history' as const, date: w.sk.split('#')[1] || '', data: w })),
+      ...upcomingPlan.map(p => ({ type: 'plan' as const, date: p.date, data: p }))
+    ].sort((a, b) => b.date.localeCompare(a.date));
+  }, [history, upcomingPlan]);
   const [loadingExercises, setLoadingExercises] = useState(false);
   const [isLoadingExternal, setIsLoadingExternal] = useState(false);
   const [isAdding, setIsAdding] = useState(false);
@@ -482,8 +489,22 @@ function App() {
   };
 
   const removeExercise = (index: number) => {
-    setExercises(exercises.filter((_, i) => i !== index));
+    setExercises(prev => prev.filter((_, i) => i !== index));
   };
+
+  const moveExercise = (index: number, direction: 'up' | 'down') => {
+    setExercises(prev => {
+      const newExercises = [...prev];
+      const targetIndex = direction === 'up' ? index - 1 : index + 1;
+
+      if (targetIndex >= 0 && targetIndex < newExercises.length) {
+        [newExercises[index], newExercises[targetIndex]] = [newExercises[targetIndex], newExercises[index]];
+      }
+
+      return newExercises;
+    });
+  };
+
 
   const addSet = (exerciseIndex: number) => {
     setExercises(prev => prev.map((ex, exIdx) => {
@@ -1174,6 +1195,26 @@ function App() {
               <div key={exIdx} className="exercise-row">
                 <div className="exercise-header">
                   <div className="exercise-title">
+                    <div style={{ display: 'flex', gap: '0.25rem', marginRight: '0.5rem' }}>
+                      <button 
+                        className="btn-secondary btn-small"
+                        onClick={() => moveExercise(exIdx, 'up')}
+                        disabled={exIdx === 0}
+                        title={t("workout.move_up", "Move up")}
+                        style={{ padding: '2px 4px', fontSize: '0.8rem' }}
+                      >
+                        ↑
+                      </button>
+                      <button 
+                        className="btn-secondary btn-small"
+                        onClick={() => moveExercise(exIdx, 'down')}
+                        disabled={exIdx === exercises.length - 1}
+                        title={t("workout.move_down", "Move down")}
+                        style={{ padding: '2px 4px', fontSize: '0.8rem' }}
+                      >
+                        ↓
+                      </button>
+                    </div>
                     <span>{ex.name}</span>
                     <button 
                       className="btn-danger"
@@ -1564,26 +1605,20 @@ function App() {
               <h3 style={{ fontSize: '0.9rem', color: 'var(--text-muted)', marginBottom: '1rem', textTransform: 'uppercase' }}>{t("plan.timeline", "Timeline")}</h3>
               
               {/* Unified Timeline: History + Upcoming Plan */}
-              {(() => {
-                const timelineItems = [
-                  ...history.map(w => ({ type: 'history' as const, date: w.sk.split('#')[1], data: w })),
-                  ...upcomingPlan.map(p => ({ type: 'plan' as const, date: p.date, data: p }))
-                ].sort((a, b) => b.date.localeCompare(a.date));
-
-                if (timelineItems.length === 0) {
-                  return <p style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '4rem' }}>{t("plan.no_activity", "No activity or upcoming workouts.")}</p>;
-                }
-
-                return timelineItems.map((item) => {
+              {timelineItems.length === 0 ? (
+                <p style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '4rem' }}>{t("plan.no_activity", "No activity or upcoming workouts.")}</p>
+              ) : (
+                timelineItems.map((item) => {
                   if (item.type === 'history') {
                     const w = item.data as WorkoutHistoryItem;
+                    const datePart = w.sk.split('#')[1] || '';
                     return (
                       <div key={w.sk} className="card history-item" style={{ borderLeft: '4px solid var(--success-color)' }}>
                         <div className="item-header">
                           <div className="item-title">
                             <span className="item-name">{w.name} ✓</span>
                             <span className="item-meta">
-                              {new Date(w.sk.split('#')[1]).toLocaleDateString(i18n.resolvedLanguage, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                              {(datePart ? new Date(datePart) : new Date(0)).toLocaleDateString(i18n.resolvedLanguage, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
                             </span>
                           </div>
                           <div style={{ display: 'flex', gap: '0.25rem' }}>
@@ -1614,8 +1649,9 @@ function App() {
                     );
                   } else {
                     const p = item.data as PlannedWorkout;
+                    const timelineIdx = timelineItems.indexOf(item);
                     return (
-                      <div key={`${p.date}-${p.routine.id}`} className="card plan-item">
+                      <div key={`plan-${p.date}-${p.routine.id}-${timelineIdx}`} className="card plan-item">
                         <div className="item-header">
                           <div className="item-title">
                             <span className="item-name">{p.routine.name}</span>
@@ -1631,15 +1667,15 @@ function App() {
                         <div className="tag-list">
                           {p.routine.exercises.map((ex, eIdx) => (
                             <span key={eIdx} className="tag">
-                              {ex.exercise_name} ({ex.sets.length} sets, {ex.sets[0]?.weight}{ex.sets[0]?.unit})
+                              {ex.exercise_name} ({ex.sets.length} sets{ex.sets.length > 0 ? `, ${ex.sets[0]?.weight}${ex.sets[0]?.unit}` : ""})
                             </span>
                           ))}
                         </div>
                       </div>
                     );
                   }
-                });
-              })()}
+                })
+              )}
             </div>
           ) : (
             <div className="calendar-container card">
