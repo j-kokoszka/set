@@ -80,7 +80,7 @@ def test_get_current_user_mock_success(monkeypatch):
     user_id = asyncio.run(auth.get_current_user("Bearer mock_user123"))
     assert user_id == "uuid-123"
     mock_db.get_or_create_internal_user_id.assert_called_with("user123")
-...
+
 @pytest.mark.asyncio
 async def test_get_current_user_token_use_validation(monkeypatch):
     monkeypatch.setattr(auth, "MOCK_AUTH", False)
