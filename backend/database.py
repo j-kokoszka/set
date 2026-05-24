@@ -6,7 +6,7 @@ import time
 from decimal import Decimal
 from botocore.exceptions import ClientError
 from typing import List, Optional
-from models import Workout, WorkoutRoutine, CustomExercise, Schedule
+from models import Workout, WorkoutRoutine, CustomExercise, Schedule, GlobalExercise, PersonalRecord, VolumeAggregate
 import structlog
 
 logger = structlog.get_logger()
@@ -145,7 +145,7 @@ class Database:
             
             if not workout:
                 logger.warning("Workout not found for deletion", user_id=user_id, workout_id=workout_id)
-                return False
+                return None
 
             with self.table.batch_writer() as batch:
                 batch.delete_item(Key={'pk': pk, 'sk': sk})
@@ -156,7 +156,7 @@ class Database:
                         batch.delete_item(Key={'pk': pk, 'sk': ex_sk})
             
             logger.info("Workout deleted successfully", workout_id=workout_id)
-            return True
+            return from_dynamo_item(workout)
         except Exception as e:
             logger.error("Error deleting from DynamoDB", error=str(e), user_id=user_id, workout_id=workout_id)
             raise e
@@ -165,10 +165,10 @@ class Database:
         try:
             logger.info("Updating workout", user_id=workout.user_id, workout_id=workout.id, old_date=old_date, new_date=workout.date)
             # Delete old record
-            self.delete_workout(workout.user_id, workout.id, old_date)
+            old_workout = self.delete_workout(workout.user_id, workout.id, old_date)
             # Save new record
             self.save_workout(workout)
-            return True
+            return old_workout
         except Exception as e:
             logger.error("Error updating in DynamoDB", error=str(e), user_id=workout.user_id, workout_id=workout.id)
             raise e
@@ -312,6 +312,94 @@ class Database:
             return from_dynamo_item(response.get('Item'))
         except Exception as e:
             logger.error("Error fetching routine by id", error=str(e), user_id=user_id, routine_id=routine_id)
+            raise e
+
+    def save_global_exercise(self, exercise: GlobalExercise):
+        try:
+            ex_data = to_dynamo_item(exercise.model_dump())
+            item = {
+                'pk': "CATALOG#EXERCISES",
+                'sk': f"EXERCISE#{exercise.id}",
+                'type': 'GLOBAL_EXERCISE',
+                **ex_data
+            }
+            logger.info("Saving global exercise", ex_id=exercise.id, name=exercise.name)
+            self.table.put_item(Item=item)
+            return True
+        except Exception as e:
+            logger.error("Error saving global exercise", error=str(e), ex_id=exercise.id)
+            raise e
+
+    def get_global_exercises(self) -> List[dict]:
+        try:
+            response = self.table.query(
+                KeyConditionExpression="pk = :pk AND begins_with(sk, :sk)",
+                ExpressionAttributeValues={
+                    ':pk': "CATALOG#EXERCISES",
+                    ':sk': "EXERCISE#"
+                }
+            )
+            return from_dynamo_item(response.get('Items', []))
+        except Exception as e:
+            logger.error("Error querying global exercises", error=str(e))
+            raise e
+
+    def get_personal_records(self, user_id: str) -> List[dict]:
+        try:
+            response = self.table.query(
+                KeyConditionExpression="pk = :pk AND begins_with(sk, :sk)",
+                ExpressionAttributeValues={
+                    ':pk': f"USER#{user_id}",
+                    ':sk': "PR#"
+                }
+            )
+            return from_dynamo_item(response.get('Items', []))
+        except Exception as e:
+            logger.error("Error querying PRs", error=str(e), user_id=user_id)
+            raise e
+
+    def save_personal_record(self, pr: PersonalRecord):
+        try:
+            pr_data = to_dynamo_item(pr.model_dump())
+            item = {
+                'pk': f"USER#{pr.user_id}",
+                'sk': f"PR#{pr.exercise_name}",
+                'type': 'PERSONAL_RECORD',
+                **pr_data
+            }
+            self.table.put_item(Item=item)
+            return True
+        except Exception as e:
+            logger.error("Error saving PR", error=str(e), user_id=pr.user_id, exercise=pr.exercise_name)
+            raise e
+
+    def get_volume_aggregates(self, user_id: str) -> List[dict]:
+        try:
+            response = self.table.query(
+                KeyConditionExpression="pk = :pk AND begins_with(sk, :sk)",
+                ExpressionAttributeValues={
+                    ':pk': f"USER#{user_id}",
+                    ':sk': "VOL#"
+                }
+            )
+            return from_dynamo_item(response.get('Items', []))
+        except Exception as e:
+            logger.error("Error querying volume aggregates", error=str(e), user_id=user_id)
+            raise e
+
+    def save_volume_aggregate(self, aggregate: VolumeAggregate):
+        try:
+            agg_data = to_dynamo_item(aggregate.model_dump())
+            item = {
+                'pk': f"USER#{aggregate.user_id}",
+                'sk': f"VOL#{aggregate.period}",
+                'type': 'VOLUME_AGGREGATE',
+                **agg_data
+            }
+            self.table.put_item(Item=item)
+            return True
+        except Exception as e:
+            logger.error("Error saving volume aggregate", error=str(e), user_id=aggregate.user_id, period=aggregate.period)
             raise e
 
     def get_or_create_internal_user_id(self, external_id: str) -> str:

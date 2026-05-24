@@ -101,6 +101,16 @@
     "loading": "Ładowanie bazy ćwiczeń...",
     "select_category": "Wybierz Kategorię"
   },
+  "analytics": {
+    "title": "Analityka",
+    "volume_trend": "Miesięczna Objętość (kg)",
+    "muscle_distribution": "Skupienie na mięśniach",
+    "personal_records": "Rekordy Życiowe",
+    "no_prs": "Brak rekordów. Trenuj dalej!",
+    "est_1rm": "Szac. 1RM",
+    "max_weight": "Maks. Ciężar",
+    "achieved_on": "Osiągnięto dnia"
+  },
   "custom_exercise": {
     "title": "Utwórz własne ćwiczenie",
     "name": "Nazwa ćwiczenia",
