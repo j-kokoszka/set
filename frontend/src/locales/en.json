@@ -57,6 +57,7 @@
     "date": "Date",
     "error_save": "Failed to save schedule",
     "confirm_delete": "Delete this schedule?",
+    "delete_planned": "Remove planned workout",
     "enable_progression": "Auto Progression",
     "cond_all": "All Sets",
     "cond_last": "Last Set"

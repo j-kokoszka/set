@@ -57,6 +57,7 @@
     "date": "Data",
     "error_save": "Nie udało się zapisać planu",
     "confirm_delete": "Usunąć ten plan?",
+    "delete_planned": "Usuń zaplanowany trening",
     "enable_progression": "Auto Progresja",
     "cond_all": "Wszystkie Serie",
     "cond_last": "Ostatnia Seria"
