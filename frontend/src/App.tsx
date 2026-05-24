@@ -1270,7 +1270,7 @@ function App() {
                           <input 
                             type="number" 
                             step="any"
-                            value={ex.progression.increment_weight} 
+                            value={ex.progression.increment_weight || ''} 
                             onFocus={(e) => e.target.select()}
                             onChange={(e) => {
                               updateProgression(exIdx, 'increment_weight', e.target.value);
@@ -1283,7 +1283,7 @@ function App() {
                           <span className="set-input-label">+{t("workout.reps", "Reps")}</span>
                           <input 
                             type="number" 
-                            value={ex.progression.increment_reps} 
+                            value={ex.progression.increment_reps || ''} 
                             onFocus={(e) => e.target.select()}
                             onChange={(e) => {
                               updateProgression(exIdx, 'increment_reps', e.target.value);
