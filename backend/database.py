@@ -50,12 +50,12 @@ class Database:
             self.db = boto3.resource(
                 'dynamodb', 
                 endpoint_url=endpoint_url, 
-                region_name=os.getenv("AWS_DEFAULT_REGION", "us-east-1"),
+                region_name=os.getenv("SET_AWS_REGION", os.getenv("AWS_DEFAULT_REGION", "us-east-1")),
                 aws_access_key_id="local",
                 aws_secret_access_key="local"
             )
         else:
-            self.db = boto3.resource('dynamodb', region_name=os.getenv("AWS_DEFAULT_REGION", "us-east-1"))
+            self.db = boto3.resource('dynamodb', region_name=os.getenv("SET_AWS_REGION", os.getenv("AWS_DEFAULT_REGION", "us-east-1")))
         
         self.table = self.db.Table(self.table_name)
 
