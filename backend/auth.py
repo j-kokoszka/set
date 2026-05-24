@@ -116,9 +116,10 @@ async def get_current_user(authorization: Optional[str] = Header(None)):
             raise JWTError("Token not intended for this application")
 
         # 5. Extract user identifier
-        user_id = payload.get("sub") or payload.get("username") or payload.get("email")
+        # Prioritize email as a stable identifier across User Pool recreations.
+        user_id = payload.get("email") or payload.get("sub") or payload.get("username")
         if not user_id:
-            raise JWTError("Token missing user identifier")
+            raise JWTError("Token missing user identifier (email, sub, or username)")
             
         return user_id
 

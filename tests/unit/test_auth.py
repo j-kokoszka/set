@@ -94,25 +94,25 @@ async def test_get_current_user_token_use_validation(monkeypatch):
         nonlocal decoded_options
         decoded_options = kwargs.get("options", {})
         if "id_token" in token:
-            return {"token_use": "id", "aud": "client123", "sub": "user123"}
+            return {"token_use": "id", "aud": "client123", "sub": "sub123", "email": "user@example.com"}
         if "access_token" in token:
-            return {"token_use": "access", "client_id": "client123", "sub": "user123"}
+            return {"token_use": "access", "client_id": "client123", "sub": "sub123"}
         if "wrong_client" in token:
-            return {"token_use": "id", "aud": "wrong", "sub": "user123"}
+            return {"token_use": "id", "aud": "wrong", "sub": "sub123"}
         if "invalid_use" in token:
-            return {"token_use": "something_else", "sub": "user123"}
+            return {"token_use": "something_else", "sub": "sub123"}
         return {}
 
     monkeypatch.setattr("jose.jwt.decode", mock_decode)
 
-    # Test ID token success
+    # Test ID token success - should prioritize email
     user_id = await auth.get_current_user("Bearer id_token")
-    assert user_id == "user123"
+    assert user_id == "user@example.com"
     assert decoded_options.get("verify_at_hash") is False
 
-    # Test Access token success
+    # Test Access token success - should fall back to sub
     user_id = await auth.get_current_user("Bearer access_token")
-    assert user_id == "user123"
+    assert user_id == "sub123"
 
     # Test wrong client ID
     with pytest.raises(HTTPException) as excinfo:
