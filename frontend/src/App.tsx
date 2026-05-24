@@ -6,8 +6,8 @@ import { generateCodeVerifier, generateCodeChallenge, base64UrlDecode, type JwtP
 import FeedbackButton from './FeedbackButton'
 
 interface Set {
-  reps: number;
-  weight: number;
+  reps: number | string;
+  weight: number | string;
   unit: 'kg' | 'lbs';
   difficulty?: 'easy' | 'moderate' | 'hard' | 'pass';
   completed?: boolean;
@@ -51,15 +51,15 @@ interface WorkoutHistoryItem {
 }
 
 interface RoutineExerciseSet {
-  reps?: number;
-  weight?: number;
+  reps?: number | string;
+  weight?: number | string;
   unit: 'kg' | 'lbs';
 }
 
 interface ProgressionConfig {
   enabled: boolean;
-  increment_weight: number;
-  increment_reps: number;
+  increment_weight: number | string;
+  increment_reps: number | string;
   condition: 'all_completed' | 'last_set_completed';
 }
 
@@ -89,6 +89,7 @@ interface PlannedWorkout {
   date: string;
   routine: WorkoutRoutine;
   is_recurring: boolean;
+  schedule_id?: string;
 }
 
 const KG_TO_LBS = 2.20462;
@@ -131,7 +132,18 @@ function App() {
   const [routines, setRoutines] = useState<WorkoutRoutine[]>([]);
   const [upcomingPlan, setUpcomingPlan] = useState<PlannedWorkout[]>([]);
   const [schedules, setSchedules] = useState<Schedule[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loadingCount, setLoadingCount] = useState(0);
+  const isLoading = useMemo(() => loadingCount > 0, [loadingCount]);
+
+  const withLoading = useCallback(async <T,>(fn: () => Promise<T>): Promise<T> => {
+    setLoadingCount(prev => prev + 1);
+    try {
+      return await fn();
+    } finally {
+      setLoadingCount(prev => Math.max(0, prev - 1));
+    }
+  }, []);
+
 
   const timelineItems = useMemo(() => {
     return [
@@ -305,59 +317,59 @@ function App() {
   const fetchHistory = useCallback(async () => {
     const validToken = await getValidToken();
     if (!validToken) return;
-    setLoading(true);
-    try {
-      const response = await fetch(`${BASE_URL}/workouts`, {
-        headers: { 'Authorization': `Bearer ${validToken}` }
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setHistory(data);
+    
+    await withLoading(async () => {
+      try {
+        const response = await fetch(`${BASE_URL}/workouts`, {
+          headers: { 'Authorization': `Bearer ${validToken}` }
+        });
+        if (response.ok) {
+          const data = await response.json();
+          setHistory(data);
+        }
+      } catch (error) {
+        console.error('Error fetching history:', error);
       }
-    } catch (error) {
-      console.error('Error fetching history:', error);
-    } finally {
-      setLoading(false);
-    }
-  }, [getValidToken]);
+    });
+  }, [getValidToken, withLoading]);
 
   const fetchRoutines = useCallback(async () => {
     const validToken = await getValidToken();
     if (!validToken) return;
-    setLoading(true);
-    try {
-      const response = await fetch(`${BASE_URL}/routines`, {
-        headers: { 'Authorization': `Bearer ${validToken}` }
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setRoutines(data);
+    
+    await withLoading(async () => {
+      try {
+        const response = await fetch(`${BASE_URL}/routines`, {
+          headers: { 'Authorization': `Bearer ${validToken}` }
+        });
+        if (response.ok) {
+          const data = await response.json();
+          setRoutines(data);
+        }
+      } catch (error) {
+        console.error('Error fetching routines:', error);
       }
-    } catch (error) {
-      console.error('Error fetching routines:', error);
-    } finally {
-      setLoading(false);
-    }
-  }, [getValidToken]);
+    });
+  }, [getValidToken, withLoading]);
 
   const fetchPlan = useCallback(async () => {
     const validToken = await getValidToken();
     if (!validToken) return;
-    setLoading(true);
-    try {
-      const response = await fetch(`${BASE_URL}/plan/upcoming`, {
-        headers: { 'Authorization': `Bearer ${validToken}` }
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setUpcomingPlan(data);
+    
+    await withLoading(async () => {
+      try {
+        const response = await fetch(`${BASE_URL}/plan/upcoming`, {
+          headers: { 'Authorization': `Bearer ${validToken}` }
+        });
+        if (response.ok) {
+          const data = await response.json();
+          setUpcomingPlan(data);
+        }
+      } catch (error) {
+        console.error('Error fetching plan:', error);
       }
-    } catch (error) {
-      console.error('Error fetching plan:', error);
-    } finally {
-      setLoading(false);
-    }
-  }, [getValidToken]);
+    });
+  }, [getValidToken, withLoading]);
 
   const fetchSchedules = useCallback(async () => {
     const validToken = await getValidToken();
@@ -377,10 +389,12 @@ function App() {
 
   useEffect(() => {
     if (token) {
-      fetchHistory();
-      fetchRoutines();
-      fetchPlan();
-      fetchSchedules();
+      Promise.all([
+        fetchHistory(),
+        fetchRoutines(),
+        fetchPlan(),
+        fetchSchedules()
+      ]);
     }
   }, [token, fetchHistory, fetchRoutines, fetchPlan, fetchSchedules]);
 
@@ -585,7 +599,7 @@ function App() {
         headers: { 'Authorization': `Bearer ${validToken}` }
       });
       if (response.ok) {
-        fetchHistory();
+        Promise.all([fetchHistory(), fetchPlan()]);
       } else {
         const errorMessage = await parseBackendError(response, t('workout.error_delete', 'Failed to delete workout'));
         alert(errorMessage);
@@ -657,8 +671,7 @@ function App() {
 
       if (response.ok) {
         setIsScheduling(false);
-        fetchSchedules();
-        fetchPlan();
+        Promise.all([fetchSchedules(), fetchPlan()]);
       } else {
         alert(t("plan.error_save", "Failed to save schedule"));
       }
@@ -678,8 +691,7 @@ function App() {
         headers: { 'Authorization': `Bearer ${validToken}` }
       });
       if (response.ok) {
-        fetchSchedules();
-        fetchPlan();
+        Promise.all([fetchSchedules(), fetchPlan()]);
       }
     } catch (e) {
       console.error('Error deleting schedule:', e);
@@ -921,7 +933,7 @@ function App() {
           if (sIdx !== setIndex) return s;
           const currentUnit = s.unit || 'kg';
           const newUnit = currentUnit === 'kg' ? 'lbs' : 'kg';
-          let newWeight = s.weight;
+          let newWeight = typeof s.weight === 'string' ? parseFloat(s.weight) || 0 : s.weight;
           if (newWeight > 0) {
             if (newUnit === 'lbs') {
               newWeight = Math.round(newWeight * KG_TO_LBS * 10) / 10;
@@ -954,7 +966,11 @@ function App() {
       exercises: exercises.map(ex => ({
         exercise_id: ex.id,
         exercise_name: ex.name,
-        sets: ex.sets
+        sets: ex.sets.map(s => ({
+          ...s,
+          reps: typeof s.reps === 'string' ? parseInt(s.reps, 10) || 0 : s.reps,
+          weight: typeof s.weight === 'string' ? parseFloat(s.weight) || 0 : s.weight
+        }))
       })),
     };
 
@@ -984,7 +1000,7 @@ function App() {
         setEditingWorkoutId(null);
         setEditingWorkoutDate(null);
         setView('plan');
-        fetchHistory();
+        Promise.all([fetchHistory(), fetchPlan()]);
       } else {
         const errorMessage = await parseBackendError(response, t('workout.error_save', 'Failed to save workout'));
         alert(errorMessage);
@@ -1004,10 +1020,15 @@ function App() {
         exercise_id: ex.id,
         exercise_name: ex.name,
         sets: ex.sets.map(s => ({
-          reps: s.reps,
-          weight: s.weight,
+          reps: typeof s.reps === 'string' ? parseInt(s.reps, 10) || 0 : s.reps,
+          weight: typeof s.weight === 'string' ? parseFloat(s.weight) || 0 : s.weight,
           unit: s.unit
-        }))
+        })),
+        progression: ex.progression ? {
+          ...ex.progression,
+          increment_weight: typeof ex.progression.increment_weight === 'string' ? parseFloat(ex.progression.increment_weight) || 0 : ex.progression.increment_weight,
+          increment_reps: typeof ex.progression.increment_reps === 'string' ? parseInt(ex.progression.increment_reps, 10) || 0 : ex.progression.increment_reps,
+        } : undefined
       }))
     };
 
@@ -1248,12 +1269,13 @@ function App() {
                           <span className="set-input-label">+{t("workout.weight", "Weight")}</span>
                           <input 
                             type="number" 
-                            step="0.5"
-                            value={ex.progression.increment_weight} 
+                            step="any"
+                            value={ex.progression.increment_weight || ''} 
+                            onFocus={(e) => e.target.select()}
                             onChange={(e) => {
-                              const val = parseFloat(e.target.value);
-                              if (!isNaN(val)) updateProgression(exIdx, 'increment_weight', val);
-                            }}
+                              updateProgression(exIdx, 'increment_weight', e.target.value);
+                            }} 
+
                             style={{ width: '60px', padding: '0.2rem' }}
                           />
                         </div>
@@ -1261,11 +1283,12 @@ function App() {
                           <span className="set-input-label">+{t("workout.reps", "Reps")}</span>
                           <input 
                             type="number" 
-                            value={ex.progression.increment_reps} 
+                            value={ex.progression.increment_reps || ''} 
+                            onFocus={(e) => e.target.select()}
                             onChange={(e) => {
-                              const val = parseInt(e.target.value);
-                              if (!isNaN(val)) updateProgression(exIdx, 'increment_reps', val);
-                            }}
+                              updateProgression(exIdx, 'increment_reps', e.target.value);
+                            }} 
+
                             style={{ width: '50px', padding: '0.2rem' }}
                           />
                         </div>
@@ -1315,11 +1338,12 @@ function App() {
                           <div className="input-with-badge">
                             <input 
                               type="number" 
+                              step="any"
                               value={set.weight || ''} 
                               placeholder="0"
+                              onFocus={(e) => e.target.select()}
                               onChange={(e) => {
-                                const val = parseFloat(e.target.value);
-                                if (!isNaN(val)) updateSet(exIdx, sIdx, 'weight', val);
+                                updateSet(exIdx, sIdx, 'weight', e.target.value);
                               }} 
                               style={{ paddingRight: '2.8rem' }}
                             />
@@ -1338,9 +1362,9 @@ function App() {
                             type="number" 
                             value={set.reps || ''} 
                             placeholder="0"
+                            onFocus={(e) => e.target.select()}
                             onChange={(e) => {
-                              const val = parseInt(e.target.value);
-                              if (!isNaN(val)) updateSet(exIdx, sIdx, 'reps', val);
+                              updateSet(exIdx, sIdx, 'reps', e.target.value);
                             }} 
                           />
                         </div>
@@ -1575,7 +1599,7 @@ function App() {
             </div>
           </div>
 
-          {loading ? (
+          {isLoading ? (
             <p style={{ textAlign: 'center', padding: '2rem' }}>{t("plan.loading", "Loading plan...")}</p>
           ) : planSubView === 'list' ? (
             <div className="plan-list">
@@ -1659,9 +1683,20 @@ function App() {
                               {p.is_recurring && <span className="tag" style={{ marginLeft: '0.5rem' }}>{t("plan.recurring", "Recurring")}</span>}
                             </span>
                           </div>
-                          <button className="btn btn-small" onClick={() => startFromPlanned(p)}>
-                            {t("plan.start_workout", "Start")}
-                          </button>
+                          <div style={{ display: 'flex', gap: '0.25rem' }}>
+                            <button className="btn btn-small" onClick={() => startFromPlanned(p)}>
+                              {t("plan.start_workout", "Start")}
+                            </button>
+                            {p.schedule_id && (
+                              <button 
+                                className="btn-danger btn-small" 
+                                onClick={() => deleteSchedule(p.schedule_id!)}
+                                title={t("plan.delete_planned", "Remove planned workout")}
+                              >
+                                ✕
+                              </button>
+                            )}
+                          </div>
                         </div>
                         <div className="tag-list">
                           {p.routine.exercises.map((ex, eIdx) => (
@@ -1684,7 +1719,7 @@ function App() {
         </div>
       ) : (
         <div className="routines-list">
-          {loading ? (
+          {isLoading ? (
             <p style={{ textAlign: 'center', padding: '2rem' }}>{t("routines.loading", "Loading routines...")}</p>
           ) : routines.length === 0 ? (
             <div className="card" style={{ textAlign: 'center', padding: '4rem' }}>
@@ -1909,7 +1944,7 @@ function App() {
               <div className="set-input-group mb-1">
                 <label className="set-input-label">{t("plan.day_of_week", "Day of Week")}</label>
                 <select value={selectedDay} onChange={e => {
-                  const val = parseInt(e.target.value);
+                  const val = parseInt(e.target.value, 10);
                   if (!isNaN(val)) setSelectedDay(val);
                 }}>
                   {[

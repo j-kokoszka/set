@@ -551,7 +551,8 @@ def get_upcoming_plan(days: int = 14, user_id: str = Depends(get_current_user)):
                         upcoming.append(PlannedWorkout(
                             date=iso_date,
                             routine=progressed_routine,
-                            is_recurring=(s.get('schedule_type') == 'recurring')
+                            is_recurring=(s.get('schedule_type') == 'recurring'),
+                            schedule_id=s.get('id')
                         ))
         
         # Sort by date
