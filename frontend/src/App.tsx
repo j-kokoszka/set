@@ -1852,13 +1852,13 @@ function App() {
                       outerRadius={80}
                       paddingAngle={5}
                       dataKey="value"
-                      label={({ percent }) => `${(percent * 100).toFixed(0)}%`}
+                      label={({ percent }: { percent: number }) => `${(percent * 100).toFixed(0)}%`}
                     >
                       {Object.entries(volumeAnalytics[volumeAnalytics.length - 1]?.muscles || {}).filter(([, v]) => v > 0).map((_entry, index) => (
                         <Cell key={`cell-${index}`} fill={`hsl(${index * 137.5}, 70%, 50%)`} />
                       ))}
                     </Pie>
-                    <Tooltip formatter={(value: number, name: string, props: any) => [`${value}kg (${props.payload.percent}%)`, name]} />
+                    <Tooltip formatter={(value: number, name: string, props: { payload: { percent: number } }) => [`${value}kg (${props.payload.percent}%)`, name]} />
                     <Legend />
                   </PieChart>
                 </ResponsiveContainer>
