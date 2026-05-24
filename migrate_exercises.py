@@ -97,28 +97,40 @@ def migrate():
     translated = translate_exercises(exercises)
     
     count = 0
-    for ex_data in translated:
-        try:
-            # Map JSON structure to GlobalExercise model
-            ex = GlobalExercise(
-                id=ex_data.get('id', ex_data['name'].replace(' ', '_')),
-                name=ex_data['name'],
-                translations=ex_data.get('translations', {}),
-                force=ex_data.get('force'),
-                level=ex_data.get('level', 'beginner'),
-                mechanic=ex_data.get('mechanic'),
-                equipment=ex_data.get('equipment'),
-                primaryMuscles=ex_data.get('primaryMuscles', []),
-                secondaryMuscles=ex_data.get('secondaryMuscles', []),
-                instructions=ex_data.get('instructions', []),
-                category=ex_data.get('category', 'strength')
-            )
-            db.save_global_exercise(ex)
-            count += 1
-            if count % 100 == 0:
-                logger.info("Migrated exercises", count=count)
-        except Exception as e:
-            logger.error("Failed to migrate exercise", error=str(e), name=ex_data.get('name'))
+    from database import to_dynamo_item
+    
+    with db.table.batch_writer() as batch:
+        for ex_data in translated:
+            try:
+                # Map JSON structure to GlobalExercise model
+                ex = GlobalExercise(
+                    id=ex_data.get('id', ex_data['name'].replace(' ', '_')),
+                    name=ex_data['name'],
+                    translations=ex_data.get('translations', {}),
+                    force=ex_data.get('force'),
+                    level=ex_data.get('level', 'beginner'),
+                    mechanic=ex_data.get('mechanic'),
+                    equipment=ex_data.get('equipment'),
+                    primaryMuscles=ex_data.get('primaryMuscles', []),
+                    secondaryMuscles=ex_data.get('secondaryMuscles', []),
+                    instructions=ex_data.get('instructions', []),
+                    category=ex_data.get('category', 'strength')
+                )
+                
+                ex_item = to_dynamo_item(ex.model_dump())
+                item = {
+                    'pk': "CATALOG#EXERCISES",
+                    'sk': f"EXERCISE#{ex.id}",
+                    'type': 'GLOBAL_EXERCISE',
+                    **ex_item
+                }
+                
+                batch.put_item(Item=item)
+                count += 1
+                if count % 100 == 0:
+                    logger.info("Migrated exercises", count=count)
+            except Exception as e:
+                logger.error("Failed to migrate exercise", error=str(e), name=ex_data.get('name'))
 
     logger.info("Migration complete", total=count)
 

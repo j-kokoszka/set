@@ -332,28 +332,52 @@ class Database:
 
     def get_global_exercises(self) -> List[dict]:
         try:
-            response = self.table.query(
-                KeyConditionExpression="pk = :pk AND begins_with(sk, :sk)",
-                ExpressionAttributeValues={
+            items = []
+            scan_kwargs = {
+                'KeyConditionExpression': "pk = :pk AND begins_with(sk, :sk)",
+                'ExpressionAttributeValues': {
                     ':pk': "CATALOG#EXERCISES",
                     ':sk': "EXERCISE#"
                 }
-            )
-            return from_dynamo_item(response.get('Items', []))
+            }
+            
+            done = False
+            start_key = None
+            while not done:
+                if start_key:
+                    scan_kwargs['ExclusiveStartKey'] = start_key
+                response = self.table.query(**scan_kwargs)
+                items.extend(response.get('Items', []))
+                start_key = response.get('LastEvaluatedKey')
+                done = start_key is None
+                
+            return from_dynamo_item(items)
         except Exception as e:
             logger.error("Error querying global exercises", error=str(e))
             raise e
 
     def get_personal_records(self, user_id: str) -> List[dict]:
         try:
-            response = self.table.query(
-                KeyConditionExpression="pk = :pk AND begins_with(sk, :sk)",
-                ExpressionAttributeValues={
+            items = []
+            query_kwargs = {
+                'KeyConditionExpression': "pk = :pk AND begins_with(sk, :sk)",
+                'ExpressionAttributeValues': {
                     ':pk': f"USER#{user_id}",
                     ':sk': "PR#"
                 }
-            )
-            return from_dynamo_item(response.get('Items', []))
+            }
+            
+            done = False
+            start_key = None
+            while not done:
+                if start_key:
+                    query_kwargs['ExclusiveStartKey'] = start_key
+                response = self.table.query(**query_kwargs)
+                items.extend(response.get('Items', []))
+                start_key = response.get('LastEvaluatedKey')
+                done = start_key is None
+                
+            return from_dynamo_item(items)
         except Exception as e:
             logger.error("Error querying PRs", error=str(e), user_id=user_id)
             raise e
@@ -375,14 +399,26 @@ class Database:
 
     def get_volume_aggregates(self, user_id: str) -> List[dict]:
         try:
-            response = self.table.query(
-                KeyConditionExpression="pk = :pk AND begins_with(sk, :sk)",
-                ExpressionAttributeValues={
+            items = []
+            query_kwargs = {
+                'KeyConditionExpression': "pk = :pk AND begins_with(sk, :sk)",
+                'ExpressionAttributeValues': {
                     ':pk': f"USER#{user_id}",
                     ':sk': "VOL#"
                 }
-            )
-            return from_dynamo_item(response.get('Items', []))
+            }
+            
+            done = False
+            start_key = None
+            while not done:
+                if start_key:
+                    query_kwargs['ExclusiveStartKey'] = start_key
+                response = self.table.query(**query_kwargs)
+                items.extend(response.get('Items', []))
+                start_key = response.get('LastEvaluatedKey')
+                done = start_key is None
+                
+            return from_dynamo_item(items)
         except Exception as e:
             logger.error("Error querying volume aggregates", error=str(e), user_id=user_id)
             raise e
@@ -400,6 +436,66 @@ class Database:
             return True
         except Exception as e:
             logger.error("Error saving volume aggregate", error=str(e), user_id=aggregate.user_id, period=aggregate.period)
+            raise e
+
+    def update_volume_aggregate_atomic(self, user_id: str, period: str, total_volume_delta: float, workout_count_delta: int, muscle_volumes: Dict[str, float]):
+        """
+        Atomically updates volume aggregates using ADD action to prevent race conditions.
+        """
+        try:
+            pk = f"USER#{user_id}"
+            sk = f"VOL#{period}"
+            
+            # Use ADD to atomically increment values
+            # Note: ADD creates the attribute if it doesn't exist (initializes to 0)
+            update_expr = "ADD total_volume :tv, workout_count :wc"
+            attr_values = {
+                ':tv': Decimal(str(total_volume_delta)),
+                ':wc': workout_count_delta,
+                ':type': 'VOLUME_AGGREGATE',
+                ':period': period,
+                ':user_id': user_id
+            }
+            
+            # SET type, period, and user_id if they don't exist
+            # Note: ADD cannot be used for strings, so we use SET with if_not_exists
+            set_expr_parts = [
+                "period = if_not_exists(period, :period)",
+                "user_id = if_not_exists(user_id, :user_id)",
+                "#t = if_not_exists(#t, :type)"
+            ]
+            
+            # Add muscle volume updates
+            # DynamoDB 'ADD' works on Number types in a Map too? No, ADD is only for top-level attributes or sets.
+            # For maps, we have to use SET muscles.#m = if_not_exists(muscles.#m, :zero) + :delta
+            # This is complex for a dynamic list of muscles.
+            # Alternative: Since we only have a few muscles, we can build the SET expression dynamically.
+            
+            attr_names = {"#t": "type", "#muscles": "muscles"}
+            for i, (muscle, delta) in enumerate(muscle_volumes.items()):
+                m_key = f"#m{i}"
+                v_key = f":v{i}"
+                zero_key = f":z{i}"
+                attr_names[m_key] = muscle
+                attr_values[v_key] = Decimal(str(delta))
+                attr_values[zero_key] = Decimal("0")
+                set_expr_parts.append(f"#muscles.{m_key} = if_not_exists(#muscles.{m_key}, {zero_key}) + {v_key}")
+
+            # Ensure 'muscles' map exists
+            set_expr_parts.insert(0, "#muscles = if_not_exists(#muscles, :empty_map)")
+            attr_values[':empty_map'] = {}
+
+            full_expr = f"{update_expr} SET {', '.join(set_expr_parts)}"
+            
+            self.table.update_item(
+                Key={'pk': pk, 'sk': sk},
+                UpdateExpression=full_expr,
+                ExpressionAttributeNames=attr_names,
+                ExpressionAttributeValues=attr_values
+            )
+            return True
+        except Exception as e:
+            logger.error("Error atomically updating volume aggregate", error=str(e), user_id=user_id, period=period)
             raise e
 
     def get_or_create_internal_user_id(self, external_id: str) -> str:

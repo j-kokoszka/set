@@ -194,39 +194,24 @@ async def get_exercise_muscles(exercise_name: str) -> List[str]:
     """Helper to find muscle groups for an exercise."""
     # Ensure cache is loaded
     all_global = await get_global_exercises()
-    for ex in all_global:
-        if ex.get("name") == exercise_name:
-            return ex.get("primaryMuscles", [])
-    # Check external cache
-    for ex in external_exercises_cache:
-        if ex.get("name") == exercise_name:
-            return ex.get("primaryMuscles", [])
-    return []
+    
+    # Create lookup maps once and reuse or use a simpler caching strategy
+    # For now, a dictionary comprehension inside is still better than linear search
+    global_map = {ex.get("name"): ex.get("primaryMuscles", []) for ex in all_global}
+    if exercise_name in global_map:
+        return global_map[exercise_name]
+        
+    external_map = {ex.get("name"): ex.get("primaryMuscles", []) for ex in external_exercises_cache}
+    return external_map.get(exercise_name, [])
 
 async def update_user_analytics(user_id: str, workout: Workout, multiplier: int = 1):
     """Updates PRs and volume aggregates for a user."""
     logger.info("Updating user analytics", user_id=user_id, workout_id=workout.id, multiplier=multiplier)
     
-    # 1. Update Monthly Volume Aggregate
+    # 1. Update Monthly Volume Aggregate (Atomic)
     try:
         workout_date = date.fromisoformat(workout.date[:10])
         period = workout_date.strftime("%Y-%m")
-        
-        # Fetch current aggregates to find the right one
-        aggregates = db.get_volume_aggregates(user_id)
-        current_agg_data = next((a for a in aggregates if a['period'] == period), None)
-        
-        from models import VolumeAggregate
-        if not current_agg_data:
-            current_agg = VolumeAggregate(
-                total_volume=0.0,
-                muscles={},
-                workout_count=0,
-                period=period,
-                user_id=user_id
-            )
-        else:
-            current_agg = VolumeAggregate(**current_agg_data)
         
         workout_total_volume = 0.0
         muscle_volumes = {}
@@ -237,23 +222,22 @@ async def update_user_analytics(user_id: str, workout: Workout, multiplier: int 
             workout_total_volume += ex_volume
             
             for muscle in muscles:
-                muscle_volumes[muscle] = muscle_volumes.get(muscle, 0.0) + ex_volume
+                muscle_volumes[muscle] = muscle_volumes.get(muscle, 0.0) + (ex_volume * multiplier)
 
-        # Apply multiplier
-        current_agg.total_volume += workout_total_volume * multiplier
-        current_agg.workout_count += 1 * multiplier
-        
-        for muscle, vol in muscle_volumes.items():
-            current_agg.muscles[muscle] = current_agg.muscles.get(muscle, 0.0) + vol * multiplier
-            
-        db.save_volume_aggregate(current_agg)
+        # Use the new atomic update method to prevent race conditions
+        db.update_volume_aggregate_atomic(
+            user_id=user_id,
+            period=period,
+            total_volume_delta=workout_total_volume * multiplier,
+            workout_count_delta=1 * multiplier,
+            muscle_volumes=muscle_volumes
+        )
     except Exception as e:
         logger.error("Failed to update volume analytics", error=str(e), user_id=user_id)
 
     # 2. Update PRs (Only for additions/updates, not for deletions as we don't easily know the "next best" PR)
     if multiplier > 0:
         try:
-            from models import PersonalRecord
             current_prs = {pr['exercise_name']: PersonalRecord(**pr) for pr in db.get_personal_records(user_id)}
             
             for ex_record in workout.exercises:

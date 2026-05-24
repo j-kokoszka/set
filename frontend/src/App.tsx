@@ -343,6 +343,21 @@ function App() {
     return allExercises.filter(ex => ex.primaryMuscles.includes(muscle));
   }, [navPath, allExercises]);
 
+  const exerciseLookup = useMemo(() => {
+    const map = new Map<string, StandardExercise>();
+    allExercises.forEach(ex => {
+      map.set(ex.id, ex);
+      map.set(ex.name, ex);
+    });
+    return map;
+  }, [allExercises]);
+
+  const prLookup = useMemo(() => {
+    const map = new Map<string, PersonalRecord>();
+    personalRecords.forEach(pr => map.set(pr.exercise_name, pr));
+    return map;
+  }, [personalRecords]);
+
   useEffect(() => {
     fetchExercises();
   }, [fetchExercises]);
@@ -1299,7 +1314,7 @@ function App() {
                       </button>
                     </div>
                     <span>{(() => {
-                      const standardEx = allExercises.find(a => a.id === ex.id || a.name === ex.name);
+                      const standardEx = ex.id ? exerciseLookup.get(ex.id) : exerciseLookup.get(ex.name);
                       return standardEx?.display_name || ex.name;
                     })()}</span>
                     <button 
@@ -1378,7 +1393,7 @@ function App() {
                           <span className="set-label">{t("workout.set", "SET")} {sIdx + 1}</span>
                           {(() => {
                             const oneRM = calculate1RM(Number(set.weight), Number(set.reps));
-                            const pr = personalRecords.find(p => p.exercise_name === ex.name);
+                            const pr = prLookup.get(ex.name);
                             if (set.completed && oneRM >= (pr?.estimated_1rm || 0) && oneRM > 0) {
                               return <span style={{ marginLeft: '0.5rem', cursor: 'help' }} title={t("analytics.new_pr", "Potential New PR!")}>👑</span>;
                             }
@@ -1736,7 +1751,8 @@ function App() {
                         </div>
                         <div className="tag-list">
                           {w.exercises?.map((ex, eIdx: number) => {
-                            const isPR = personalRecords.some(pr => pr.exercise_name === ex.exercise_name && pr.date_achieved.startsWith(item.date!));
+                            const pr = prLookup.get(ex.exercise_name);
+                            const isPR = pr && pr.date_achieved.startsWith(item.date!);
                             return (
                               <span key={eIdx} className="tag">
                                 {isPR && <span style={{ marginRight: '0.25rem' }}>👑</span>}
@@ -1745,6 +1761,7 @@ function App() {
                             );
                           })}
                         </div>
+
                       </div>
                     );
                   } else {
