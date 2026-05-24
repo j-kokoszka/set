@@ -1377,7 +1377,7 @@ function App() {
                         <div className="flex-center">
                           <span className="set-label">{t("workout.set", "SET")} {sIdx + 1}</span>
                           {(() => {
-                            const oneRM = calculate1RM(set.weight, set.reps);
+                            const oneRM = calculate1RM(Number(set.weight), Number(set.reps));
                             const pr = personalRecords.find(p => p.exercise_name === ex.name);
                             if (set.completed && oneRM >= (pr?.estimated_1rm || 0) && oneRM > 0) {
                               return <span style={{ marginLeft: '0.5rem', cursor: 'help' }} title={t("analytics.new_pr", "Potential New PR!")}>👑</span>;

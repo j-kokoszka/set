@@ -74,7 +74,8 @@ def test_external_search_error_502():
     # Force an exception by patching the loop or cache access
     # Since main.py already loaded the cache, we patch it there
     with patch("backend.main.external_exercises_cache", [None]):
-        resp = client.get("/exercises/search?q=row", headers=headers)
+        # Use a query that won't match anything in the global catalog
+        resp = client.get("/exercises/search?q=non_existent_exercise_query_123", headers=headers)
         assert resp.status_code == 502
         assert "Error communicating with external database" in resp.json()["detail"]
 
