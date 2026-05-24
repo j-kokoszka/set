@@ -1,5 +1,5 @@
-resource "aws_cognito_user_pool" "user_pool_v3" {
-  name = "${var.project_name}-user-pool-v3"
+resource "aws_cognito_user_pool" "user_pool_v4" {
+  name = "${var.project_name}-user-pool-v4"
 
   alias_attributes         = ["email"]
   auto_verified_attributes = ["email"]
@@ -35,11 +35,11 @@ resource "aws_cognito_user_pool" "user_pool_v3" {
 
 resource "aws_cognito_user_pool_domain" "main" {
   domain       = "${var.project_name}-auth-${var.environment}"
-  user_pool_id = aws_cognito_user_pool.user_pool_v3.id
+  user_pool_id = aws_cognito_user_pool.user_pool_v4.id
 }
 
 resource "aws_cognito_identity_provider" "google" {
-  user_pool_id  = aws_cognito_user_pool.user_pool_v3.id
+  user_pool_id  = aws_cognito_user_pool.user_pool_v4.id
   provider_name = "Google"
   provider_type = "Google"
 
@@ -65,7 +65,7 @@ resource "aws_cognito_identity_provider" "google" {
 resource "aws_cognito_user_pool_client" "client" {
   name = "${var.project_name}-client"
 
-  user_pool_id = aws_cognito_user_pool.user_pool_v3.id
+  user_pool_id = aws_cognito_user_pool.user_pool_v4.id
 
   allowed_oauth_flows_user_pool_client = true
   allowed_oauth_flows                  = ["code", "implicit"]
