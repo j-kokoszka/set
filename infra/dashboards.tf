@@ -224,7 +224,7 @@ resource "grafana_dashboard" "application_insights" {
         "gridPos": { "h": 8, "w": 12, "x": 0, "y": 24 },
         "targets": [
           {
-            "expr": "bedrock_invocation_duration_seconds_sum / bedrock_invocation_duration_seconds_count",
+            "expr": "rate(bedrock_invocation_duration_seconds_sum[5m]) / rate(bedrock_invocation_duration_seconds_count[5m])",
             "legendFormat": "Avg Duration"
           }
         ],

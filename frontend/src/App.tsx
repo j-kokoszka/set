@@ -389,12 +389,14 @@ function App() {
 
   useEffect(() => {
     if (token) {
-      Promise.all([
-        fetchHistory(),
-        fetchRoutines(),
-        fetchPlan(),
-        fetchSchedules()
-      ]);
+      void (async () => {
+        await Promise.all([
+          fetchHistory(),
+          fetchRoutines(),
+          fetchPlan(),
+          fetchSchedules()
+        ]);
+      })();
     }
   }, [token, fetchHistory, fetchRoutines, fetchPlan, fetchSchedules]);
 
@@ -599,7 +601,7 @@ function App() {
         headers: { 'Authorization': `Bearer ${validToken}` }
       });
       if (response.ok) {
-        Promise.all([fetchHistory(), fetchPlan()]);
+        await Promise.all([fetchHistory(), fetchPlan()]);
       } else {
         const errorMessage = await parseBackendError(response, t('workout.error_delete', 'Failed to delete workout'));
         alert(errorMessage);
@@ -671,7 +673,7 @@ function App() {
 
       if (response.ok) {
         setIsScheduling(false);
-        Promise.all([fetchSchedules(), fetchPlan()]);
+        await Promise.all([fetchSchedules(), fetchPlan()]);
       } else {
         alert(t("plan.error_save", "Failed to save schedule"));
       }
@@ -691,7 +693,7 @@ function App() {
         headers: { 'Authorization': `Bearer ${validToken}` }
       });
       if (response.ok) {
-        Promise.all([fetchSchedules(), fetchPlan()]);
+        await Promise.all([fetchSchedules(), fetchPlan()]);
       }
     } catch (e) {
       console.error('Error deleting schedule:', e);
@@ -1000,7 +1002,7 @@ function App() {
         setEditingWorkoutId(null);
         setEditingWorkoutDate(null);
         setView('plan');
-        Promise.all([fetchHistory(), fetchPlan()]);
+        await Promise.all([fetchHistory(), fetchPlan()]);
       } else {
         const errorMessage = await parseBackendError(response, t('workout.error_save', 'Failed to save workout'));
         alert(errorMessage);
@@ -1270,7 +1272,7 @@ function App() {
                           <input 
                             type="number" 
                             step="any"
-                            value={ex.progression.increment_weight || ''} 
+                            value={ex.progression.increment_weight ?? ''} 
                             onFocus={(e) => e.target.select()}
                             onChange={(e) => {
                               updateProgression(exIdx, 'increment_weight', e.target.value);
@@ -1283,7 +1285,7 @@ function App() {
                           <span className="set-input-label">+{t("workout.reps", "Reps")}</span>
                           <input 
                             type="number" 
-                            value={ex.progression.increment_reps || ''} 
+                            value={ex.progression.increment_reps ?? ''} 
                             onFocus={(e) => e.target.select()}
                             onChange={(e) => {
                               updateProgression(exIdx, 'increment_reps', e.target.value);
@@ -1339,7 +1341,7 @@ function App() {
                             <input 
                               type="number" 
                               step="any"
-                              value={set.weight || ''} 
+                              value={set.weight ?? ''} 
                               placeholder="0"
                               onFocus={(e) => e.target.select()}
                               onChange={(e) => {
@@ -1360,7 +1362,7 @@ function App() {
                           <label className="set-input-label">{t("workout.reps", "Reps")}</label>
                           <input 
                             type="number" 
-                            value={set.reps || ''} 
+                            value={set.reps ?? ''} 
                             placeholder="0"
                             onFocus={(e) => e.target.select()}
                             onChange={(e) => {
