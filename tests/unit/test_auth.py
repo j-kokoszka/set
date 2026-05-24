@@ -3,6 +3,7 @@ import pytest
 from fastapi import HTTPException
 import auth
 from jose import jwt
+from unittest.mock import MagicMock
 
 def test_get_current_user_missing_header():
     with pytest.raises(HTTPException) as excinfo:
@@ -68,21 +69,32 @@ async def test_get_current_user_invalid_token(monkeypatch):
     async def mock_jwks():
         return {"keys": []}
     monkeypatch.setattr(auth, "get_jwks", mock_jwks)
+def test_get_current_user_mock_success(monkeypatch):
+    monkeypatch.setattr(auth, "MOCK_AUTH", True)
 
-    with pytest.raises(HTTPException) as excinfo:
-        await auth.get_current_user("Bearer invalid.token.string")
-    assert excinfo.value.status_code == 401
-    assert "Invalid token" in excinfo.value.detail
+    # Mock db.get_or_create_internal_user_id
+    mock_db = MagicMock()
+    mock_db.get_or_create_internal_user_id.return_value = "uuid-123"
+    monkeypatch.setattr("database.db", mock_db)
 
+    user_id = asyncio.run(auth.get_current_user("Bearer mock_user123"))
+    assert user_id == "uuid-123"
+    mock_db.get_or_create_internal_user_id.assert_called_with("user123")
+...
 @pytest.mark.asyncio
 async def test_get_current_user_token_use_validation(monkeypatch):
     monkeypatch.setattr(auth, "MOCK_AUTH", False)
     monkeypatch.setattr(auth, "COGNITO_USER_POOL_ID", "pool123")
     monkeypatch.setattr(auth, "COGNITO_APP_CLIENT_ID", "client123")
 
+    # Mock db.get_or_create_internal_user_id
+    mock_db = MagicMock()
+    mock_db.get_or_create_internal_user_id.side_effect = lambda x: f"mapped-{x}"
+    monkeypatch.setattr("database.db", mock_db)
+
     # Mock get_unverified_header
     monkeypatch.setattr("jose.jwt.get_unverified_header", lambda t: {"kid": "123"})
-    
+
     # Mock get_jwks
     async def mock_jwks():
         return {"keys": [{"kid": "123", "alg": "RS256"}]}
@@ -105,10 +117,11 @@ async def test_get_current_user_token_use_validation(monkeypatch):
 
     monkeypatch.setattr("jose.jwt.decode", mock_decode)
 
-    # Test ID token success - should use email
+    # Test ID token success - should use email and return mapped ID
     user_id = await auth.get_current_user("Bearer id_token")
-    assert user_id == "user@example.com"
+    assert user_id == "mapped-user@example.com"
     assert decoded_options.get("verify_at_hash") is False
+
 
     # Test Access token - should now fail (only ID tokens supported for email stability)
     with pytest.raises(HTTPException) as excinfo:

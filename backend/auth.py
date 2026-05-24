@@ -45,9 +45,10 @@ async def get_current_user(authorization: Optional[str] = Header(None)):
 
     if MOCK_AUTH:
         if token.startswith("mock_"):
-            user_id = token.replace("mock_", "")
-            logger.info("Mock auth successful", user_id=user_id)
-            return user_id
+            external_id = token.replace("mock_", "")
+            logger.info("Mock auth successful", external_id=external_id)
+            from database import db
+            return db.get_or_create_internal_user_id(external_id)
         else:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
@@ -112,12 +113,14 @@ async def get_current_user(authorization: Optional[str] = Header(None)):
 
         # 5. Extract user identifier
         # Prioritize email as a stable identifier across User Pool recreations.
-        user_id = payload.get("email")
-        if not user_id:
+        external_id = payload.get("email")
+        if not external_id:
             logger.warning("token_missing_email", sub=payload.get("sub"))
             raise JWTError("ID Token missing email claim")
-            
-        return user_id
+        
+        # 6. Map to stable internal UUID
+        from database import db
+        return db.get_or_create_internal_user_id(external_id)
 
     except JWTError as e:
         logger.warning("invalid_token", error=str(e))

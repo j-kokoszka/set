@@ -40,30 +40,34 @@ def test_submit_feedback_success(mock_httpx_class, mock_boto3_client, mock_bedro
     mock_gh_response.json.return_value = {"html_url": "https://github.com/j-kokoszka/set/issues/1"}
     mock_http_client.post.return_value = mock_gh_response
     
-    # Set environment variable
-    with patch.dict(os.environ, {"GITHUB_PAT_SECRET_ID": "my-secret-id"}):
-        headers = {"Authorization": "Bearer mock_user_123"}
-        payload = {"text": "I found a bug in the workout save button."}
+    # Mock database identity mapping
+    with patch("database.db.get_or_create_internal_user_id") as mock_map:
+        mock_map.return_value = "user_123"
         
-        resp = client.post("/feedback", json=payload, headers=headers)
-        
-        assert resp.status_code == 200
-        assert resp.json()["message"] == "Feedback submitted successfully"
-        assert resp.json()["issue_url"] == "https://github.com/j-kokoszka/set/issues/1"
-        
-        # Verify Bedrock call
-        mock_bedrock.invoke_model.assert_called_once()
-        
-        # Verify Secrets Manager call
-        mock_secretsmanager.get_secret_value.assert_called_once_with(SecretId="my-secret-id")
-        
-        # Verify GitHub call
-        mock_http_client.post.assert_called_once()
-        args, kwargs = mock_http_client.post.call_args
-        assert kwargs["headers"]["Authorization"] == "token fake_pat_from_sm"
-        assert kwargs["json"]["title"] == "Bug Report"
-        assert "Submitted by: user_123" in kwargs["json"]["body"]
-        assert kwargs["json"]["labels"] == ["bug"]
+        # Set environment variable
+        with patch.dict(os.environ, {"GITHUB_PAT_SECRET_ID": "my-secret-id"}):
+            headers = {"Authorization": "Bearer mock_user_123"}
+            payload = {"text": "I found a bug in the workout save button."}
+            
+            resp = client.post("/feedback", json=payload, headers=headers)
+            
+            assert resp.status_code == 200
+            assert resp.json()["message"] == "Feedback submitted successfully"
+            assert resp.json()["issue_url"] == "https://github.com/j-kokoszka/set/issues/1"
+            
+            # Verify Bedrock call
+            mock_bedrock.invoke_model.assert_called_once()
+            
+            # Verify Secrets Manager call
+            mock_secretsmanager.get_secret_value.assert_called_once_with(SecretId="my-secret-id")
+            
+            # Verify GitHub call
+            mock_http_client.post.assert_called_once()
+            args, kwargs = mock_http_client.post.call_args
+            assert kwargs["headers"]["Authorization"] == "token fake_pat_from_sm"
+            assert kwargs["json"]["title"] == "Bug Report"
+            assert "Submitted by: user_123" in kwargs["json"]["body"]
+            assert kwargs["json"]["labels"] == ["bug"]
 
 @patch("backend.main.bedrock_client")
 @patch("backend.main.boto3.client")
@@ -88,19 +92,23 @@ def test_submit_feedback_bedrock_failure_fallback(mock_httpx_class, mock_boto3_c
     mock_gh_response.json.return_value = {"html_url": "https://github.com/j-kokoszka/set/issues/1"}
     mock_http_client.post.return_value = mock_gh_response
     
-    # Set environment variable
-    with patch.dict(os.environ, {"GITHUB_PAT_SECRET_ID": "my-secret-id"}):
-        headers = {"Authorization": "Bearer mock_user_123"}
-        payload = {"text": "I found a bug."}
+    # Mock database identity mapping
+    with patch("database.db.get_or_create_internal_user_id") as mock_map:
+        mock_map.return_value = "user_123"
         
-        resp = client.post("/feedback", json=payload, headers=headers)
-        
-        assert resp.status_code == 200
-        # Should fallback to raw text
-        assert resp.json()["message"] == "Feedback submitted successfully"
-        
-        args, kwargs = mock_http_client.post.call_args
-        assert kwargs["json"]["body"] == "I found a bug.\n\n---\nSubmitted by: user_123"
+        # Set environment variable
+        with patch.dict(os.environ, {"GITHUB_PAT_SECRET_ID": "my-secret-id"}):
+            headers = {"Authorization": "Bearer mock_user_123"}
+            payload = {"text": "I found a bug."}
+            
+            resp = client.post("/feedback", json=payload, headers=headers)
+            
+            assert resp.status_code == 200
+            # Should fallback to raw text
+            assert resp.json()["message"] == "Feedback submitted successfully"
+            
+            args, kwargs = mock_http_client.post.call_args
+            assert kwargs["json"]["body"] == "I found a bug.\n\n---\nSubmitted by: user_123"
 
 def test_submit_feedback_too_long():
     headers = {"Authorization": "Bearer mock_user_123"}

@@ -1,6 +1,8 @@
 import boto3
 import os
 import json
+import uuid
+import time
 from decimal import Decimal
 from botocore.exceptions import ClientError
 from typing import List, Optional
@@ -310,6 +312,55 @@ class Database:
             return from_dynamo_item(response.get('Item'))
         except Exception as e:
             logger.error("Error fetching routine by id", error=str(e), user_id=user_id, routine_id=routine_id)
+            raise e
+
+    def get_or_create_internal_user_id(self, external_id: str) -> str:
+        """
+        Maps an external identifier (e.g. email, Cognito sub) to a stable internal UUID.
+        If no mapping exists, a new one is created.
+        """
+        try:
+            # 1. Try to find existing mapping
+            pk = f"IDENTITY#{external_id}"
+            sk = "METADATA"
+            
+            response = self.table.get_item(Key={'pk': pk, 'sk': sk})
+            item = response.get('Item')
+            
+            if item:
+                return item['internal_id']
+            
+            # 2. Create new mapping if not found
+            internal_id = str(uuid.uuid4())
+            logger.info("Creating new user identity mapping", external_id=external_id, internal_id=internal_id)
+            
+            self.table.put_item(
+                Item={
+                    'pk': pk,
+                    'sk': sk,
+                    'type': 'IDENTITY_MAPPING',
+                    'external_id': external_id,
+                    'internal_id': internal_id,
+                    'created_at': Decimal(str(time.time()))
+                }
+            )
+            
+            # Also store the reverse mapping/profile
+            self.table.put_item(
+                Item={
+                    'pk': f"USER#{internal_id}",
+                    'sk': "PROFILE",
+                    'type': 'USER_PROFILE',
+                    'primary_identity': external_id,
+                    'internal_id': internal_id,
+                    'created_at': Decimal(str(time.time()))
+                }
+            )
+            
+            return internal_id
+            
+        except Exception as e:
+            logger.error("Error in identity mapping logic", error=str(e), external_id=external_id)
             raise e
 
 db = Database()
