@@ -1835,19 +1835,30 @@ function App() {
                 <ResponsiveContainer>
                   <PieChart>
                     <Pie
-                      data={Object.entries(volumeAnalytics[volumeAnalytics.length - 1]?.muscles || {}).map(([name, value]) => ({ name, value }))}
+                      data={(() => {
+                        const muscles = volumeAnalytics[volumeAnalytics.length - 1]?.muscles || {};
+                        const total = Object.values(muscles).reduce((sum, val) => sum + val, 0);
+                        return Object.entries(muscles)
+                          .filter(([, value]) => value > 0)
+                          .map(([name, value]) => ({ 
+                            name: t(`exercises.muscles.${name}`, name), 
+                            value,
+                            percent: total > 0 ? (value / total * 100).toFixed(1) : 0
+                          }));
+                      })()}
                       cx="50%"
                       cy="50%"
                       innerRadius={60}
                       outerRadius={80}
                       paddingAngle={5}
                       dataKey="value"
+                      label={({ percent }) => `${(percent * 100).toFixed(0)}%`}
                     >
-                      {Object.entries(volumeAnalytics[volumeAnalytics.length - 1]?.muscles || {}).map((_entry, index) => (
+                      {Object.entries(volumeAnalytics[volumeAnalytics.length - 1]?.muscles || {}).filter(([, v]) => v > 0).map((_entry, index) => (
                         <Cell key={`cell-${index}`} fill={`hsl(${index * 137.5}, 70%, 50%)`} />
                       ))}
                     </Pie>
-                    <Tooltip />
+                    <Tooltip formatter={(value: number, name: string, props: any) => [`${value}kg (${props.payload.percent}%)`, name]} />
                     <Legend />
                   </PieChart>
                 </ResponsiveContainer>
