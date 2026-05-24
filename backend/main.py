@@ -171,12 +171,15 @@ async def get_global_exercises():
         try:
             logger.info("loading_global_exercises_from_db")
             items = db.get_global_exercises()
-            global_exercises_cache = items
+            if items:
+                global_exercises_cache = items
+            else:
+                logger.info("global_exercises_db_empty_falling_back_to_file")
+                global_exercises_cache = load_exercises(EXERCISES_FILE)
         except Exception as e:
             logger.error("failed_to_load_global_exercises", error=str(e))
-            # Fallback to file if DB fails and file exists
-            if not global_exercises_cache:
-                global_exercises_cache = load_exercises(EXERCISES_FILE)
+            # Fallback to file if DB fails
+            global_exercises_cache = load_exercises(EXERCISES_FILE)
     return global_exercises_cache
 
 def calculate_1rm(weight: float, reps: int) -> float:
@@ -369,7 +372,7 @@ async def search_exercises(q: str, request: Request, _user_id: str = Depends(get
         return results
     except Exception as e:
         logger.error("search_failed", error=str(e))
-        raise HTTPException(status_code=502, detail="Error searching exercises")
+        raise HTTPException(status_code=502, detail="Error communicating with external database")
 
 @app.get("/exercises/custom")
 def list_custom_exercises(user_id: str = Depends(get_current_user)):

@@ -2,7 +2,7 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, 
-  LineChart, Line, PieChart, Pie, Cell 
+  PieChart, Pie, Cell 
 } from 'recharts';
 import './index.css'
 import { parseBackendError } from './utils/error'
