@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from mangum import Mangum
 from typing import List, Dict, Optional
-from models import Workout, WorkoutRoutine, Feedback, CustomExercise, Schedule, PlannedWorkout
+from models import Workout, WorkoutRoutine, Feedback, CustomExercise, Schedule, PlannedWorkout, PersonalRecord, VolumeAggregate
 from database import db
 from auth import get_current_user
 import uuid
@@ -162,40 +162,200 @@ def load_exercises(file_path):
         logger.error("failed_to_load_exercises", file=file_path, error=str(e))
         return []
 
-exercises_cache = load_exercises(EXERCISES_FILE)
+# Global exercises cache
+global_exercises_cache: List[Dict] = []
+
+async def get_global_exercises():
+    global global_exercises_cache
+    if not global_exercises_cache:
+        try:
+            logger.info("loading_global_exercises_from_db")
+            items = db.get_global_exercises()
+            if items:
+                global_exercises_cache = items
+            else:
+                logger.info("global_exercises_db_empty_falling_back_to_file")
+                global_exercises_cache = load_exercises(EXERCISES_FILE)
+        except Exception as e:
+            logger.error("failed_to_load_global_exercises", error=str(e))
+            # Fallback to file if DB fails
+            global_exercises_cache = load_exercises(EXERCISES_FILE)
+    return global_exercises_cache
+
+def calculate_1rm(weight: float, reps: int) -> float:
+    """Calculates estimated 1RM using the Brzycki formula."""
+    if reps <= 0:
+        return 0.0
+    if reps == 1:
+        return weight
+    return weight * (36 / (37 - reps))
+
+async def get_exercise_muscles(exercise_name: str) -> List[str]:
+    """Helper to find muscle groups for an exercise."""
+    # Ensure cache is loaded
+    all_global = await get_global_exercises()
+    
+    # Create lookup maps once and reuse or use a simpler caching strategy
+    # For now, a dictionary comprehension inside is still better than linear search
+    global_map = {ex.get("name"): ex.get("primaryMuscles", []) for ex in all_global}
+    if exercise_name in global_map:
+        return global_map[exercise_name]
+        
+    external_map = {ex.get("name"): ex.get("primaryMuscles", []) for ex in external_exercises_cache}
+    return external_map.get(exercise_name, [])
+
+async def update_user_analytics(user_id: str, workout: Workout, multiplier: int = 1):
+    """Updates PRs and volume aggregates for a user."""
+    logger.info("Updating user analytics", user_id=user_id, workout_id=workout.id, multiplier=multiplier)
+    
+    # 1. Update Monthly Volume Aggregate (Atomic)
+    try:
+        workout_date = date.fromisoformat(workout.date[:10])
+        period = workout_date.strftime("%Y-%m")
+        
+        workout_total_volume = 0.0
+        muscle_volumes = {}
+        
+        for ex_record in workout.exercises:
+            muscles = await get_exercise_muscles(ex_record.exercise_name)
+            ex_volume = sum(s.weight * s.reps for s in ex_record.sets if s.completed)
+            workout_total_volume += ex_volume
+            
+            for muscle in muscles:
+                muscle_volumes[muscle] = muscle_volumes.get(muscle, 0.0) + (ex_volume * multiplier)
+
+        # Use the new atomic update method to prevent race conditions
+        db.update_volume_aggregate_atomic(
+            user_id=user_id,
+            period=period,
+            total_volume_delta=workout_total_volume * multiplier,
+            workout_count_delta=1 * multiplier,
+            muscle_volumes=muscle_volumes
+        )
+    except Exception as e:
+        logger.error("Failed to update volume analytics", error=str(e), user_id=user_id)
+
+    # 2. Update PRs (Only for additions/updates, not for deletions as we don't easily know the "next best" PR)
+    if multiplier > 0:
+        try:
+            current_prs = {pr['exercise_name']: PersonalRecord(**pr) for pr in db.get_personal_records(user_id)}
+            
+            for ex_record in workout.exercises:
+                ex_name = ex_record.exercise_name
+                best_set_1rm = 0.0
+                max_weight = 0.0
+                max_volume_set = 0.0
+                
+                for s in ex_record.sets:
+                    if not s.completed: continue
+                    one_rm = calculate_1rm(s.weight, s.reps)
+                    if one_rm > best_set_1rm: best_set_1rm = one_rm
+                    if s.weight > max_weight: max_weight = s.weight
+                    if s.weight * s.reps > max_volume_set: max_volume_set = s.weight * s.reps
+                
+                if best_set_1rm == 0: continue # No completed sets for this exercise
+
+                existing_pr = current_prs.get(ex_name)
+                is_new_pr = False
+                
+                if not existing_pr:
+                    existing_pr = PersonalRecord(
+                        exercise_name=ex_name,
+                        estimated_1rm=best_set_1rm,
+                        max_weight=max_weight,
+                        max_volume_set=max_volume_set,
+                        date_achieved=workout.date,
+                        user_id=user_id
+                    )
+                    is_new_pr = True
+                else:
+                    if best_set_1rm > existing_pr.estimated_1rm:
+                        existing_pr.estimated_1rm = best_set_1rm
+                        existing_pr.date_achieved = workout.date
+                        is_new_pr = True
+                    if max_weight > existing_pr.max_weight:
+                        existing_pr.max_weight = max_weight
+                        is_new_pr = True
+                    if max_volume_set > existing_pr.max_volume_set:
+                        existing_pr.max_volume_set = max_volume_set
+                        is_new_pr = True
+                
+                if is_new_pr:
+                    db.save_personal_record(existing_pr)
+        except Exception as e:
+            logger.error("Failed to update PR analytics", error=str(e), user_id=user_id)
+
 external_exercises_cache = load_exercises(EXTERNAL_EXERCISES_FILE)
 
 # Persistent AWS clients
 http_client = httpx.AsyncClient(timeout=10.0)
 bedrock_client = boto3.client("bedrock-runtime", region_name=AWS_REGION)
 
+def get_localized_name(ex: Dict, lang: str = "en") -> str:
+    translations = ex.get("translations") or {}
+    return translations.get(lang) or ex.get("name", "Unknown")
+
 @app.get("/exercises")
-def list_exercises():
-    return exercises_cache
+async def list_exercises(request: Request):
+    lang = request.headers.get("Accept-Language", "en").split(",")[0].split("-")[0]
+    exercises = await get_global_exercises()
+    
+    # Simple localization for the list
+    localized = []
+    for ex in exercises:
+        localized.append({
+            **ex,
+            "display_name": get_localized_name(ex, lang)
+        })
+    return localized
 
 @app.get("/exercises/search")
-async def search_exercises(q: str, _user_id: str = Depends(get_current_user)):
+async def search_exercises(q: str, request: Request, _user_id: str = Depends(get_current_user)):
     """
     Search the extended/external database for additional exercises.
     """
-    logger.info("searching_external_exercises", query=q)
+    lang = request.headers.get("Accept-Language", "en").split(",")[0].split("-")[0]
+    logger.info("searching_exercises", query=q, lang=lang)
     try:
         query = q.lower().strip()
         results = []
-        for ex in external_exercises_cache:
-            if query in ex.get("name", "").lower():
+        
+        # Search in global exercises
+        all_global = await get_global_exercises()
+        for ex in all_global:
+            name = ex.get("name", "").lower()
+            trans_name = get_localized_name(ex, lang).lower()
+            if query in name or query in trans_name:
                 results.append({
-                    "id": f"ext-{ex.get('id') or ex.get('name')}",
+                    "id": ex.get("id"),
                     "name": ex.get("name"),
+                    "display_name": get_localized_name(ex, lang),
                     "category": (ex.get("category") or "strength").lower(),
                     "primaryMuscles": ex.get("primaryMuscles", []),
-                    "is_external": True
+                    "is_external": False
                 })
-                if len(results) >= 20: # Limit results for performance
-                    break
+                if len(results) >= 50: break
+
+        # Also search in external cache if results are low
+        if len(results) < 10:
+            for ex in external_exercises_cache:
+                if query in ex.get("name", "").lower():
+                    # Check if already in results
+                    if any(r["name"] == ex["name"] for r in results): continue
+                    
+                    results.append({
+                        "id": f"ext-{ex.get('id') or ex.get('name')}",
+                        "name": ex.get("name"),
+                        "display_name": ex.get("name"), # External might not have translations yet
+                        "category": (ex.get("category") or "strength").lower(),
+                        "primaryMuscles": ex.get("primaryMuscles", []),
+                        "is_external": True
+                    })
+                    if len(results) >= 50: break
+        
         return results
     except Exception as e:
-        logger.error("external_search_failed", error=str(e))
+        logger.error("search_failed", error=str(e))
         raise HTTPException(status_code=502, detail="Error communicating with external database")
 
 @app.get("/exercises/custom")
@@ -323,7 +483,7 @@ def health_check():
     return {"status": "healthy"}
 
 @app.post("/workouts", response_model=Workout)
-def create_workout(workout: Workout, user_id: str = Depends(get_current_user)):
+async def create_workout(workout: Workout, user_id: str = Depends(get_current_user)):
     workout.user_id = user_id
     if not workout.id:
         workout.id = str(uuid.uuid4())
@@ -331,6 +491,7 @@ def create_workout(workout: Workout, user_id: str = Depends(get_current_user)):
     logger.info("Creating workout", user_id=user_id, workout_id=workout.id)
     try:
         db.save_workout(workout)
+        await update_user_analytics(user_id, workout, multiplier=1)
         return workout
     except Exception as e:
         logger.error("Failed to create workout", error=str(e), user_id=user_id)
@@ -355,12 +516,15 @@ def get_exercise_history(exercise_name: str, user_id: str = Depends(get_current_
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.delete("/workouts/{workout_id}")
-def delete_workout(workout_id: str, date: str, user_id: str = Depends(get_current_user)):
+async def delete_workout(workout_id: str, date: str, user_id: str = Depends(get_current_user)):
     logger.info("Deleting workout", user_id=user_id, workout_id=workout_id, date=date)
     try:
-        success = db.delete_workout(user_id, workout_id, date)
-        if not success:
+        old_workout_data = db.delete_workout(user_id, workout_id, date)
+        if not old_workout_data:
             raise HTTPException(status_code=404, detail="Workout not found")
+        
+        old_workout = Workout(**old_workout_data)
+        await update_user_analytics(user_id, old_workout, multiplier=-1)
         return {"message": "Workout deleted successfully"}
     except HTTPException:
         raise
@@ -369,14 +533,19 @@ def delete_workout(workout_id: str, date: str, user_id: str = Depends(get_curren
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.put("/workouts/{workout_id}", response_model=Workout)
-def update_workout(workout_id: str, workout: Workout, old_date: str, user_id: str = Depends(get_current_user)):
+async def update_workout(workout_id: str, workout: Workout, old_date: str, user_id: str = Depends(get_current_user)):
     workout.user_id = user_id
     if workout.id != workout_id:
         raise HTTPException(status_code=400, detail="Workout ID mismatch")
     
     logger.info("Updating workout", user_id=user_id, workout_id=workout_id)
     try:
-        db.update_workout(workout, old_date)
+        old_workout_data = db.update_workout(workout, old_date)
+        if old_workout_data:
+            old_workout = Workout(**old_workout_data)
+            await update_user_analytics(user_id, old_workout, multiplier=-1)
+        
+        await update_user_analytics(user_id, workout, multiplier=1)
         return workout
     except Exception as e:
         logger.error("Failed to update workout", error=str(e), user_id=user_id, workout_id=workout_id)
@@ -562,6 +731,25 @@ def get_upcoming_plan(days: int = 14, user_id: str = Depends(get_current_user)):
     except Exception as e:
         logger.error("Failed to fetch upcoming plan", error=str(e), user_id=user_id)
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/analytics/prs", response_model=List[PersonalRecord])
+def get_personal_records(user_id: str = Depends(get_current_user)):
+    try:
+        return db.get_personal_records(user_id)
+    except Exception as e:
+        logger.error("Failed to fetch PRs", error=str(e), user_id=user_id)
+        raise HTTPException(status_code=500, detail="Failed to fetch personal records")
+
+@app.get("/analytics/volume", response_model=List[VolumeAggregate])
+def get_volume_analytics(user_id: str = Depends(get_current_user)):
+    try:
+        aggregates = db.get_volume_aggregates(user_id)
+        # Sort by period
+        aggregates.sort(key=lambda x: x['period'])
+        return aggregates
+    except Exception as e:
+        logger.error("Failed to fetch volume analytics", error=str(e), user_id=user_id)
+        raise HTTPException(status_code=500, detail="Failed to fetch volume analytics")
 
 def get_github_pat():
     secret_id = os.getenv("GITHUB_PAT_SECRET_ID")

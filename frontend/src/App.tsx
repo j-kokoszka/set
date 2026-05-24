@@ -1,5 +1,9 @@
 /* eslint-disable react-hooks/set-state-in-effect */
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
+import { 
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, 
+  PieChart, Pie, Cell 
+} from 'recharts';
 import './index.css'
 import { parseBackendError } from './utils/error'
 import { generateCodeVerifier, generateCodeChallenge, base64UrlDecode, type JwtPayload } from './utils/auth'
@@ -23,6 +27,7 @@ interface Exercise {
 interface StandardExercise {
   id: string;
   name: string;
+  display_name?: string;
   primaryMuscles: string[];
   secondaryMuscles?: string[];
   instructions?: string[];
@@ -92,11 +97,32 @@ interface PlannedWorkout {
   schedule_id?: string;
 }
 
+interface PersonalRecord {
+  exercise_name: string;
+  estimated_1rm: number;
+  max_weight: number;
+  max_volume_set: number;
+  date_achieved: string;
+}
+
+interface VolumeAggregate {
+  total_volume: number;
+  muscles: Record<string, number>;
+  workout_count: number;
+  period: string;
+}
+
 const KG_TO_LBS = 2.20462;
 const BASE_URL = import.meta.env.VITE_API_URL || '/api';
 const COGNITO_DOMAIN = import.meta.env.VITE_COGNITO_DOMAIN;
 const COGNITO_CLIENT_ID = import.meta.env.VITE_COGNITO_CLIENT_ID;
 const APP_URL = window.location.origin;
+
+const calculate1RM = (weight: number, reps: number) => {
+  if (reps <= 0) return 0;
+  if (reps === 1) return weight;
+  return weight * (36 / (37 - reps));
+};
 
 import { useTranslation } from 'react-i18next';
 import i18n from './i18n';
@@ -107,7 +133,7 @@ function App() {
   const [user, setUser] = useState<string | null>(localStorage.getItem('set_user'));
   const [loginUsername, setLoginUsername] = useState('');
 
-  const [view, setView] = useState<'workout' | 'routines' | 'plan'>('workout');
+  const [view, setView] = useState<'workout' | 'routines' | 'plan' | 'analytics'>('workout');
   const [workoutName, setWorkoutName] = useState(t('workout.new_workout', 'New Workout'));
   const [exercises, setExercises] = useState<Exercise[]>([]);
 
@@ -132,6 +158,8 @@ function App() {
   const [routines, setRoutines] = useState<WorkoutRoutine[]>([]);
   const [upcomingPlan, setUpcomingPlan] = useState<PlannedWorkout[]>([]);
   const [schedules, setSchedules] = useState<Schedule[]>([]);
+  const [personalRecords, setPersonalRecords] = useState<PersonalRecord[]>([]);
+  const [volumeAnalytics, setVolumeAnalytics] = useState<VolumeAggregate[]>([]);
   const [loadingCount, setLoadingCount] = useState(0);
   const isLoading = useMemo(() => loadingCount > 0, [loadingCount]);
 
@@ -143,7 +171,6 @@ function App() {
       setLoadingCount(prev => Math.max(0, prev - 1));
     }
   }, []);
-
 
   const timelineItems = useMemo(() => {
     return [
@@ -274,16 +301,21 @@ function App() {
   const fetchExercises = useCallback(async () => {
     setLoadingExercises(true);
     try {
+      const headers: Record<string, string> = {
+        'Accept-Language': i18n.language
+      };
+
       // 1. Fetch built-in exercises
-      const builtInResp = await fetch(`${BASE_URL}/exercises`);
+      const builtInResp = await fetch(`${BASE_URL}/exercises`, { headers });
       const builtInData = builtInResp.ok ? await builtInResp.json() : [];
       
       // 2. Fetch custom exercises if logged in
       let customData = [];
       const validToken = await getValidToken();
       if (validToken) {
+        const authHeaders = { ...headers, 'Authorization': `Bearer ${validToken}` };
         const customResp = await fetch(`${BASE_URL}/exercises/custom`, {
-          headers: { 'Authorization': `Bearer ${validToken}` }
+          headers: authHeaders
         });
         customData = customResp.ok ? await customResp.json() : [];
       }
@@ -300,7 +332,8 @@ function App() {
   const filteredExercises = useMemo(() => {
     if (!newExName.trim()) return allExercises.slice(0, 15); // Show first 15 as default suggestions
     return allExercises.filter(ex => 
-      ex.name.toLowerCase().includes(newExName.toLowerCase())
+      ex.name.toLowerCase().includes(newExName.toLowerCase()) ||
+      (ex.display_name && ex.display_name.toLowerCase().includes(newExName.toLowerCase()))
     ).slice(0, 10); // Limit search results to top 10 for performance
   }, [newExName, allExercises]);
 
@@ -309,6 +342,21 @@ function App() {
     const muscle = navPath[1];
     return allExercises.filter(ex => ex.primaryMuscles.includes(muscle));
   }, [navPath, allExercises]);
+
+  const exerciseLookup = useMemo(() => {
+    const map = new Map<string, StandardExercise>();
+    allExercises.forEach(ex => {
+      map.set(ex.id, ex);
+      map.set(ex.name, ex);
+    });
+    return map;
+  }, [allExercises]);
+
+  const prLookup = useMemo(() => {
+    const map = new Map<string, PersonalRecord>();
+    personalRecords.forEach(pr => map.set(pr.exercise_name, pr));
+    return map;
+  }, [personalRecords]);
 
   useEffect(() => {
     fetchExercises();
@@ -387,6 +435,25 @@ function App() {
     }
   }, [getValidToken]);
 
+  const fetchAnalytics = useCallback(async () => {
+    const validToken = await getValidToken();
+    if (!validToken) return;
+    
+    await withLoading(async () => {
+      try {
+        const [prResp, volResp] = await Promise.all([
+          fetch(`${BASE_URL}/analytics/prs`, { headers: { 'Authorization': `Bearer ${validToken}` } }),
+          fetch(`${BASE_URL}/analytics/volume`, { headers: { 'Authorization': `Bearer ${validToken}` } })
+        ]);
+        
+        if (prResp.ok) setPersonalRecords(await prResp.json());
+        if (volResp.ok) setVolumeAnalytics(await volResp.json());
+      } catch (error) {
+        console.error('Error fetching analytics:', error);
+      }
+    });
+  }, [getValidToken, withLoading]);
+
   useEffect(() => {
     if (token) {
       void (async () => {
@@ -394,11 +461,12 @@ function App() {
           fetchHistory(),
           fetchRoutines(),
           fetchPlan(),
-          fetchSchedules()
+          fetchSchedules(),
+          fetchAnalytics()
         ]);
       })();
     }
-  }, [token, fetchHistory, fetchRoutines, fetchPlan, fetchSchedules]);
+  }, [token, fetchHistory, fetchRoutines, fetchPlan, fetchSchedules, fetchAnalytics]);
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -601,8 +669,9 @@ function App() {
         headers: { 'Authorization': `Bearer ${validToken}` }
       });
       if (response.ok) {
-        await Promise.all([fetchHistory(), fetchPlan()]);
+        await Promise.all([fetchHistory(), fetchPlan(), fetchAnalytics()]);
       } else {
+
         const errorMessage = await parseBackendError(response, t('workout.error_delete', 'Failed to delete workout'));
         alert(errorMessage);
       }
@@ -1002,7 +1071,7 @@ function App() {
         setEditingWorkoutId(null);
         setEditingWorkoutDate(null);
         setView('plan');
-        await Promise.all([fetchHistory(), fetchPlan()]);
+        await Promise.all([fetchHistory(), fetchPlan(), fetchAnalytics()]);
       } else {
         const errorMessage = await parseBackendError(response, t('workout.error_save', 'Failed to save workout'));
         alert(errorMessage);
@@ -1162,6 +1231,12 @@ function App() {
             {t("plan.title", "Plan")}
           </button>
           <button 
+            className={`btn btn-small ${view === 'analytics' ? '' : 'btn-secondary'}`} 
+            onClick={() => { setView('analytics'); setIsMenuOpen(false); }}
+          >
+            {t("analytics.title", "Analytics")}
+          </button>
+          <button 
             className="btn btn-secondary btn-small" 
             onClick={() => { handleLogout(); setIsMenuOpen(false); }} 
             title={t("app.sign_out", "Sign Out")}
@@ -1238,7 +1313,10 @@ function App() {
                         ↓
                       </button>
                     </div>
-                    <span>{ex.name}</span>
+                    <span>{(() => {
+                      const standardEx = ex.id ? exerciseLookup.get(ex.id) : exerciseLookup.get(ex.name);
+                      return standardEx?.display_name || ex.name;
+                    })()}</span>
                     <button 
                       className="btn-danger"
                       onClick={() => removeExercise(exIdx)}
@@ -1313,7 +1391,15 @@ function App() {
                       <div className="set-header">
                         <div className="flex-center">
                           <span className="set-label">{t("workout.set", "SET")} {sIdx + 1}</span>
-                          {set.completed && <span style={{ color: 'var(--success-color)', fontSize: '0.9rem' }}>✓</span>}
+                          {(() => {
+                            const oneRM = calculate1RM(Number(set.weight), Number(set.reps));
+                            const pr = prLookup.get(ex.name);
+                            if (set.completed && oneRM >= (pr?.estimated_1rm || 0) && oneRM > 0) {
+                              return <span style={{ marginLeft: '0.5rem', cursor: 'help' }} title={t("analytics.new_pr", "Potential New PR!")}>👑</span>;
+                            }
+                            return null;
+                          })()}
+                          {set.completed && <span style={{ color: 'var(--success-color)', fontSize: '0.9rem', marginLeft: '0.5rem' }}>✓</span>}
                         </div>
                         <div className="flex-center">
                           <button 
@@ -1473,7 +1559,7 @@ function App() {
                                 onMouseEnter={() => setSearchIndex(i)}
                               >
                                 <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                  <span style={{ fontWeight: '600' }}>{ex.name} {ex.is_external && <small style={{ color: 'var(--primary-color)', marginLeft: '0.5rem' }}>{t("exercises.online_label", "[Online]")}</small>}</span>
+                                  <span style={{ fontWeight: '600' }}>{ex.display_name || ex.name} {ex.is_external && <small style={{ color: 'var(--primary-color)', marginLeft: '0.5rem' }}>{t("exercises.online_label", "[Online]")}</small>}</span>
                                   <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{ex.primaryMuscles?.map(m => t('muscles.' + m, m)).join(', ')}</span>
                                 </div>
                               </div>
@@ -1536,7 +1622,7 @@ function App() {
                         ) : (
                           navExercises.map(ex => (
                             <button key={ex.id} className="btn btn-secondary" onClick={() => { addExercise(ex); setNavPath([]); }} style={{ fontSize: '0.85rem', textAlign: 'left', height: 'auto', padding: '0.75rem', justifyContent: 'flex-start' }}>
-                              {ex.name}
+                              {ex.display_name || ex.name}
                             </button>
                           ))
                         )
@@ -1664,12 +1750,18 @@ function App() {
                           </div>
                         </div>
                         <div className="tag-list">
-                          {w.exercises?.map((ex, eIdx: number) => (
-                            <span key={eIdx} className="tag">
-                              {ex.exercise_name} ({ex.sets?.length})
-                            </span>
-                          ))}
+                          {w.exercises?.map((ex, eIdx: number) => {
+                            const pr = prLookup.get(ex.exercise_name);
+                            const isPR = pr && pr.date_achieved.startsWith(item.date!);
+                            return (
+                              <span key={eIdx} className="tag">
+                                {isPR && <span style={{ marginRight: '0.25rem' }}>👑</span>}
+                                {ex.exercise_name} ({ex.sets?.length})
+                              </span>
+                            );
+                          })}
                         </div>
+
                       </div>
                     );
                   } else {
@@ -1718,6 +1810,74 @@ function App() {
               {renderCalendar()}
             </div>
           )}
+        </div>
+      ) : view === 'analytics' ? (
+        <div className="analytics-view">
+          <div className="analytics-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1.5rem', marginBottom: '2rem' }}>
+            <div className="card">
+              <h3 style={{ marginBottom: '1rem' }}>{t("analytics.volume_trend", "Monthly Volume (kg)")}</h3>
+              <div style={{ height: '300px', width: '100%' }}>
+                <ResponsiveContainer>
+                  <BarChart data={volumeAnalytics}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                    <XAxis dataKey="period" />
+                    <YAxis />
+                    <Tooltip />
+                    <Bar dataKey="total_volume" fill="var(--primary-color)" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
+            <div className="card">
+              <h3 style={{ marginBottom: '1rem' }}>{t("analytics.muscle_distribution", "Muscle Focus")}</h3>
+              <div style={{ height: '300px', width: '100%' }}>
+                <ResponsiveContainer>
+                  <PieChart>
+                    <Pie
+                      data={Object.entries(volumeAnalytics[volumeAnalytics.length - 1]?.muscles || {}).map(([name, value]) => ({ name, value }))}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={60}
+                      outerRadius={80}
+                      paddingAngle={5}
+                      dataKey="value"
+                    >
+                      {Object.entries(volumeAnalytics[volumeAnalytics.length - 1]?.muscles || {}).map((_entry, index) => (
+                        <Cell key={`cell-${index}`} fill={`hsl(${index * 137.5}, 70%, 50%)`} />
+                      ))}
+                    </Pie>
+                    <Tooltip />
+                    <Legend />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          </div>
+
+          <div className="card">
+            <h3 style={{ marginBottom: '1.5rem' }}>{t("analytics.personal_records", "Personal Records")}</h3>
+            <div className="pr-list" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: '1rem' }}>
+              {personalRecords.length === 0 ? (
+                <p style={{ color: 'var(--text-muted)' }}>{t("analytics.no_prs", "No records yet. Keep training!")}</p>
+              ) : (
+                personalRecords.map((pr) => (
+                  <div key={pr.exercise_name} className="pr-item card" style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', padding: '1rem' }}>
+                    <div style={{ fontWeight: '700', marginBottom: '0.5rem', color: 'var(--primary-color)' }}>{pr.exercise_name}</div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', fontSize: '0.9rem' }}>
+                      <div style={{ color: 'var(--text-muted)' }}>{t("analytics.est_1rm", "Est. 1RM")}:</div>
+                      <div style={{ fontWeight: '600' }}>{Math.round(pr.estimated_1rm * 10) / 10}kg</div>
+                      <div style={{ color: 'var(--text-muted)' }}>{t("analytics.max_weight", "Max Weight")}:</div>
+                      <div style={{ fontWeight: '600' }}>{pr.max_weight}kg</div>
+                    </div>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.75rem' }}>
+                      {t("analytics.achieved_on", "Achieved on")}: {new Date(pr.date_achieved).toLocaleDateString()}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
         </div>
       ) : (
         <div className="routines-list">

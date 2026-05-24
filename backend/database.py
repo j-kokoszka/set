@@ -5,8 +5,8 @@ import uuid
 import time
 from decimal import Decimal
 from botocore.exceptions import ClientError
-from typing import List, Optional
-from models import Workout, WorkoutRoutine, CustomExercise, Schedule
+from typing import List, Optional, Dict
+from models import Workout, WorkoutRoutine, CustomExercise, Schedule, GlobalExercise, PersonalRecord, VolumeAggregate
 import structlog
 
 logger = structlog.get_logger()
@@ -145,7 +145,7 @@ class Database:
             
             if not workout:
                 logger.warning("Workout not found for deletion", user_id=user_id, workout_id=workout_id)
-                return False
+                return None
 
             with self.table.batch_writer() as batch:
                 batch.delete_item(Key={'pk': pk, 'sk': sk})
@@ -156,7 +156,7 @@ class Database:
                         batch.delete_item(Key={'pk': pk, 'sk': ex_sk})
             
             logger.info("Workout deleted successfully", workout_id=workout_id)
-            return True
+            return from_dynamo_item(workout)
         except Exception as e:
             logger.error("Error deleting from DynamoDB", error=str(e), user_id=user_id, workout_id=workout_id)
             raise e
@@ -165,10 +165,10 @@ class Database:
         try:
             logger.info("Updating workout", user_id=workout.user_id, workout_id=workout.id, old_date=old_date, new_date=workout.date)
             # Delete old record
-            self.delete_workout(workout.user_id, workout.id, old_date)
+            old_workout = self.delete_workout(workout.user_id, workout.id, old_date)
             # Save new record
             self.save_workout(workout)
-            return True
+            return old_workout
         except Exception as e:
             logger.error("Error updating in DynamoDB", error=str(e), user_id=workout.user_id, workout_id=workout.id)
             raise e
@@ -312,6 +312,190 @@ class Database:
             return from_dynamo_item(response.get('Item'))
         except Exception as e:
             logger.error("Error fetching routine by id", error=str(e), user_id=user_id, routine_id=routine_id)
+            raise e
+
+    def save_global_exercise(self, exercise: GlobalExercise):
+        try:
+            ex_data = to_dynamo_item(exercise.model_dump())
+            item = {
+                'pk': "CATALOG#EXERCISES",
+                'sk': f"EXERCISE#{exercise.id}",
+                'type': 'GLOBAL_EXERCISE',
+                **ex_data
+            }
+            logger.info("Saving global exercise", ex_id=exercise.id, name=exercise.name)
+            self.table.put_item(Item=item)
+            return True
+        except Exception as e:
+            logger.error("Error saving global exercise", error=str(e), ex_id=exercise.id)
+            raise e
+
+    def get_global_exercises(self) -> List[dict]:
+        try:
+            items = []
+            scan_kwargs = {
+                'KeyConditionExpression': "pk = :pk AND begins_with(sk, :sk)",
+                'ExpressionAttributeValues': {
+                    ':pk': "CATALOG#EXERCISES",
+                    ':sk': "EXERCISE#"
+                }
+            }
+            
+            done = False
+            start_key = None
+            while not done:
+                if start_key:
+                    scan_kwargs['ExclusiveStartKey'] = start_key
+                response = self.table.query(**scan_kwargs)
+                items.extend(response.get('Items', []))
+                start_key = response.get('LastEvaluatedKey')
+                done = start_key is None
+                
+            return from_dynamo_item(items)
+        except Exception as e:
+            logger.error("Error querying global exercises", error=str(e))
+            raise e
+
+    def get_personal_records(self, user_id: str) -> List[dict]:
+        try:
+            items = []
+            query_kwargs = {
+                'KeyConditionExpression': "pk = :pk AND begins_with(sk, :sk)",
+                'ExpressionAttributeValues': {
+                    ':pk': f"USER#{user_id}",
+                    ':sk': "PR#"
+                }
+            }
+            
+            done = False
+            start_key = None
+            while not done:
+                if start_key:
+                    query_kwargs['ExclusiveStartKey'] = start_key
+                response = self.table.query(**query_kwargs)
+                items.extend(response.get('Items', []))
+                start_key = response.get('LastEvaluatedKey')
+                done = start_key is None
+                
+            return from_dynamo_item(items)
+        except Exception as e:
+            logger.error("Error querying PRs", error=str(e), user_id=user_id)
+            raise e
+
+    def save_personal_record(self, pr: PersonalRecord):
+        try:
+            pr_data = to_dynamo_item(pr.model_dump())
+            item = {
+                'pk': f"USER#{pr.user_id}",
+                'sk': f"PR#{pr.exercise_name}",
+                'type': 'PERSONAL_RECORD',
+                **pr_data
+            }
+            self.table.put_item(Item=item)
+            return True
+        except Exception as e:
+            logger.error("Error saving PR", error=str(e), user_id=pr.user_id, exercise=pr.exercise_name)
+            raise e
+
+    def get_volume_aggregates(self, user_id: str) -> List[dict]:
+        try:
+            items = []
+            query_kwargs = {
+                'KeyConditionExpression': "pk = :pk AND begins_with(sk, :sk)",
+                'ExpressionAttributeValues': {
+                    ':pk': f"USER#{user_id}",
+                    ':sk': "VOL#"
+                }
+            }
+            
+            done = False
+            start_key = None
+            while not done:
+                if start_key:
+                    query_kwargs['ExclusiveStartKey'] = start_key
+                response = self.table.query(**query_kwargs)
+                items.extend(response.get('Items', []))
+                start_key = response.get('LastEvaluatedKey')
+                done = start_key is None
+                
+            return from_dynamo_item(items)
+        except Exception as e:
+            logger.error("Error querying volume aggregates", error=str(e), user_id=user_id)
+            raise e
+
+    def save_volume_aggregate(self, aggregate: VolumeAggregate):
+        try:
+            agg_data = to_dynamo_item(aggregate.model_dump())
+            item = {
+                'pk': f"USER#{aggregate.user_id}",
+                'sk': f"VOL#{aggregate.period}",
+                'type': 'VOLUME_AGGREGATE',
+                **agg_data
+            }
+            self.table.put_item(Item=item)
+            return True
+        except Exception as e:
+            logger.error("Error saving volume aggregate", error=str(e), user_id=aggregate.user_id, period=aggregate.period)
+            raise e
+
+    def update_volume_aggregate_atomic(self, user_id: str, period: str, total_volume_delta: float, workout_count_delta: int, muscle_volumes: Dict[str, float]):
+        """
+        Atomically updates volume aggregates using ADD action to prevent race conditions.
+        """
+        try:
+            pk = f"USER#{user_id}"
+            sk = f"VOL#{period}"
+            
+            # Use ADD to atomically increment values
+            # Note: ADD creates the attribute if it doesn't exist (initializes to 0)
+            update_expr = "ADD total_volume :tv, workout_count :wc"
+            attr_values = {
+                ':tv': Decimal(str(total_volume_delta)),
+                ':wc': workout_count_delta,
+                ':type': 'VOLUME_AGGREGATE',
+                ':period': period,
+                ':user_id': user_id
+            }
+            
+            # SET type, period, and user_id if they don't exist
+            # Note: ADD cannot be used for strings, so we use SET with if_not_exists
+            set_expr_parts = [
+                "period = if_not_exists(period, :period)",
+                "user_id = if_not_exists(user_id, :user_id)",
+                "#t = if_not_exists(#t, :type)"
+            ]
+            
+            # Add muscle volume updates
+            # DynamoDB 'ADD' works on Number types in a Map too? No, ADD is only for top-level attributes or sets.
+            # For maps, we have to use SET muscles.#m = if_not_exists(muscles.#m, :zero) + :delta
+            # This is complex for a dynamic list of muscles.
+            # Alternative: Since we only have a few muscles, we can build the SET expression dynamically.
+            
+            attr_names = {"#t": "type", "#muscles": "muscles"}
+            for i, (muscle, delta) in enumerate(muscle_volumes.items()):
+                m_key = f"#m{i}"
+                v_key = f":v{i}"
+                zero_key = f":z{i}"
+                attr_names[m_key] = muscle
+                attr_values[v_key] = Decimal(str(delta))
+                attr_values[zero_key] = Decimal("0")
+                set_expr_parts.append(f"#muscles.{m_key} = if_not_exists(#muscles.{m_key}, {zero_key}) + {v_key}")
+
+            # Ensure 'muscles' map exists
+            set_expr_parts.insert(0, "#muscles = if_not_exists(#muscles, :empty_map)")
+            attr_values[':empty_map'] = {}
+
+            full_expr = f"{update_expr} SET {', '.join(set_expr_parts)}"
+            
+            self.table.update_item(
+                Key={'pk': pk, 'sk': sk},
+                UpdateExpression=full_expr,
+                ExpressionAttributeNames=attr_names,
+                ExpressionAttributeValues=attr_values
+            )
+            return True
+        except Exception as e:
+            logger.error("Error atomically updating volume aggregate", error=str(e), user_id=user_id, period=period)
             raise e
 
     def get_or_create_internal_user_id(self, external_id: str) -> str:

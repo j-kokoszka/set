@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field, model_validator
-from typing import List, Optional, Literal
+from typing import List, Optional, Literal, Dict
 from datetime import datetime
 
 class ExerciseSet(BaseModel):
@@ -51,6 +51,7 @@ class Feedback(BaseModel):
 class CustomExercise(BaseModel):
     id: Optional[str] = None
     name: str
+    translations: Dict[str, str] = {} # e.g. {"pl": "Pompki"}
     force: Optional[str] = None
     level: str = "beginner"
     mechanic: Optional[str] = None
@@ -60,6 +61,19 @@ class CustomExercise(BaseModel):
     instructions: List[str] = []
     category: str = "strength"
     user_id: Optional[str] = None
+
+class GlobalExercise(BaseModel):
+    id: str
+    name: str
+    translations: Dict[str, str] = {}
+    force: Optional[str] = None
+    level: str = "beginner"
+    mechanic: Optional[str] = None
+    equipment: Optional[str] = None
+    primaryMuscles: List[str] = []
+    secondaryMuscles: List[str] = []
+    instructions: List[str] = []
+    category: str = "strength"
 
 class Schedule(BaseModel):
     id: Optional[str] = None
@@ -83,3 +97,18 @@ class PlannedWorkout(BaseModel):
     routine: WorkoutRoutine
     is_recurring: bool
     schedule_id: Optional[str] = None
+
+class PersonalRecord(BaseModel):
+    exercise_name: str
+    estimated_1rm: float
+    max_weight: float
+    max_volume_set: float
+    date_achieved: str
+    user_id: Optional[str] = None
+
+class VolumeAggregate(BaseModel):
+    total_volume: float
+    muscles: Dict[str, float]
+    workout_count: int
+    period: str  # YYYY-MM
+    user_id: Optional[str] = None
