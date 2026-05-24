@@ -94,25 +94,33 @@ async def test_get_current_user_token_use_validation(monkeypatch):
         nonlocal decoded_options
         decoded_options = kwargs.get("options", {})
         if "id_token" in token:
-            return {"token_use": "id", "aud": "client123", "sub": "user123"}
+            return {"token_use": "id", "aud": "client123", "sub": "sub123", "email": "user@example.com"}
         if "access_token" in token:
-            return {"token_use": "access", "client_id": "client123", "sub": "user123"}
+            return {"token_use": "access", "client_id": "client123", "sub": "sub123"}
         if "wrong_client" in token:
-            return {"token_use": "id", "aud": "wrong", "sub": "user123"}
-        if "invalid_use" in token:
-            return {"token_use": "something_else", "sub": "user123"}
+            return {"token_use": "id", "aud": "wrong", "sub": "sub123"}
+        if "no_email" in token:
+            return {"token_use": "id", "aud": "client123", "sub": "sub123"}
         return {}
 
     monkeypatch.setattr("jose.jwt.decode", mock_decode)
 
-    # Test ID token success
+    # Test ID token success - should use email
     user_id = await auth.get_current_user("Bearer id_token")
-    assert user_id == "user123"
+    assert user_id == "user@example.com"
     assert decoded_options.get("verify_at_hash") is False
 
-    # Test Access token success
-    user_id = await auth.get_current_user("Bearer access_token")
-    assert user_id == "user123"
+    # Test Access token - should now fail (only ID tokens supported for email stability)
+    with pytest.raises(HTTPException) as excinfo:
+        await auth.get_current_user("Bearer access_token")
+    assert excinfo.value.status_code == 401
+    assert "Only ID tokens are supported" in excinfo.value.detail
+
+    # Test ID token without email
+    with pytest.raises(HTTPException) as excinfo:
+        await auth.get_current_user("Bearer no_email")
+    assert excinfo.value.status_code == 401
+    assert "ID Token missing email claim" in excinfo.value.detail
 
     # Test wrong client ID
     with pytest.raises(HTTPException) as excinfo:
@@ -124,4 +132,4 @@ async def test_get_current_user_token_use_validation(monkeypatch):
     with pytest.raises(HTTPException) as excinfo:
         await auth.get_current_user("Bearer invalid_use")
     assert excinfo.value.status_code == 401
-    assert "Invalid or missing token_use claim" in excinfo.value.detail
+    assert "Only ID tokens are supported" in excinfo.value.detail
