@@ -5,7 +5,7 @@ import uuid
 import time
 from decimal import Decimal
 from botocore.exceptions import ClientError
-from typing import List, Optional
+from typing import List, Optional, Dict
 from models import Workout, WorkoutRoutine, CustomExercise, Schedule, GlobalExercise, PersonalRecord, VolumeAggregate
 import structlog
 
