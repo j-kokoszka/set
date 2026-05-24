@@ -89,6 +89,7 @@ interface PlannedWorkout {
   date: string;
   routine: WorkoutRoutine;
   is_recurring: boolean;
+  schedule_id?: string;
 }
 
 const KG_TO_LBS = 2.20462;
@@ -1665,9 +1666,20 @@ function App() {
                               {p.is_recurring && <span className="tag" style={{ marginLeft: '0.5rem' }}>{t("plan.recurring", "Recurring")}</span>}
                             </span>
                           </div>
-                          <button className="btn btn-small" onClick={() => startFromPlanned(p)}>
-                            {t("plan.start_workout", "Start")}
-                          </button>
+                          <div style={{ display: 'flex', gap: '0.25rem' }}>
+                            <button className="btn btn-small" onClick={() => startFromPlanned(p)}>
+                              {t("plan.start_workout", "Start")}
+                            </button>
+                            {p.schedule_id && (
+                              <button 
+                                className="btn-danger btn-small" 
+                                onClick={() => deleteSchedule(p.schedule_id!)}
+                                title={t("plan.delete_planned", "Remove planned workout")}
+                              >
+                                ✕
+                              </button>
+                            )}
+                          </div>
                         </div>
                         <div className="tag-list">
                           {p.routine.exercises.map((ex, eIdx) => (

@@ -82,3 +82,4 @@ class PlannedWorkout(BaseModel):
     date: str
     routine: WorkoutRoutine
     is_recurring: bool
+    schedule_id: Optional[str] = None
