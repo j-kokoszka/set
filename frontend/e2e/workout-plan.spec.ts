@@ -77,7 +77,7 @@ test.describe('Workout Plan & Progression', () => {
 
     // Go to Plan tab
     await page.getByRole('button', { name: 'Plan' }).click();
-    await expect(page.locator('h2')).toContainText('Workout Plan');
+    await expect(page.locator('h2')).toContainText('Plan');
 
     // Open scheduling modal
     await page.getByRole('button', { name: 'Schedule Routine' }).click();

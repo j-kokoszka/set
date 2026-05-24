@@ -87,8 +87,8 @@ test.describe('set app - workout saving', () => {
     // Save the workout
     await page.getByRole('button', { name: 'Save Workout' }).click();
     
-    // After saving, the view should switch to history and show the workout
-    await expect(page.locator('.history-list')).toBeVisible();
+    // After saving, the view should switch to plan and show the workout in the timeline
+    await expect(page.locator('.plan-view')).toBeVisible();
     await expect(page.locator('.card', { hasText: 'Leg Day E2E' })).toBeVisible();
     await expect(page.locator('.card', { hasText: 'Squats' })).toBeVisible();
   });

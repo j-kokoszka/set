@@ -41,7 +41,7 @@ describe('App Component', () => {
     expect(screen.getByText('set')).toBeInTheDocument()
     expect(screen.getByText('testuser')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Log' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'History' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Routines' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Plan' })).toBeInTheDocument()
   })
 })
