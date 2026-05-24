@@ -1,6 +1,8 @@
 import boto3
 import os
 import json
+import uuid
+import time
 from decimal import Decimal
 from botocore.exceptions import ClientError
 from typing import List, Optional
@@ -310,6 +312,76 @@ class Database:
             return from_dynamo_item(response.get('Item'))
         except Exception as e:
             logger.error("Error fetching routine by id", error=str(e), user_id=user_id, routine_id=routine_id)
+            raise e
+
+    def get_or_create_internal_user_id(self, external_id: str) -> str:
+        """
+        Maps an external identifier (e.g. email, Cognito sub) to a stable internal UUID.
+        Uses a transaction and conditional check to handle concurrent requests safely.
+        """
+        try:
+            # 1. Try to find existing mapping
+            pk = f"IDENTITY#{external_id}"
+            sk = "METADATA"
+            
+            response = self.table.get_item(Key={'pk': pk, 'sk': sk})
+            item = response.get('Item')
+            
+            if item:
+                return item['internal_id']
+            
+            # 2. Create new mapping if not found
+            internal_id = str(uuid.uuid4())
+            logger.info("Creating new user identity mapping", external_id=external_id, internal_id=internal_id)
+            
+            now = Decimal(str(time.time()))
+            
+            # Use a transaction to ensure atomicity and prevent race conditions
+            self.db.meta.client.transact_write_items(
+                TransactItems=[
+                    {
+                        'Put': {
+                            'TableName': self.table_name,
+                            'Item': to_dynamo_item({
+                                'pk': pk,
+                                'sk': sk,
+                                'type': 'IDENTITY_MAPPING',
+                                'external_id': external_id,
+                                'internal_id': internal_id,
+                                'created_at': now
+                            }),
+                            # Condition ensures we don't overwrite if another request beat us to it
+                            'ConditionExpression': 'attribute_not_exists(pk)'
+                        }
+                    },
+                    {
+                        'Put': {
+                            'TableName': self.table_name,
+                            'Item': to_dynamo_item({
+                                'pk': f"USER#{internal_id}",
+                                'sk': "PROFILE",
+                                'type': 'USER_PROFILE',
+                                'primary_identity': external_id,
+                                'internal_id': internal_id,
+                                'created_at': now
+                            })
+                        }
+                    }
+                ]
+            )
+            
+            return internal_id
+            
+        except self.db.meta.client.exceptions.TransactionCanceledException as e:
+            # Check if it failed because the condition was not met (mapping already exists)
+            for reason in e.response.get('CancellationReasons', []):
+                if reason.get('Code') == 'ConditionalCheckFailed':
+                    # Another process created the mapping, just fetch it
+                    logger.info("Concurrency handled: mapping already exists", external_id=external_id)
+                    return self.get_or_create_internal_user_id(external_id)
+            raise e
+        except Exception as e:
+            logger.error("Error in identity mapping logic", error=str(e), external_id=external_id)
             raise e
 
 db = Database()
