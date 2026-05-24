@@ -31,15 +31,38 @@
     "workout_name_placeholder": "Nazwa treningu",
     "error_save": "Nie udało się zapisać treningu",
     "saved_success": "Trening zapisany!",
-    "updated_success": "Trening zaktualizowany!"
+    "updated_success": "Trening zaktualizowany!",
+    "error_delete": "Nie udało się usunąć treningu"
+  },
+  "plan": {
+    "title": "Plan",
+    "loading": "Ładowanie planu...",
+    "list_view": "Lista",
+    "calendar_view": "Kalendarz",
+    "schedule_btn": "Zaplanuj Rutynę",
+    "no_upcoming": "Brak zaplanowanych treningów.",
+    "no_activity": "Brak aktywności lub zaplanowanych treningów.",
+    "recurring": "Cykliczny",
+    "start_workout": "Zacznij",
+    "timeline": "Oś czasu",
+    "active_schedules": "Twoje Plany",
+    "no_schedules": "Brak zaplanowanych rutyn.",
+    "schedule_modal_title": "Zaplanuj Rutynę",
+    "select_routine": "Rutyna",
+    "schedule_type": "Typ Planu",
+    "specific_date": "Konkretna Data",
+    "day_of_week": "Dzień Tygodnia",
+    "date": "Data",
+    "error_save": "Nie udało się zapisać planu",
+    "confirm_delete": "Usunąć ten plan?",
+    "enable_progression": "Auto Progresja",
+    "cond_all": "Wszystkie Serie",
+    "cond_last": "Ostatnia Seria"
   },
   "history": {
-    "title": "Historia",
-    "loading": "Ładowanie historii...",
-    "no_workouts": "Brak treningów.",
+    "edit_workout": "Edytuj trening",
     "delete_workout": "Usuń trening",
-    "confirm_delete": "Czy na pewno chcesz usunąć ten trening?",
-    "edit_workout": "Edytuj trening"
+    "confirm_delete": "Czy na pewno chcesz usunąć ten trening?"
   },
   "routines": {
     "title": "Rutyny",
@@ -91,7 +114,10 @@
     "placeholder_muscles": "np. klatka piersiowa, barki (oddzielone przecinkiem)",
     "placeholder_instructions": "Wpisz każdy krok w nowej linii",
     "save_and_add": "Zapisz i dodaj",
-    "save_error": "Nie udało się zapisać ćwiczenia"
+    "save_error": "Nie udało się zapisać ćwiczenia",
+    "generating": "Generowanie...",
+    "autofill": "✨ Uzupełnij z AI",
+    "instruction_text": "Wypełnij szczegóły poniżej lub użyj AI, aby wygenerować je na podstawie nazwy."
   },
   "feedback": {
     "button_title": "Wyślij opinię / Zgłoś błąd",
@@ -110,13 +136,50 @@
     "undo": "Cofnij",
     "done": "Gotowe",
     "back": "← Powrót",
-    "unknown_error": "Wystąpił nieznany błąd"
+    "unknown_error": "Wystąpił nieznany błąd",
+    "select_prompt": "Wybierz...",
+    "days": {
+      "monday": "Poniedziałek",
+      "tuesday": "Wtorek",
+      "wednesday": "Środa",
+      "thursday": "Czwartek",
+      "friday": "Piątek",
+      "saturday": "Sobota",
+      "sunday": "Niedziela"
+    },
+    "days_short": {
+      "mon": "Pn",
+      "tue": "Wt",
+      "wed": "Śr",
+      "thu": "Cz",
+      "fri": "Pt",
+      "sat": "Sb",
+      "sun": "Nd"
+    }
   },
   "difficulty": {
     "pass": "Pomiń",
     "easy": "Łatwo",
     "moderate": "Średnio",
-    "hard": "Ciężko"
+    "hard": "Ciężko",
+    "beginner": "Początkujący",
+    "intermediate": "Średniozaawansowany",
+    "expert": "Ekspert"
+  },
+  "category": {
+    "strength": "Siłowy",
+    "cardio": "Cardio",
+    "stretching": "Rozciąganie",
+    "plyometrics": "Plyometryka"
+  },
+  "force": {
+    "push": "Pchanie",
+    "pull": "Ciągnięcie",
+    "static": "Statyczny"
+  },
+  "mechanic": {
+    "compound": "Złożone",
+    "isolation": "Izolowane"
   },
   "muscles": {
     "Upper Body": "Górne partie",

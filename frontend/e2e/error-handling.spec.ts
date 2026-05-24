@@ -99,8 +99,8 @@ test.describe('set app - error handling', () => {
       }
     });
 
-    // Go to history
-    await page.getByRole('button', { name: 'History' }).click();
+    // Go to plan
+    await page.getByRole('button', { name: 'Plan' }).click();
     await expect(page.locator('.card', { hasText: 'Delete Me' })).toBeVisible();
 
     // Handle the confirmation dialog automatically

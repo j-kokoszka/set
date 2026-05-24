@@ -106,7 +106,7 @@ function App() {
   const [user, setUser] = useState<string | null>(localStorage.getItem('set_user'));
   const [loginUsername, setLoginUsername] = useState('');
 
-  const [view, setView] = useState<'workout' | 'history' | 'routines' | 'plan'>('workout');
+  const [view, setView] = useState<'workout' | 'routines' | 'plan'>('workout');
   const [workoutName, setWorkoutName] = useState(t('workout.new_workout', 'New Workout'));
   const [exercises, setExercises] = useState<Exercise[]>([]);
 
@@ -705,7 +705,7 @@ function App() {
           <span className="day-number">{d}</span>
           <div className="day-content">
             {dayHistory.map((w) => (
-              <div key={w.sk} className="calendar-event completed" onClick={() => { setView('history'); setIsMenuOpen(false); }}>
+              <div key={w.sk} className="calendar-event completed" onClick={() => { setPlanSubView('list'); setIsMenuOpen(false); }}>
                 {w.name} ✓
               </div>
             ))}
@@ -962,7 +962,7 @@ function App() {
         setWorkoutName(t('workout.new_workout', 'New Workout'));
         setEditingWorkoutId(null);
         setEditingWorkoutDate(null);
-        setView('history');
+        setView('plan');
         fetchHistory();
       } else {
         const errorMessage = await parseBackendError(response, t('workout.error_save', 'Failed to save workout'));
@@ -1104,12 +1104,6 @@ function App() {
             onClick={() => { setView('workout'); setIsMenuOpen(false); }}
           >
             {t("workout.title", "Log")}
-          </button>
-          <button 
-            className={`btn btn-small ${view === 'history' ? '' : 'btn-secondary'}`} 
-            onClick={() => { setView('history'); setIsMenuOpen(false); }}
-          >
-            {t("history.title", "History")}
           </button>
           <button 
             className={`btn btn-small ${view === 'routines' ? '' : 'btn-secondary'}`} 
@@ -1517,50 +1511,6 @@ function App() {
             )}
           </div>
         </div>
-      ) : view === 'history' ? (
-        <div className="history-list">
-          {loading ? (
-            <p style={{ textAlign: 'center', padding: '2rem' }}>{t("history.loading", "Loading history...")}</p>
-          ) : history.length === 0 ? (
-            <p style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '4rem' }}>{t("history.no_workouts", "No workouts found.")}</p>
-          ) : (
-            history.map((w, idx) => (
-              <div key={idx} className="card history-item">
-                <div className="item-header">
-                  <div className="item-title">
-                    <span className="item-name">{w.name}</span>
-                    <span className="item-meta">
-                      {new Date(w.sk.split('#')[1]).toLocaleDateString(i18n.resolvedLanguage, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
-                    </span>
-                  </div>
-                  <div style={{ display: 'flex', gap: '0.25rem' }}>
-                    <button 
-                      className="btn-secondary btn-small"
-                      onClick={() => startEdit(w)}
-                      title={t("history.edit_workout", "Edit workout")}
-                    >
-                      ✎
-                    </button>
-                    <button 
-                      className="btn-danger btn-small"
-                      onClick={() => deleteWorkout(w.sk)}
-                      title={t("history.delete_workout", "Delete workout")}
-                    >
-                      ✕
-                    </button>
-                  </div>
-                </div>
-                <div className="tag-list">
-                  {w.exercises?.map((ex, eIdx: number) => (
-                    <span key={eIdx} className="tag">
-                      {ex.exercise_name} ({ex.sets?.length})
-                    </span>
-                  ))}
-                </div>
-              </div>
-            ))
-          )}
-        </div>
       ) : view === 'plan' ? (
         <div className="plan-view">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
@@ -1611,36 +1561,85 @@ function App() {
                 )}
               </div>
 
-              <h3 style={{ fontSize: '0.9rem', color: 'var(--text-muted)', marginBottom: '1rem', textTransform: 'uppercase' }}>{t("plan.upcoming", "Upcoming Workouts")}</h3>
-              {upcomingPlan.length === 0 ? (
-                <p style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '4rem' }}>
-                  {t("plan.no_upcoming", "No upcoming workouts scheduled.")}
-                </p>
-              ) : (
-                upcomingPlan.map((p, idx) => (
-                  <div key={idx} className="card plan-item">
-                    <div className="item-header">
-                      <div className="item-title">
-                        <span className="item-name">{p.routine.name}</span>
-                        <span className="item-meta">
-                          {new Date(p.date).toLocaleDateString(i18n.resolvedLanguage, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
-                          {p.is_recurring && <span className="tag" style={{ marginLeft: '0.5rem' }}>{t("plan.recurring", "Recurring")}</span>}
-                        </span>
+              <h3 style={{ fontSize: '0.9rem', color: 'var(--text-muted)', marginBottom: '1rem', textTransform: 'uppercase' }}>{t("plan.timeline", "Timeline")}</h3>
+              
+              {/* Unified Timeline: History + Upcoming Plan */}
+              {(() => {
+                const timelineItems = [
+                  ...history.map(w => ({ type: 'history' as const, date: w.sk.split('#')[1], data: w })),
+                  ...upcomingPlan.map(p => ({ type: 'plan' as const, date: p.date, data: p }))
+                ].sort((a, b) => b.date.localeCompare(a.date));
+
+                if (timelineItems.length === 0) {
+                  return <p style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '4rem' }}>{t("plan.no_activity", "No activity or upcoming workouts.")}</p>;
+                }
+
+                return timelineItems.map((item) => {
+                  if (item.type === 'history') {
+                    const w = item.data as WorkoutHistoryItem;
+                    return (
+                      <div key={w.sk} className="card history-item" style={{ borderLeft: '4px solid var(--success-color)' }}>
+                        <div className="item-header">
+                          <div className="item-title">
+                            <span className="item-name">{w.name} ✓</span>
+                            <span className="item-meta">
+                              {new Date(w.sk.split('#')[1]).toLocaleDateString(i18n.resolvedLanguage, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                            </span>
+                          </div>
+                          <div style={{ display: 'flex', gap: '0.25rem' }}>
+                            <button 
+                              className="btn-secondary btn-small"
+                              onClick={() => startEdit(w)}
+                              title={t("history.edit_workout", "Edit workout")}
+                            >
+                              ✎
+                            </button>
+                            <button 
+                              className="btn-danger btn-small"
+                              onClick={() => deleteWorkout(w.sk)}
+                              title={t("history.delete_workout", "Delete workout")}
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        </div>
+                        <div className="tag-list">
+                          {w.exercises?.map((ex, eIdx: number) => (
+                            <span key={eIdx} className="tag">
+                              {ex.exercise_name} ({ex.sets?.length})
+                            </span>
+                          ))}
+                        </div>
                       </div>
-                      <button className="btn btn-small" onClick={() => startFromPlanned(p)}>
-                        {t("plan.start_workout", "Start")}
-                      </button>
-                    </div>
-                    <div className="tag-list">
-                      {p.routine.exercises.map((ex, eIdx) => (
-                        <span key={eIdx} className="tag">
-                          {ex.exercise_name} ({ex.sets.length} sets, {ex.sets[0]?.weight}{ex.sets[0]?.unit})
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                ))
-              )}
+                    );
+                  } else {
+                    const p = item.data as PlannedWorkout;
+                    return (
+                      <div key={`${p.date}-${p.routine.id}`} className="card plan-item">
+                        <div className="item-header">
+                          <div className="item-title">
+                            <span className="item-name">{p.routine.name}</span>
+                            <span className="item-meta">
+                              {new Date(p.date).toLocaleDateString(i18n.resolvedLanguage, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                              {p.is_recurring && <span className="tag" style={{ marginLeft: '0.5rem' }}>{t("plan.recurring", "Recurring")}</span>}
+                            </span>
+                          </div>
+                          <button className="btn btn-small" onClick={() => startFromPlanned(p)}>
+                            {t("plan.start_workout", "Start")}
+                          </button>
+                        </div>
+                        <div className="tag-list">
+                          {p.routine.exercises.map((ex, eIdx) => (
+                            <span key={eIdx} className="tag">
+                              {ex.exercise_name} ({ex.sets.length} sets, {ex.sets[0]?.weight}{ex.sets[0]?.unit})
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  }
+                });
+              })()}
             </div>
           ) : (
             <div className="calendar-container card">
