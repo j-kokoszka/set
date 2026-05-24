@@ -682,13 +682,19 @@ function App() {
     for (let d = 1; d <= daysInMonth; d++) {
       const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
       const dayPlan = upcomingPlan.filter(p => p.date === dateStr);
+      const dayHistory = history.filter(w => w.sk.split('#')[1]?.startsWith(dateStr));
       
       days.push(
         <div key={d} className="calendar-day">
           <span className="day-number">{d}</span>
           <div className="day-content">
+            {dayHistory.map((w, idx) => (
+              <div key={`hist-${idx}`} className="calendar-event completed" onClick={() => { setView('history'); setIsMenuOpen(false); }}>
+                {w.name} ✓
+              </div>
+            ))}
             {dayPlan.map((p, idx) => (
-              <div key={idx} className="calendar-event" onClick={() => startFromPlanned(p)}>
+              <div key={`plan-${idx}`} className="calendar-event" onClick={() => startFromPlanned(p)}>
                 {p.routine.name}
               </div>
             ))}

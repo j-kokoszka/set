@@ -679,3 +679,13 @@ input[type=number] {
     padding: 0.1rem 0.2rem;
   }
 }
+
+.calendar-event.completed {
+  background: var(--success-color);
+  opacity: 0.8;
+}
+
+.calendar-event.completed:hover {
+  background: var(--success-color);
+  opacity: 1;
+}
