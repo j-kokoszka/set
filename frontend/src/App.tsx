@@ -730,8 +730,8 @@ function App() {
                 {w.name} ✓
               </div>
             ))}
-            {dayPlan.map((p) => (
-              <div key={`${p.date}-${p.routine.id}`} className="calendar-event" onClick={() => startFromPlanned(p)}>
+            {dayPlan.map((p, idx) => (
+              <div key={`plan-${p.date}-${p.routine.id}-${idx}`} className="calendar-event" onClick={() => startFromPlanned(p)}>
                 {p.routine.name}
               </div>
             ))}
@@ -1608,17 +1608,16 @@ function App() {
               {timelineItems.length === 0 ? (
                 <p style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '4rem' }}>{t("plan.no_activity", "No activity or upcoming workouts.")}</p>
               ) : (
-                timelineItems.map((item) => {
+                timelineItems.map((item, index) => {
                   if (item.type === 'history') {
                     const w = item.data as WorkoutHistoryItem;
-                    const datePart = w.sk.split('#')[1] || '';
                     return (
                       <div key={w.sk} className="card history-item" style={{ borderLeft: '4px solid var(--success-color)' }}>
                         <div className="item-header">
                           <div className="item-title">
                             <span className="item-name">{w.name} ✓</span>
                             <span className="item-meta">
-                              {(datePart ? new Date(datePart) : new Date(0)).toLocaleDateString(i18n.resolvedLanguage, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                              {(item.date ? new Date(item.date) : new Date(0)).toLocaleDateString(i18n.resolvedLanguage, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
                             </span>
                           </div>
                           <div style={{ display: 'flex', gap: '0.25rem' }}>
@@ -1649,9 +1648,9 @@ function App() {
                     );
                   } else {
                     const p = item.data as PlannedWorkout;
-                    const timelineIdx = timelineItems.indexOf(item);
+                    
                     return (
-                      <div key={`plan-${p.date}-${p.routine.id}-${timelineIdx}`} className="card plan-item">
+                      <div key={`plan-${p.date}-${p.routine.id}-${index}`} className="card plan-item">
                         <div className="item-header">
                           <div className="item-title">
                             <span className="item-name">{p.routine.name}</span>
