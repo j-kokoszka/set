@@ -26,6 +26,8 @@
     "add_set": "+ Seria",
     "remove_set": "Usuń serię",
     "remove_exercise": "Usuń ćwiczenie",
+    "move_up": "Przenieś w górę",
+    "move_down": "Przenieś w dół",
     "completed": "Ukończono",
     "unit": { "kg": "kg", "lbs": "funt" },
     "workout_name_placeholder": "Nazwa treningu",
