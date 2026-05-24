@@ -985,6 +985,7 @@ function App() {
         setEditingWorkoutDate(null);
         setView('plan');
         fetchHistory();
+        fetchPlan();
       } else {
         const errorMessage = await parseBackendError(response, t('workout.error_save', 'Failed to save workout'));
         alert(errorMessage);
@@ -1248,11 +1249,12 @@ function App() {
                           <span className="set-input-label">+{t("workout.weight", "Weight")}</span>
                           <input 
                             type="number" 
-                            step="0.5"
+                            step="any"
                             value={ex.progression.increment_weight} 
+                            onFocus={(e) => e.target.select()}
                             onChange={(e) => {
                               const val = parseFloat(e.target.value);
-                              if (!isNaN(val)) updateProgression(exIdx, 'increment_weight', val);
+                              updateProgression(exIdx, 'increment_weight', isNaN(val) ? 0 : val);
                             }}
                             style={{ width: '60px', padding: '0.2rem' }}
                           />
@@ -1262,9 +1264,10 @@ function App() {
                           <input 
                             type="number" 
                             value={ex.progression.increment_reps} 
+                            onFocus={(e) => e.target.select()}
                             onChange={(e) => {
                               const val = parseInt(e.target.value);
-                              if (!isNaN(val)) updateProgression(exIdx, 'increment_reps', val);
+                              updateProgression(exIdx, 'increment_reps', isNaN(val) ? 0 : val);
                             }}
                             style={{ width: '50px', padding: '0.2rem' }}
                           />
@@ -1315,11 +1318,13 @@ function App() {
                           <div className="input-with-badge">
                             <input 
                               type="number" 
+                              step="any"
                               value={set.weight || ''} 
                               placeholder="0"
+                              onFocus={(e) => e.target.select()}
                               onChange={(e) => {
                                 const val = parseFloat(e.target.value);
-                                if (!isNaN(val)) updateSet(exIdx, sIdx, 'weight', val);
+                                updateSet(exIdx, sIdx, 'weight', isNaN(val) ? 0 : val);
                               }} 
                               style={{ paddingRight: '2.8rem' }}
                             />
@@ -1338,9 +1343,10 @@ function App() {
                             type="number" 
                             value={set.reps || ''} 
                             placeholder="0"
+                            onFocus={(e) => e.target.select()}
                             onChange={(e) => {
                               const val = parseInt(e.target.value);
-                              if (!isNaN(val)) updateSet(exIdx, sIdx, 'reps', val);
+                              updateSet(exIdx, sIdx, 'reps', isNaN(val) ? 0 : val);
                             }} 
                           />
                         </div>
