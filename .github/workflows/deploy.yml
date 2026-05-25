@@ -52,7 +52,6 @@ jobs:
         run: |
           mkdir -p lambda_package
           cp backend/*.py lambda_package/
-          cp -r backend/data lambda_package/
           grep -vE "boto3|botocore" backend/requirements.txt > temp_reqs.txt
           uv pip install -r temp_reqs.txt -t lambda_package/ --python-platform x86_64-manylinux_2_17 --python-version 3.11 --only-binary :all:
           cd lambda_package
