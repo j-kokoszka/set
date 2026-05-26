@@ -149,6 +149,8 @@ h1 {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 1.25rem;
+  flex-wrap: wrap;
+  gap: 0.5rem;
 }
 
 .exercise-title {
@@ -554,6 +556,7 @@ input[type=number] {
   align-items: center;
   margin-bottom: 2rem;
   gap: 1rem;
+  flex-wrap: wrap;
 }
 
 .error-message {
@@ -566,6 +569,8 @@ input[type=number] {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
 }
 
 .flex-center {

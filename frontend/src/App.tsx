@@ -118,13 +118,8 @@ const COGNITO_DOMAIN = import.meta.env.VITE_COGNITO_DOMAIN;
 const COGNITO_CLIENT_ID = import.meta.env.VITE_COGNITO_CLIENT_ID;
 const APP_URL = window.location.origin;
 
-const calculate1RM = (weight: number, reps: number) => {
-  if (reps <= 0) return 0;
-  if (reps === 1) return weight;
-  return weight * (36 / (37 - reps));
-};
-
 import { useTranslation } from 'react-i18next';
+import { calculate1RM } from './utils/units';
 
 function App() {
   const { t, i18n } = useTranslation();
@@ -1862,7 +1857,7 @@ function App() {
                       ))}
                     </Pie>
                     {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                    <Tooltip formatter={(value: any, name: any, props: any) => [`${value}kg (${props.payload.percent}%)`, name]} />
+                    <Tooltip formatter={(value: any, name: any, props: any) => [`${value}kg (${(props.payload.percent * 100).toFixed(0)}%)`, name]} />
                     <Legend />
                   </PieChart>
                 </ResponsiveContainer>
