@@ -125,10 +125,9 @@ const calculate1RM = (weight: number, reps: number) => {
 };
 
 import { useTranslation } from 'react-i18next';
-import i18n from './i18n';
 
 function App() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [token, setToken] = useState<string | null>(localStorage.getItem('set_token'));
   const [user, setUser] = useState<string | null>(localStorage.getItem('set_user'));
   const [loginUsername, setLoginUsername] = useState('');
@@ -1855,13 +1854,13 @@ function App() {
                       outerRadius={80}
                       paddingAngle={5}
                       dataKey="value"
-                      label={({ percent }: any) => `${(percent * 100).toFixed(0)}%`}
+                      label={({ percent }: { percent: number }) => `${(percent * 100).toFixed(0)}%`}
                     >
                       {Object.entries(volumeAnalytics[volumeAnalytics.length - 1]?.muscles || {}).filter(([, v]) => v > 0).map((_entry, index) => (
                         <Cell key={`cell-${index}`} fill={`hsl(${index * 137.5}, 70%, 50%)`} />
                       ))}
                     </Pie>
-                    <Tooltip formatter={(value: any, name: any, props: any) => [`${value}kg (${props.payload.percent}%)`, name]} />
+                    <Tooltip formatter={(value: number, name: string, props: { payload: { percent: number } }) => [`${value}kg (${props.payload.percent}%)`, name]} />
                     <Legend />
                   </PieChart>
                 </ResponsiveContainer>
