@@ -1850,14 +1850,14 @@ function App() {
                       paddingAngle={5}
                       dataKey="value"
                       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                      label={({ percent }: any) => `${(percent * 100).toFixed(0)}%`}
+                      label={(props: any) => `${Number(props?.percent || 0).toFixed(0)}%`}
                     >
                       {Object.entries(volumeAnalytics[volumeAnalytics.length - 1]?.muscles || {}).filter(([, v]) => v > 0).map((_entry, index) => (
                         <Cell key={`cell-${index}`} fill={`hsl(${index * 137.5}, 70%, 50%)`} />
                       ))}
                     </Pie>
                     {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                    <Tooltip formatter={(value: any, name: any, props: any) => [`${value}kg (${(props.payload.percent * 100).toFixed(0)}%)`, name]} />
+                    <Tooltip formatter={(value: any, name: any, props: any) => [`${value}kg (${Number(props?.payload?.percent || 0).toFixed(0)}%)`, name]} />
                     <Legend />
                   </PieChart>
                 </ResponsiveContainer>
