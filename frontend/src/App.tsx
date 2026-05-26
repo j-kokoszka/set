@@ -125,10 +125,9 @@ const calculate1RM = (weight: number, reps: number) => {
 };
 
 import { useTranslation } from 'react-i18next';
-import i18n from './i18n';
 
 function App() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [token, setToken] = useState<string | null>(localStorage.getItem('set_token'));
   const [user, setUser] = useState<string | null>(localStorage.getItem('set_user'));
   const [loginUsername, setLoginUsername] = useState('');
@@ -327,7 +326,7 @@ function App() {
     } finally {
       setLoadingExercises(false);
     }
-  }, [getValidToken, t]);
+  }, [getValidToken, t, i18n.language]);
 
   const filteredExercises = useMemo(() => {
     if (!newExName.trim()) return allExercises.slice(0, 15); // Show first 15 as default suggestions
@@ -351,6 +350,11 @@ function App() {
     });
     return map;
   }, [allExercises]);
+
+  const getExerciseDisplayName = useCallback((name: string, id?: string) => {
+    const standardEx = id ? exerciseLookup.get(id) : exerciseLookup.get(name);
+    return standardEx?.display_name || name;
+  }, [exerciseLookup]);
 
   const prLookup = useMemo(() => {
     const map = new Map<string, PersonalRecord>();
@@ -1313,10 +1317,8 @@ function App() {
                         ↓
                       </button>
                     </div>
-                    <span>{(() => {
-                      const standardEx = ex.id ? exerciseLookup.get(ex.id) : exerciseLookup.get(ex.name);
-                      return standardEx?.display_name || ex.name;
-                    })()}</span>
+                    <span>{getExerciseDisplayName(ex.name, ex.id)}</span>
+
                     <button 
                       className="btn-danger"
                       onClick={() => removeExercise(exIdx)}
@@ -1756,7 +1758,7 @@ function App() {
                             return (
                               <span key={eIdx} className="tag">
                                 {isPR && <span style={{ marginRight: '0.25rem' }}>👑</span>}
-                                {ex.exercise_name} ({ex.sets?.length})
+                                {getExerciseDisplayName(ex.exercise_name, ex.exercise_id)} ({ex.sets?.length} {t("routines.sets_count", "sets")})
                               </span>
                             );
                           })}
@@ -1795,7 +1797,7 @@ function App() {
                         <div className="tag-list">
                           {p.routine.exercises.map((ex, eIdx) => (
                             <span key={eIdx} className="tag">
-                              {ex.exercise_name} ({ex.sets.length} sets{ex.sets.length > 0 ? `, ${ex.sets[0]?.weight}${ex.sets[0]?.unit}` : ""})
+                              {getExerciseDisplayName(ex.exercise_name, ex.exercise_id)} ({ex.sets?.length || 0} {t("routines.sets_count", "sets")}{ex.sets && ex.sets.length > 0 ? `, ${ex.sets[0]?.weight}${t(`workout.unit.${ex.sets[0]?.unit}`, ex.sets[0]?.unit || "")}` : ""})
                             </span>
                           ))}
                         </div>
@@ -1852,12 +1854,14 @@ function App() {
                       outerRadius={80}
                       paddingAngle={5}
                       dataKey="value"
+                      // eslint-disable-next-line @typescript-eslint/no-explicit-any
                       label={({ percent }: any) => `${(percent * 100).toFixed(0)}%`}
                     >
                       {Object.entries(volumeAnalytics[volumeAnalytics.length - 1]?.muscles || {}).filter(([, v]) => v > 0).map((_entry, index) => (
                         <Cell key={`cell-${index}`} fill={`hsl(${index * 137.5}, 70%, 50%)`} />
                       ))}
                     </Pie>
+                    {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                     <Tooltip formatter={(value: any, name: any, props: any) => [`${value}kg (${props.payload.percent}%)`, name]} />
                     <Legend />
                   </PieChart>
@@ -1874,7 +1878,7 @@ function App() {
               ) : (
                 personalRecords.map((pr) => (
                   <div key={pr.exercise_name} className="pr-item card" style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', padding: '1rem' }}>
-                    <div style={{ fontWeight: '700', marginBottom: '0.5rem', color: 'var(--primary-color)' }}>{pr.exercise_name}</div>
+                    <div style={{ fontWeight: '700', marginBottom: '0.5rem', color: 'var(--primary-color)' }}>{getExerciseDisplayName(pr.exercise_name)}</div>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', fontSize: '0.9rem' }}>
                       <div style={{ color: 'var(--text-muted)' }}>{t("analytics.est_1rm", "Est. 1RM")}:</div>
                       <div style={{ fontWeight: '600' }}>{Math.round(pr.estimated_1rm * 10) / 10}kg</div>
@@ -1943,7 +1947,7 @@ function App() {
                 <div className="tag-list">
                   {p.exercises.map((ex, eIdx) => (
                     <span key={eIdx} className="tag">
-                      {ex.exercise_name}
+                      {getExerciseDisplayName(ex.exercise_name, ex.exercise_id)}
                     </span>
                   ))}
                 </div>

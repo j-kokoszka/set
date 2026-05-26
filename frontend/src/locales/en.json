@@ -84,6 +84,8 @@
     "start_from_routine": "Start from Routine",
     "new_routine": "New Routine",
     "exercises_count": " exercises",
+    "exercises_label": "exercises",
+    "sets_count": " sets",
     "error_save": "Failed to save routine",
     "error_delete": "Error deleting routine",
     "saved_success": "Routine saved!",
