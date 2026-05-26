@@ -1758,7 +1758,7 @@ function App() {
                             return (
                               <span key={eIdx} className="tag">
                                 {isPR && <span style={{ marginRight: '0.25rem' }}>👑</span>}
-                                {getExerciseDisplayName(ex.exercise_name, ex.exercise_id)} ({ex.sets?.length})
+                                {getExerciseDisplayName(ex.exercise_name, ex.exercise_id)} ({ex.sets?.length} {t("routines.sets_count", "sets")})
                               </span>
                             );
                           })}
@@ -1797,7 +1797,7 @@ function App() {
                         <div className="tag-list">
                           {p.routine.exercises.map((ex, eIdx) => (
                             <span key={eIdx} className="tag">
-                              {getExerciseDisplayName(ex.exercise_name, ex.exercise_id)} ({ex.sets.length} sets{ex.sets.length > 0 ? `, ${ex.sets[0]?.weight}${ex.sets[0]?.unit}` : ""})
+                              {getExerciseDisplayName(ex.exercise_name, ex.exercise_id)} ({ex.sets?.length || 0} {t("routines.sets_count", "sets")}{ex.sets && ex.sets.length > 0 ? `, ${ex.sets[0]?.weight}${t(`workout.unit.${ex.sets[0]?.unit}`, ex.sets[0]?.unit || "")}` : ""})
                             </span>
                           ))}
                         </div>

@@ -84,6 +84,8 @@
     "start_from_routine": "Zacznij od rutyny",
     "new_routine": "Nowa Rutyna",
     "exercises_count": " ćwiczeń",
+    "exercises_label": "ćwiczeń",
+    "sets_count": " serii",
     "error_save": "Nie udało się zapisać rutyny",
     "error_delete": "Błąd podczas usuwania rutyny",
     "saved_success": "Rutyna zapisana!",
