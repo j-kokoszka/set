@@ -30,6 +30,11 @@ describe('calculate1RM', () => {
     expect(calculate1RM(100, -5)).toBe(0)
   })
 
+  it('handles 0 or negative weight', () => {
+    expect(calculate1RM(0, 10)).toBe(0)
+    expect(calculate1RM(-50, 10)).toBe(0)
+  })
+
   it('caps reps at 36 to avoid crash', () => {
     // 37 reps would be division by zero in original formula
     expect(calculate1RM(100, 37)).toBe(calculate1RM(100, 36))

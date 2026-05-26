@@ -10,7 +10,7 @@ export function convertWeight(weight: number, toUnit: 'kg' | 'lbs'): number {
 }
 
 export function calculate1RM(weight: number, reps: number): number {
-  if (reps <= 0) return 0;
+  if (reps <= 0 || weight <= 0) return 0;
   if (reps === 1) return weight;
   // McGlothin formula is only valid for reps < 37. 
   // For higher reps, we cap it to avoid division by zero and unrealistic values.

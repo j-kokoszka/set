@@ -1857,7 +1857,7 @@ function App() {
                       ))}
                     </Pie>
                     {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                    <Tooltip formatter={(value: any, name: any, props: any) => [`${value}kg (${props.payload.percent}%)`, name]} />
+                    <Tooltip formatter={(value: any, name: any, props: any) => [`${value}kg (${(props.payload.percent * 100).toFixed(0)}%)`, name]} />
                     <Legend />
                   </PieChart>
                 </ResponsiveContainer>
