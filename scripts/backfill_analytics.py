@@ -12,7 +12,11 @@ dynamodb = boto3.resource("dynamodb", region_name=AWS_REGION)
 table = dynamodb.Table(TABLE_NAME)
 
 # Load exercises for muscle lookup
-with open("backend/data/exercises.json", "r") as f:
+exercise_file = os.path.join(os.path.dirname(__file__), "..", "backend", "data", "exercises.json")
+if not os.path.exists(exercise_file):
+    # Fallback to local path if running from root
+    exercise_file = "backend/data/exercises.json"
+with open(exercise_file, "r") as f:
     EXERCISES = json.load(f)
     EXERCISE_MAP = {ex["name"]: ex["primaryMuscles"] for ex in EXERCISES}
 
@@ -79,7 +83,7 @@ def backfill():
             sets = ex.get("sets", [])
             completed_sets = [s for s in sets if s.get("completed")]
             
-            ex_volume = sum(Decimal(str(s.get("weight", 0))) * Decimal(str(s.get("reps", 0))) for s in completed_sets)
+            ex_volume = sum(Decimal(str(s.get("weight") or 0)) * Decimal(str(s.get("reps") or 0)) for s in completed_sets)
             ex_sets_count = len(completed_sets)
             
             agg["total_volume"] += ex_volume

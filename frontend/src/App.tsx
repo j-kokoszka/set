@@ -1835,7 +1835,7 @@ function App() {
                     <Pie
                       data={(() => {
                         const agg = volumeAnalytics[volumeAnalytics.length - 1];
-                        const sourceData = agg?.muscle_sets || agg?.muscles || {};
+                        const sourceData = (agg?.muscle_sets && Object.keys(agg.muscle_sets).length > 0) ? agg.muscle_sets : (agg?.muscles || {});
                         const total = Object.values(sourceData).reduce((sum, val) => sum + val, 0);
                         return Object.entries(sourceData)
                           .filter(([, value]) => value > 0)
