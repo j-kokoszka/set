@@ -109,6 +109,7 @@ class PersonalRecord(BaseModel):
 class VolumeAggregate(BaseModel):
     total_volume: float
     muscles: Dict[str, float]
+    muscle_sets: Dict[str, int] = Field(default_factory=dict)
     workout_count: int
     period: str  # YYYY-MM
     user_id: Optional[str] = None

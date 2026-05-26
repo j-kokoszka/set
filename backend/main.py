@@ -215,14 +215,18 @@ async def update_user_analytics(user_id: str, workout: Workout, multiplier: int 
         
         workout_total_volume = 0.0
         muscle_volumes = {}
+        muscle_sets = {}
         
         for ex_record in workout.exercises:
             muscles = await get_exercise_muscles(ex_record.exercise_name)
-            ex_volume = sum(s.weight * s.reps for s in ex_record.sets if s.completed)
+            completed_sets = [s for s in ex_record.sets if s.completed]
+            ex_volume = sum(s.weight * s.reps for s in completed_sets)
+            ex_sets_count = len(completed_sets)
             workout_total_volume += ex_volume
             
             for muscle in muscles:
                 muscle_volumes[muscle] = muscle_volumes.get(muscle, 0.0) + (ex_volume * multiplier)
+                muscle_sets[muscle] = muscle_sets.get(muscle, 0) + (ex_sets_count * multiplier)
 
         # Use the new atomic update method to prevent race conditions
         db.update_volume_aggregate_atomic(
@@ -230,7 +234,8 @@ async def update_user_analytics(user_id: str, workout: Workout, multiplier: int 
             period=period,
             total_volume_delta=workout_total_volume * multiplier,
             workout_count_delta=1 * multiplier,
-            muscle_volumes=muscle_volumes
+            muscle_volumes=muscle_volumes,
+            muscle_sets=muscle_sets
         )
     except Exception as e:
         logger.error("Failed to update volume analytics", error=str(e), user_id=user_id)
