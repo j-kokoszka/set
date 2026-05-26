@@ -94,6 +94,7 @@ def backfill():
                 
     # 3. Update database
     print("Updating VOLUME_AGGREGATE records...")
+    with table.batch_writer() as batch:
     for user_id, periods in aggregates.items():
         for period, data in periods.items():
             print(f"  Updating {user_id} for {period}...")
@@ -108,7 +109,7 @@ def backfill():
                 "muscles": data["muscles"],
                 "muscle_sets": data["muscle_sets"]
             }
-            table.put_item(Item=item)
+                batch.put_item(Item=item)
             
     print("Backfill completed successfully.")
 
