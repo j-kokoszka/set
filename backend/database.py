@@ -438,7 +438,7 @@ class Database:
             logger.error("Error saving volume aggregate", error=str(e), user_id=aggregate.user_id, period=aggregate.period)
             raise e
 
-    def update_volume_aggregate_atomic(self, user_id: str, period: str, total_volume_delta: float, workout_count_delta: int, muscle_volumes: Dict[str, float]):
+    def update_volume_aggregate_atomic(self, user_id: str, period: str, total_volume_delta: float, workout_count_delta: int, muscle_volumes: Dict[str, float], muscle_sets: Dict[str, int] = None):
         """
         Atomically updates volume aggregates using ADD action to prevent race conditions.
         """
@@ -465,13 +465,9 @@ class Database:
                 "#t = if_not_exists(#t, :type)"
             ]
             
-            # Add muscle volume updates
-            # DynamoDB 'ADD' works on Number types in a Map too? No, ADD is only for top-level attributes or sets.
-            # For maps, we have to use SET muscles.#m = if_not_exists(muscles.#m, :zero) + :delta
-            # This is complex for a dynamic list of muscles.
-            # Alternative: Since we only have a few muscles, we can build the SET expression dynamically.
+            attr_names = {"#t": "type", "#muscles": "muscles", "#muscle_sets": "muscle_sets"}
             
-            attr_names = {"#t": "type", "#muscles": "muscles"}
+            # Add muscle volume updates
             for i, (muscle, delta) in enumerate(muscle_volumes.items()):
                 m_key = f"#m{i}"
                 v_key = f":v{i}"
@@ -481,8 +477,20 @@ class Database:
                 attr_values[zero_key] = Decimal("0")
                 set_expr_parts.append(f"#muscles.{m_key} = if_not_exists(#muscles.{m_key}, {zero_key}) + {v_key}")
 
-            # Ensure 'muscles' map exists
+            # Add muscle sets updates
+            if muscle_sets:
+                for i, (muscle, delta) in enumerate(muscle_sets.items()):
+                    ms_key = f"#ms{i}"
+                    vs_key = f":vs{i}"
+                    zero_s_key = f":zs{i}"
+                    attr_names[ms_key] = muscle
+                    attr_values[vs_key] = delta
+                    attr_values[zero_s_key] = 0
+                    set_expr_parts.append(f"#muscle_sets.{ms_key} = if_not_exists(#muscle_sets.{ms_key}, {zero_s_key}) + {vs_key}")
+
+            # Ensure maps exist
             set_expr_parts.insert(0, "#muscles = if_not_exists(#muscles, :empty_map)")
+            set_expr_parts.insert(0, "#muscle_sets = if_not_exists(#muscle_sets, :empty_map)")
             attr_values[':empty_map'] = {}
 
             full_expr = f"{update_expr} SET {', '.join(set_expr_parts)}"

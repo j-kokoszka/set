@@ -108,6 +108,7 @@ interface PersonalRecord {
 interface VolumeAggregate {
   total_volume: number;
   muscles: Record<string, number>;
+  muscle_sets?: Record<string, number>;
   workout_count: number;
   period: string;
 }
@@ -1196,7 +1197,7 @@ function App() {
               EN
             </button>
             <button 
-              className={`btn btn-small ${i18n.language.startsWith('pl') ? '' : 'btn-secondary'}`}
+              className={`btn btn-small ${i18n.language?.startsWith('pl') ? '' : 'btn-secondary'}`}
               onClick={() => i18n.changeLanguage('pl')}
               style={{ padding: '0.1rem 0.4rem', fontSize: '0.6rem', height: 'auto' }}
             >
@@ -1833,9 +1834,10 @@ function App() {
                   <PieChart>
                     <Pie
                       data={(() => {
-                        const muscles = volumeAnalytics[volumeAnalytics.length - 1]?.muscles || {};
-                        const total = Object.values(muscles).reduce((sum, val) => sum + val, 0);
-                        return Object.entries(muscles)
+                        const agg = volumeAnalytics[volumeAnalytics.length - 1];
+                        const sourceData = agg?.muscle_sets || agg?.muscles || {};
+                        const total = Object.values(sourceData).reduce((sum, val) => sum + val, 0);
+                        return Object.entries(sourceData)
                           .filter(([, value]) => value > 0)
                           .map(([name, value]) => ({ 
                             name: t(`exercises.muscles.${name}`, name), 
@@ -1852,12 +1854,16 @@ function App() {
                       // eslint-disable-next-line @typescript-eslint/no-explicit-any
                       label={(props: any) => `${Number(props?.percent || 0).toFixed(0)}%`}
                     >
-                      {Object.entries(volumeAnalytics[volumeAnalytics.length - 1]?.muscles || {}).filter(([, v]) => v > 0).map((_entry, index) => (
+                      {Object.entries(volumeAnalytics[volumeAnalytics.length - 1]?.muscle_sets || volumeAnalytics[volumeAnalytics.length - 1]?.muscles || {}).filter(([, v]) => v > 0).map((_entry, index) => (
                         <Cell key={`cell-${index}`} fill={`hsl(${index * 137.5}, 70%, 50%)`} />
                       ))}
                     </Pie>
                     {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                    <Tooltip formatter={(value: any, name: any, props: any) => [`${value}kg (${Number(props?.payload?.percent || 0).toFixed(0)}%)`, name]} />
+                    <Tooltip formatter={(value: any, name: any, props: any) => {
+                      const isSets = !!volumeAnalytics[volumeAnalytics.length - 1]?.muscle_sets;
+                      const unit = isSets ? t("routines.sets_count", "sets").trim() : "kg";
+                      return [`${value}${unit} (${Number(props?.payload?.percent || 0).toFixed(0)}%)`, name];
+                    }} />
                     <Legend />
                   </PieChart>
                 </ResponsiveContainer>
