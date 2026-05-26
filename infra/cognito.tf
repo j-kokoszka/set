@@ -31,6 +31,10 @@ resource "aws_cognito_user_pool" "user_pool_v5" {
     required            = false
     mutable             = true
   }
+
+  lifecycle {
+    ignore_changes = [schema]
+  }
 }
 
 resource "aws_cognito_user_pool_domain" "main" {
